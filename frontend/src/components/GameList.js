@@ -286,7 +286,7 @@ const GameList = () => {
         params.weight = activeWeights.join(',');
       }
 
-      const response = await axios.get('http://localhost:8000/games', { params });
+      const response = await axios.get('http://localhost:8000/games/', { params });
       return response.data;
     },
     keepPreviousData: true,
@@ -304,7 +304,7 @@ const GameList = () => {
   useEffect(() => {
     const fetchPaxGameIds = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/pax_game_ids');
+        const response = await axios.get('http://localhost:8000/pax_game_ids/');
         setPaxGameIds(response.data); // Should be an array of IDs
       } catch (err) {
         console.error('Failed to fetch PAX game IDs:', err);
@@ -369,7 +369,7 @@ const GameList = () => {
 
   const handleGameClick = async (game) => {
     try {
-      const response = await axios.get(`http://localhost:8000/games/${game.id}`);
+      const response = await axios.get(`http://localhost:8000/games/${game.id}/`);
       setSelectedGame(response.data);
       setDetailsOpen(true);
     } catch (err) {

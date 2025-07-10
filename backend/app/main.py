@@ -17,7 +17,7 @@ from functools import lru_cache
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-# import os
+import os
 # import sys
 from pathlib import Path
 from fastapi import APIRouter
@@ -34,7 +34,8 @@ models.Base.metadata.create_all(bind=engine)
 
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-IMAGES_DIR = PROJECT_ROOT / "backend" / "database" / "images"
+# IMAGES_DIR = PROJECT_ROOT / "backend" / "database" / "images"
+IMAGES_DIR = Path(os.environ.get("IMAGES_DIR", str(PROJECT_ROOT / "backend" / "database" / "images")))
 STATIC_DIR = PROJECT_ROOT / "frontend" / "build"
 
 app = FastAPI(
@@ -58,18 +59,18 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Mount the images directory (for Cloudflare R2, you might want to remove this)
 # app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
-# Mount the frontend build directory
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+# # Mount the frontend build directory
+# if STATIC_DIR.exists():
+#     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     
-    # Serve index.html for all routes (SPA routing)
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if not full_path.startswith(("api/", "static/", "images/")):
-            return FileResponse(str(STATIC_DIR / "index.html"))
-        raise HTTPException(status_code=404, detail="Not found")
-else:
-    app.mount("/images", CORSAwareStaticFiles(directory=str(IMAGES_DIR)), name="images")
+#     # Serve index.html for all routes (SPA routing)
+#     @app.get("/{full_path:path}")
+#     async def serve_spa(full_path: str):
+#         if not full_path.startswith(("api/", "static/", "images/")):
+#             return FileResponse(str(STATIC_DIR / "index.html"))
+#         raise HTTPException(status_code=404, detail="Not found")
+# else:
+app.mount("/images", CORSAwareStaticFiles(directory=str(IMAGES_DIR)), name="images")
 
 # Dependency to get database session
 def get_db():

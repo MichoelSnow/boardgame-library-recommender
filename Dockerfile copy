@@ -1,0 +1,78 @@
+# Use Python 3.12 slim image
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y gcc curl && rm -rf /var/lib/apt/lists/*
+
+# Copy poetry files
+COPY pyproject.toml poetry.lock ./
+
+# Install poetry and dependencies
+RUN pip install poetry && poetry config virtualenvs.create false && poetry install --without dev --no-root
+
+# Create directory structure
+RUN mkdir -p /data/images
+RUN mkdir -p /app/backend/database/images
+
+# Copy backend code
+COPY backend/app/ /app/backend/app/
+# Create empty __init__.py file for Python package structure
+RUN touch /app/backend/__init__.py
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+echo "Checking for required database files..."\n\
+\n\
+# Create required directories\n\
+mkdir -p /data/images\n\
+mkdir -p /app/backend/database/images\n\
+\n\
+# Create symbolic link for images directory\n\
+rm -rf /app/backend/database/images\n\
+ln -sf /data/images /app/backend/database/images\n\
+\n\
+# Check for database file\n\
+if [ ! -f /data/boardgames.db ]; then\n\
+  echo "Warning: Database file not found in /data/. Starting in maintenance mode."\n\
+  # Create a dummy database file\n\
+  touch /data/boardgames.db\n\
+fi\n\
+\n\
+# Check for embedding files\n\
+EMBEDDING_FILES=$(ls /data/game_embeddings_*.npz 2>/dev/null | wc -l)\n\
+MAPPING_FILES=$(ls /data/reverse_mappings_*.json 2>/dev/null | wc -l)\n\
+\n\
+if [ "$EMBEDDING_FILES" -eq "0" ] || [ "$MAPPING_FILES" -eq "0" ]; then\n\
+  echo "Warning: Embedding files not found in /data/. Starting in maintenance mode."\n\
+  # Create dummy embedding files if they don\'t exist\n\
+  if [ "$EMBEDDING_FILES" -eq "0" ]; then\n\
+    touch /data/game_embeddings_dummy.npz\n\
+  fi\n\
+  if [ "$MAPPING_FILES" -eq "0" ]; then\n\
+    echo "{}" > /data/reverse_mappings_dummy.json\n\
+  fi\n\
+fi\n\
+\n\
+echo "Starting application in maintenance mode..."\n\
+\n\
+# Start the application\n\
+exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8080\n\
+' > /app/start.sh && chmod +x /app/start.sh
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV DATABASE_DIR=/data
+ENV DATABASE_PATH=/data/boardgames.db
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/ || exit 1
+
+# Run the application
+CMD ["/app/start.sh"]

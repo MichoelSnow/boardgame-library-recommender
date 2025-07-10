@@ -6,7 +6,7 @@ const config = {
   },
   // Production
   production: {
-    apiBaseUrl: 'https://your-app-name.fly.dev',
+    apiBaseUrl: 'https://pax-tt-app.fly.dev',
     imageBaseUrl: 'https://your-cloudflare-r2-domain.com' // Your Cloudflare R2 domain
   }
 };

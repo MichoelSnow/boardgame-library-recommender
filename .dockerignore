@@ -1,0 +1,49 @@
+# Node modules
+node_modules/
+
+# Python cache and virtual environments
+__pycache__/
+.venv/
+venv/
+
+# Git and VCS
+.git/
+
+# Environment and config files
+.env
+.env.*
+.envrc
+
+# Logs
+*.log
+backend/logs/
+crawler/logs/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Data and database files
+*.db
+data/
+backend/database/*.db
+backend/database/*.csv
+backend/database/*.npz
+backend/database/*.json
+backend/database/images/*.jpg
+backend/database/images/*.png
+
+# Frontend build and dev artifacts
+frontend/dist/
+frontend/.vite/
+frontend/build/
+
+# Alembic and migration scratch
+alembic/
+
+# Production and scratch files
+fly.toml
+cursor_plans.MD
+
+# Miscellaneous
+.vscode/

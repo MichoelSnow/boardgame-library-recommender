@@ -5,7 +5,11 @@
 
 
 # UI 
+- Add year to details page
 
+# Code
+- Move to 3.12
 
 # App
 - Move to a server
+- Add redundancy to the server of having multiple volumes at the same time, in case one volume goes down
