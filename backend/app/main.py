@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, status
+from fastapi import FastAPI, HTTPException, Request, Depends, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse
+from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
@@ -17,7 +17,7 @@ from functools import lru_cache
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
-# import os
+import os
 # import sys
 from pathlib import Path
 from fastapi import APIRouter
@@ -34,6 +34,7 @@ models.Base.metadata.create_all(bind=engine)
 
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+# Define images directory for local development
 IMAGES_DIR = PROJECT_ROOT / "backend" / "database" / "images"
 STATIC_DIR = PROJECT_ROOT / "frontend" / "build"
 
@@ -55,21 +56,19 @@ app.add_middleware(
 # Add Gzip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Mount the images directory (for Cloudflare R2, you might want to remove this)
-# app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
-
-# Mount the frontend build directory
-if STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-    
-    # Serve index.html for all routes (SPA routing)
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        if not full_path.startswith(("api/", "static/", "images/")):
-            return FileResponse(str(STATIC_DIR / "index.html"))
-        raise HTTPException(status_code=404, detail="Not found")
+# Mount images directory for local development
+if os.path.exists(IMAGES_DIR):
+    logger.info(f"Mounting images directory from {IMAGES_DIR}")
+    app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 else:
-    app.mount("/images", CORSAwareStaticFiles(directory=str(IMAGES_DIR)), name="images")
+    logger.warning(f"Images directory not found at {IMAGES_DIR}")
+
+# # Serve static frontend files
+# if os.path.exists(STATIC_DIR):
+#     logger.info(f"Mounting React frontend from {STATIC_DIR}")
+#     app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="frontend")
+# else:
+#     logger.warning(f"Frontend build directory not found at {STATIC_DIR}")
 
 # Dependency to get database session
 def get_db():
@@ -142,11 +141,46 @@ async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
         logger.error(f"Database operation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database error")
 
-@app.get("/")
-async def root():
+@app.get("/api")
+async def api_root():
     return {"message": "Board Game Recommender API"}
 
-@app.get("/games/", response_model=schemas.GameListResponse)
+# Move the root endpoint to /api and keep this as a fallback for API requests
+@app.get("/", include_in_schema=False)
+async def root(request: Request):
+    # If the Accept header indicates API request, return API response
+    accept_header = request.headers.get("accept", "")
+    if "application/json" in accept_header:
+        return {"message": "Board Game Recommender API"}
+    
+    # Otherwise, serve the frontend index.html
+    if os.path.exists(STATIC_DIR / "index.html"):
+        return FileResponse(STATIC_DIR / "index.html")
+    else:
+        return {"message": "Board Game Recommender API"}
+
+# Keep the proxy-image endpoint for compatibility with development environment
+@app.get("/api/proxy-image/{url:path}")
+async def proxy_image(url: str):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail="Failed to fetch image")
+            
+            return StreamingResponse(
+                response.iter_bytes(),
+                media_type=response.headers.get("content-type", "image/jpeg"),
+                headers={
+                    "Cache-Control": "public, max-age=31536000",
+                    "Access-Control-Allow-Origin": "*"
+                }
+            )
+    except Exception as e:
+        logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching image")
+
+@app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -188,7 +222,8 @@ async def list_games(
         logger.error(f"Error fetching games: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching games")
 
-@app.get("/games/{game_id}", response_model=schemas.BoardGameOut)
+@app.get("/api/games/{game_id}", response_model=schemas.BoardGameOut)
+@app.get("/api/games/{game_id}/", response_model=schemas.BoardGameOut)  # Add endpoint with trailing slash
 async def get_game(game_id: int, db: Session = Depends(get_db)):
     try:
         game = crud.get_game(db, game_id)
@@ -201,7 +236,8 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
         logger.error(f"Error fetching game {game_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching game")
 
-@app.get("/recommendations/{game_id}", response_model=List[schemas.BoardGameOut])
+@app.get("/api/recommendations/{game_id}", response_model=List[schemas.BoardGameOut])
+@app.get("/api/recommendations/{game_id}/", response_model=List[schemas.BoardGameOut])  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,
     db: Session = Depends(get_db),
@@ -246,7 +282,7 @@ async def get_recommendations(
         logger.error(f"Error getting recommendations for game {game_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error getting recommendations")
 
-@app.get("/filter-options/", response_model=schemas.FilterOptions)
+@app.get("/api/filter-options/", response_model=schemas.FilterOptions)
 async def get_filter_options(db: Session = Depends(get_db)):
     try:
         # Check cache first
@@ -266,7 +302,7 @@ async def get_filter_options(db: Session = Depends(get_db)):
         logger.error(f"Error fetching filter options: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching filter options")
 
-@app.get("/mechanics/", response_model=List[schemas.MechanicBase])
+@app.get("/api/mechanics/", response_model=List[schemas.MechanicBase])
 async def list_mechanics(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -290,44 +326,25 @@ async def list_mechanics(
         logger.error(f"Error fetching mechanics: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching mechanics")
 
-@app.get("/proxy-image/{url:path}")
-async def proxy_image(url: str):
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
-            if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail="Failed to fetch image")
-            
-            return StreamingResponse(
-                response.iter_bytes(),
-                media_type=response.headers.get("content-type", "image/jpeg"),
-                headers={
-                    "Cache-Control": "public, max-age=31536000",
-                    "Access-Control-Allow-Origin": "*"
-                }
-            )
-    except Exception as e:
-        logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error fetching image")
-
-@app.get("/pax_games/with_board_game_links")
+@app.get("/api/pax_games/with_board_game_links")
 def read_pax_games_with_board_game_links(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_pax_games_with_board_game_links(db=db, skip=skip, limit=limit)
 
-@app.get("/mechanics/by_frequency", response_model=List[schemas.MechanicFrequency])
+@app.get("/api/mechanics/by_frequency", response_model=List[schemas.MechanicFrequency])
 def read_mechanics_by_frequency(db: Session = Depends(get_db)):
     return crud.get_mechanics_by_frequency(db=db)
 
-@app.get("/categories/by_frequency", response_model=List[schemas.CategoryFrequency])
+@app.get("/api/categories/by_frequency", response_model=List[schemas.CategoryFrequency])
 def read_categories_by_frequency(db: Session = Depends(get_db)):
     return crud.get_categories_by_frequency(db=db)
 
-@app.get("/categories", response_model=List[schemas.Category])
+@app.get("/api/categories", response_model=List[schemas.Category])
 def read_categories(db: Session = Depends(get_db)):
     categories = crud.get_categories_cached(db)
     return categories
 
-@app.get("/pax_game_ids", response_model=List[int])
+@app.get("/api/pax_game_ids", response_model=List[int])
+@app.get("/api/pax_game_ids/", response_model=List[int])  # Add endpoint with trailing slash
 async def get_pax_game_ids(db: Session = Depends(get_db)):
     """Return a list of all PAX game BGG IDs (integers)."""
     pax_ids = db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()
@@ -347,7 +364,7 @@ class RecommendationRequest(schemas.BaseModel):
     anti_weight: float = 1.0
     pax_only: bool = False
 
-@app.post("/recommendations", response_model=List[schemas.BoardGameOut])
+@app.post("/api/recommendations", response_model=List[schemas.BoardGameOut])
 async def get_multi_game_recommendations(
     request: RecommendationRequest,
     db: Session = Depends(get_db)
@@ -370,10 +387,10 @@ async def get_multi_game_recommendations(
         logger.error(f"Error getting recommendations: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error getting recommendations")
 
-# --- User and Auth Endpoints ---
-
+# Add a direct token endpoint at the root level
 @app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token_root(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    """Legacy token endpoint for backward compatibility"""
     user = crud.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -387,7 +404,25 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/users/", response_model=schemas.User)
+# --- User and Auth Endpoints ---
+
+@app.post("/api/token", response_model=schemas.Token)
+async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+    user = crud.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+    
+
+@app.post("/api/users/", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(security.get_current_active_user)):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Only admin users can create new users.")
@@ -396,9 +431,17 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)
 
-@app.get("/users/me/", response_model=schemas.User)
+@app.get("/api/users/me/", response_model=schemas.User)
 async def read_users_me(current_user: schemas.User = Depends(security.get_current_active_user)):
     return current_user
+
+
+# Serve static frontend files
+if os.path.exists(STATIC_DIR):
+    logger.info(f"Mounting React frontend from {STATIC_DIR}")
+    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="frontend")
+else:
+    logger.warning(f"Frontend build directory not found at {STATIC_DIR}")
 
 if __name__ == "__main__":
     import argparse

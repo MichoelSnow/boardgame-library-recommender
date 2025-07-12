@@ -33,6 +33,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
+import { apiBaseUrl } from '../config';
 
 // Helper function to decode HTML entities and preserve line breaks
 // const decodeHtmlEntities = (text) => {
@@ -152,7 +153,7 @@ const GameList = () => {
         disliked_games: dislikedGames.map(g => g.id),
         limit: 200, // Large number for client-side filtering
       };
-      const allResponse = await axios.post('http://localhost:8000/recommendations', {
+      const allResponse = await axios.post(`${apiBaseUrl}/recommendations`, {
         ...recommendationPayload,
         pax_only: false
       });
@@ -227,7 +228,7 @@ const GameList = () => {
   const { data: popularMechanics = [] } = useQuery({
     queryKey: ['mechanics_by_frequency'],
     queryFn: async () => {
-      const response = await axios.get('http://localhost:8000/mechanics/by_frequency');
+      const response = await axios.get(`${apiBaseUrl}/mechanics/by_frequency`);
       return response.data;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
@@ -236,7 +237,7 @@ const GameList = () => {
   const { data: popularCategories = [] } = useQuery({
     queryKey: ['categories_by_frequency'],
     queryFn: async () => {
-      const response = await axios.get('http://localhost:8000/categories/by_frequency');
+      const response = await axios.get(`${apiBaseUrl}/categories/by_frequency`);
       return response.data;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
@@ -286,7 +287,7 @@ const GameList = () => {
         params.weight = activeWeights.join(',');
       }
 
-      const response = await axios.get('http://localhost:8000/games', { params });
+      const response = await axios.get(`${apiBaseUrl}/games/`, { params });
       return response.data;
     },
     keepPreviousData: true,
@@ -304,7 +305,7 @@ const GameList = () => {
   useEffect(() => {
     const fetchPaxGameIds = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/pax_game_ids');
+        const response = await axios.get(`${apiBaseUrl}/pax_game_ids/`);
         setPaxGameIds(response.data); // Should be an array of IDs
       } catch (err) {
         console.error('Failed to fetch PAX game IDs:', err);
@@ -369,7 +370,7 @@ const GameList = () => {
 
   const handleGameClick = async (game) => {
     try {
-      const response = await axios.get(`http://localhost:8000/games/${game.id}`);
+      const response = await axios.get(`${apiBaseUrl}/games/${game.id}/`);
       setSelectedGame(response.data);
       setDetailsOpen(true);
     } catch (err) {

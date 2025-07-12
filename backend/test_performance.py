@@ -62,6 +62,7 @@ async def main():
         ("/mechanics/", "Mechanics List"),
         ("/filter-options/", "Filter Options"),
         ("/games/1", "Single Game"),
+        ("/recommendations/1?limit=10", "Recommendations (game_id=1)")
     ]
     
     results = []

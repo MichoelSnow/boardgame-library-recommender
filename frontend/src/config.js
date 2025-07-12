@@ -1,13 +1,14 @@
 const config = {
   // Development
   development: {
-    apiBaseUrl: 'http://localhost:8000',
+    apiBaseUrl: 'http://localhost:8000/api',
     imageBaseUrl: 'http://localhost:8000/images'
   },
   // Production
   production: {
-    apiBaseUrl: 'https://your-app-name.fly.dev',
-    imageBaseUrl: 'https://your-cloudflare-r2-domain.com' // Your Cloudflare R2 domain
+    apiBaseUrl: 'https://pax-tt-app.fly.dev/api',
+    // Use direct BoardGameGeek images until Cloudflare is set up
+    imageBaseUrl: null // Setting to null indicates we should use direct BGG URLs
   }
 };
 
