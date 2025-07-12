@@ -36,6 +36,8 @@ uvicorn backend.app.main:app --reload
 cd frontend && npm start
 ```
 
+**Note**: The `--reload` flag automatically reloads the backend server when any Python file changes are detected. No manual restart is needed during development.
+
 ### Data Collection Pipeline (3-step process)
 ```bash
 # Step 1: Collect rankings

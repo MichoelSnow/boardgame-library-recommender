@@ -56,10 +56,10 @@ app.add_middleware(
 # Add Gzip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Mount images directory for local development
+# Mount images directory for local development with CORS support
 if os.path.exists(IMAGES_DIR):
     logger.info(f"Mounting images directory from {IMAGES_DIR}")
-    app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
+    app.mount("/images", CORSAwareStaticFiles(directory=str(IMAGES_DIR)), name="images")
 else:
     logger.warning(f"Images directory not found at {IMAGES_DIR}")
 
