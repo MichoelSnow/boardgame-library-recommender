@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { apiBaseUrl } from '../config';
 
 const AuthContext = createContext();
 
@@ -19,7 +20,7 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             try {
-                const response = await axios.get('http://localhost:8000/users/me/');
+                const response = await axios.get(`${apiBaseUrl}/users/me/`);
                 setUser(response.data);
             } catch (error) {
                 console.error('Failed to fetch user', error);
@@ -34,17 +35,22 @@ export const AuthProvider = ({ children }) => {
     }, [fetchUser]);
 
     const login = useCallback(async (username, password) => {
+        try {
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
         
-        const response = await axios.post('http://localhost:8000/token', formData);
+            const response = await axios.post(`${apiBaseUrl}/token`, formData);
         const { access_token } = response.data;
         
         setToken(access_token);
         localStorage.setItem('token', access_token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
         await fetchUser();
+        } catch (error) {
+            console.error('Login failed:', error);
+            throw error;
+        }
     }, [fetchUser]);
 
     return (

@@ -5,7 +5,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y gcc curl sqlite3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y gcc curl sqlite3 nodejs npm && rm -rf /var/lib/apt/lists/*
 
 # Copy poetry files
 COPY pyproject.toml poetry.lock ./
@@ -14,8 +14,15 @@ COPY pyproject.toml poetry.lock ./
 RUN pip install poetry && poetry config virtualenvs.create false && poetry install --without dev --no-root
 
 # Create directory structure
-RUN mkdir -p /data/images
-RUN mkdir -p /app/backend/database/images
+RUN mkdir -p /data
+# No need to create images directory since images will be served directly from BoardGameGeek
+
+# Copy frontend code and build it
+COPY frontend/ /app/frontend/
+WORKDIR /app/frontend
+RUN npm ci
+RUN npm run build
+WORKDIR /app
 
 # Copy backend code
 COPY backend/app/ /app/backend/app/
@@ -28,7 +35,7 @@ COPY <<EOF /app/start.sh
 echo "Checking for required database files..."
 
 # Create required directories
-mkdir -p /data/images
+# No need to create images directory
 
 # Check for database file
 if [ ! -f /data/boardgames.db ]; then
@@ -149,7 +156,8 @@ RUN chmod +x /app/start.sh
 ENV PYTHONPATH=/app
 ENV DATABASE_DIR=/data
 ENV DATABASE_PATH=/data/boardgames.db
-ENV IMAGES_DIR=/data/images
+# No need to set IMAGES_DIR since images will be served from BoardGameGeek
+ENV NODE_ENV=production
 
 # Expose port
 EXPOSE 8080

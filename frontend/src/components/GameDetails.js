@@ -20,6 +20,7 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import { apiBaseUrl, imageBaseUrl } from '../config';
 
 // Helper function to decode HTML entities and preserve line breaks
 const decodeHtmlEntities = (text) => {
@@ -40,12 +41,25 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
   const [selectedGame, setSelectedGame] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // Get the appropriate image URL based on environment
+  const getImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    
+    // If imageBaseUrl is null, we're in production and should use proxy
+    if (!imageBaseUrl) {
+      return `${apiBaseUrl}/proxy-image/${encodeURIComponent(imageUrl)}`; // Use proxy to avoid CORS issues
+    }
+    
+    // Otherwise, use the proxy through our backend
+    return `${imageBaseUrl}/${imageUrl.split('/').pop()}`;
+  };
+
   useEffect(() => {
     const fetchRecommendations = async () => {
       if (!game) return;
       setLoading(true);
       try {
-        const response = await axios.get(`http://localhost:8000/recommendations/${game.id}`);
+        const response = await axios.get(`${apiBaseUrl}/recommendations/${game.id}`);
         setRecommendations(response.data);
       } catch (err) {
         console.error('Failed to fetch recommendations:', err);
@@ -73,7 +87,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
 
   const handleRecommendationClick = async (rec) => {
     try {
-      await axios.get(`http://localhost:8000/games/${rec.id}`);
+      await axios.get(`${apiBaseUrl}/games/${rec.id}`);
       onClose();
       onFilter('game', rec.id, rec.name);
     } catch (err) {
@@ -171,7 +185,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
             {game.image && (
               <Box
                 component="img"
-                src={game.image}
+                src={getImageUrl(game.image)} // Use proxy function instead of direct URL
                 alt={game.name}
                 sx={{
                   width: 100,
@@ -179,6 +193,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                   objectFit: 'contain',
                   backgroundColor: '#f5f5f5'
                 }}
+                crossOrigin="anonymous"
               />
             )}
             <Box>

@@ -16,6 +16,7 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import { apiBaseUrl, imageBaseUrl } from '../config';
 
 const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
     const [src, setSrc] = useState(placeholder);
@@ -54,10 +55,24 @@ const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
 
 const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDislike, compact = false }) => {
   const [bgColor, setBgColor] = useState('#f5f5f5');
-  const localImage = game.image ? `http://localhost:8000/images/${game.image.split('/').pop()}` : null;
-  const remoteImage = game.image ? `http://localhost:8000/proxy-image/${encodeURIComponent(game.image)}` : null;
+  
+  // Use different image sources based on environment
+  let localImage = null;
+  let remoteImage = null;
+  
+  if (game.image) {
+    if (imageBaseUrl) {
+      // Development environment - use local proxy
+      localImage = `${imageBaseUrl}/${game.image.split('/').pop()}`;
+      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
+    } else {
+      // Production environment - always use proxy to avoid CORS issues
+      localImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
+      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
+    }
+  }
+  
   const placeholderImage = '/placeholder.png';
-
   const imageSrc = useProgressiveImage(localImage, remoteImage, placeholderImage);
 
   const handleImageError = () => {
