@@ -6,6 +6,9 @@
 app = 'pax-tt-app'
 primary_region = 'iad'
 
+[env]
+  DATABASE_PATH = "/data/boardgames.db"
+
 [build]
 
 [http_service]

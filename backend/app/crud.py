@@ -187,53 +187,41 @@ def get_games(
             logger.error(f"Error fetching games: {str(e)}")
             games = []
         
-        # Only load relationships for the returned games to avoid N+1
+        # Load relationships efficiently with a single query using joinedload
         if games:
             try:
                 game_ids = [game.id for game in games]
                 
-                # Load mechanics for returned games
-                mechanics_data = db.query(models.Mechanic).filter(
-                    models.Mechanic.game_id.in_(game_ids)
-                ).all()
+                # Use a single optimized query to load all relationships at once
+                # This reduces database roundtrips from 4 separate queries to 1
+                games_with_relationships = db.query(models.BoardGame).options(
+                    joinedload(models.BoardGame.mechanics),
+                    joinedload(models.BoardGame.categories),
+                    joinedload(models.BoardGame.suggested_players)
+                ).filter(models.BoardGame.id.in_(game_ids)).all()
                 
-                # Load categories for returned games
-                categories_data = db.query(models.Category).filter(
-                    models.Category.game_id.in_(game_ids)
-                ).all()
+                # Create a mapping for fast lookup
+                games_map = {g.id: g for g in games_with_relationships}
                 
-                # Load suggested players for returned games
-                suggested_players_data = db.query(models.SuggestedPlayer).filter(
-                    models.SuggestedPlayer.game_id.in_(game_ids)
-                ).all()
-                
-                # Group by game_id for efficient access
-                mechanics_by_game = {}
-                for m in mechanics_data:
-                    if m.game_id not in mechanics_by_game:
-                        mechanics_by_game[m.game_id] = []
-                    mechanics_by_game[m.game_id].append(m)
-                
-                categories_by_game = {}
-                for c in categories_data:
-                    if c.game_id not in categories_by_game:
-                        categories_by_game[c.game_id] = []
-                    categories_by_game[c.game_id].append(c)
-                
-                suggested_players_by_game = {}
-                for sp in suggested_players_data:
-                    if sp.game_id not in suggested_players_by_game:
-                        suggested_players_by_game[sp.game_id] = []
-                    suggested_players_by_game[sp.game_id].append(sp)
-                
-                # Attach relationships to games
-                for game in games:
-                    game.mechanics = mechanics_by_game.get(game.id, [])
-                    game.categories = categories_by_game.get(game.id, [])
-                    game.suggested_players = suggested_players_by_game.get(game.id, [])
+                # Update the original games list with loaded relationships
+                for i, game in enumerate(games):
+                    if game.id in games_map:
+                        loaded_game = games_map[game.id]
+                        game.mechanics = loaded_game.mechanics
+                        game.categories = loaded_game.categories
+                        game.suggested_players = loaded_game.suggested_players
+                    else:
+                        # Fallback to empty lists if not found
+                        game.mechanics = []
+                        game.categories = []
+                        game.suggested_players = []
             except Exception as e:
                 logger.error(f"Error loading relationships: {str(e)}")
                 # Continue without relationships if loading fails
+                for game in games:
+                    game.mechanics = []
+                    game.categories = []
+                    game.suggested_players = []
         
         return games, total
     except Exception as e:

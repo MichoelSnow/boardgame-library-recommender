@@ -20,44 +20,44 @@ class BoardGame(Base):
     recommendation_score: Optional[float] = None
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
+    name = Column(String, index=True)  # Indexed for name sorting and search
     description = Column(String)
     thumbnail = Column(String)
     image = Column(String)
-    min_players = Column(Integer)
-    max_players = Column(Integer)
+    min_players = Column(Integer, index=True)  # Indexed for player filtering
+    max_players = Column(Integer, index=True)  # Indexed for player filtering
     playing_time = Column(Integer)
     min_playtime = Column(Integer)
     max_playtime = Column(Integer)
     min_age = Column(Integer)
-    year_published = Column(Integer)
+    year_published = Column(Integer, index=True)  # Indexed for year filtering
     
     # Statistics
-    average = Column(Float)  # average_rating
+    average = Column(Float, index=True)  # average_rating - indexed for sorting
     num_ratings = Column(Integer)  # num_ratings
     num_comments = Column(Integer)  # num_comments
     num_weights = Column(Integer)  # num_weights
-    average_weight = Column(Float)  # average_weight
+    average_weight = Column(Float, index=True)  # average_weight - indexed for weight filtering
     stddev = Column(Float)
     median = Column(Float)
     owned = Column(Integer)
     trading = Column(Integer)
     wanting = Column(Integer)
     wishing = Column(Integer)
-    bayes_average = Column(Float)  # bayes_average
+    bayes_average = Column(Float, index=True)  # bayes_average - indexed for sorting
     users_rated = Column(Integer)  # number of users who rated the game
     is_expansion = Column(Boolean)
     
-    # Rankings
-    rank = Column(Integer)
-    abstracts_rank = Column(Integer)
-    cgs_rank = Column(Integer)
-    childrens_games_rank = Column(Integer)
-    family_games_rank = Column(Integer)
-    party_games_rank = Column(Integer)
-    strategy_games_rank = Column(Integer)
-    thematic_rank = Column(Integer)
-    wargames_rank = Column(Integer)
+    # Rankings - all indexed for sorting
+    rank = Column(Integer, index=True)  # Primary sort field - indexed
+    abstracts_rank = Column(Integer, index=True)
+    cgs_rank = Column(Integer, index=True)
+    childrens_games_rank = Column(Integer, index=True)
+    family_games_rank = Column(Integer, index=True)
+    party_games_rank = Column(Integer, index=True)
+    strategy_games_rank = Column(Integer, index=True)
+    thematic_rank = Column(Integer, index=True)
+    wargames_rank = Column(Integer, index=True)
     
     # Relationships - all lazy loaded by default
     mechanics = relationship("Mechanic", back_populates="game", lazy="select")
@@ -78,8 +78,8 @@ class Mechanic(Base):
     __tablename__ = 'mechanics'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
-    boardgamemechanic_id = Column(Integer)
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
+    boardgamemechanic_id = Column(Integer, index=True)  # Indexed for filtering
     boardgamemechanic_name = Column(String)
     game = relationship("BoardGame", back_populates="mechanics")
 
@@ -87,8 +87,8 @@ class Category(Base):
     __tablename__ = 'categories'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
-    boardgamecategory_id = Column(Integer)
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
+    boardgamecategory_id = Column(Integer, index=True)  # Indexed for filtering
     boardgamecategory_name = Column(String)
     game = relationship("BoardGame", back_populates="categories")
 
@@ -96,8 +96,8 @@ class Designer(Base):
     __tablename__ = 'designers'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
-    boardgamedesigner_id = Column(Integer)
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
+    boardgamedesigner_id = Column(Integer, index=True)  # Indexed for filtering
     boardgamedesigner_name = Column(String)
     game = relationship("BoardGame", back_populates="designers")
 
@@ -105,8 +105,8 @@ class Artist(Base):
     __tablename__ = 'artists'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
-    boardgameartist_id = Column(Integer)
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
+    boardgameartist_id = Column(Integer, index=True)  # Indexed for filtering
     boardgameartist_name = Column(String)
     game = relationship("BoardGame", back_populates="artists")
 
@@ -114,7 +114,7 @@ class Publisher(Base):
     __tablename__ = 'publishers'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
     boardgamepublisher_id = Column(Integer)
     boardgamepublisher_name = Column(String)
     game = relationship("BoardGame", back_populates="publishers")
@@ -123,14 +123,14 @@ class SuggestedPlayer(Base):
     __tablename__ = 'suggested_players'
     
     id = Column(Integer, primary_key=True)
-    game_id = Column(Integer, ForeignKey('games.id'))
-    player_count = Column(Integer)
+    game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
+    player_count = Column(Integer, index=True)  # Indexed for player filtering
     best = Column(Integer)
     recommended = Column(Integer)
     not_recommended = Column(Integer)
     game_total_votes = Column(Integer)
     player_count_total_votes = Column(Integer)  # total votes for this player count
-    recommendation_level = Column(String)  # 'best', 'recommended', or 'not_recommended'
+    recommendation_level = Column(String, index=True)  # 'best', 'recommended', or 'not_recommended' - indexed for filtering
     game = relationship("BoardGame", back_populates="suggested_players")
 
 class LanguageDependence(Base):
@@ -214,7 +214,7 @@ class PAXGame(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String)
     name_raw = Column(String)
-    bgg_id = Column(Integer, ForeignKey('games.id'), nullable=True)  # Links to BoardGame if exists
+    bgg_id = Column(Integer, ForeignKey('games.id'), nullable=True, index=True)  # Links to BoardGame if exists - indexed for pax_only filtering
     publisher = Column(String)
     min_titles_id = Column(Integer)
     titles_id_list = Column(String)  # Comma-separated list of title IDs

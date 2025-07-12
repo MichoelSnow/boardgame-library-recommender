@@ -5,6 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 import sys
+import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from app.models import Base
@@ -29,6 +30,25 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+def get_database_url():
+    """Get database URL using same logic as application.
+    
+    This ensures Alembic and the application use the same database path
+    in all environments (local, production, etc.)
+    """
+    # Check for DATABASE_PATH environment variable first (production)
+    database_path = os.getenv("DATABASE_PATH")
+    
+    if database_path:
+        # Environment variable is set, use it
+        if database_path.startswith("sqlite:///"):
+            return database_path
+        else:
+            return f"sqlite:///{database_path}"
+    else:
+        # Fall back to alembic.ini configuration (local development)
+        return config.get_main_option("sqlalchemy.url")
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -42,7 +62,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -61,8 +81,12 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Get configuration and override database URL if environment variable is set
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = get_database_url()
+    
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

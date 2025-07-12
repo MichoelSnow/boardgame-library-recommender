@@ -26,6 +26,9 @@ WORKDIR /app
 
 # Copy backend code
 COPY backend/app/ /app/backend/app/
+# Copy Alembic configuration and migration files for database migrations
+COPY backend/alembic/ /app/backend/alembic/
+COPY backend/alembic.ini /app/backend/alembic.ini
 # Create empty __init__.py file for Python package structure
 RUN touch /app/backend/__init__.py
 

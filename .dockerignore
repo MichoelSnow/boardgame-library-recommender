@@ -39,7 +39,7 @@ frontend/.vite/
 frontend/build/
 
 # Alembic and migration scratch
-alembic/
+# alembic/ - REMOVED: Need Alembic in production for database migrations
 
 # Production and scratch files
 fly.toml

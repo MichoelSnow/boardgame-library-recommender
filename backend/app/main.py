@@ -197,9 +197,9 @@ async def list_games(
     pax_only: Optional[bool] = False
 ):
     try:
-        # Use timeout wrapper to prevent hanging
-        games, total = await run_with_timeout(
-            crud.get_games,
+        # Direct call - no thread pool overhead for better performance
+        # With proper indexes, queries should be fast enough
+        games, total = crud.get_games(
             db=db,
             skip=skip,
             limit=limit,
@@ -212,8 +212,7 @@ async def list_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
-            pax_only=pax_only,
-            timeout_seconds=25
+            pax_only=pax_only
         )
         return {"games": games, "total": total}
     except HTTPException:
