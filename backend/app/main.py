@@ -34,7 +34,8 @@ models.Base.metadata.create_all(bind=engine)
 
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-# No need for IMAGES_DIR since images will be served directly from BoardGameGeek
+# Define images directory for local development
+IMAGES_DIR = PROJECT_ROOT / "backend" / "database" / "images"
 STATIC_DIR = PROJECT_ROOT / "frontend" / "build"
 
 app = FastAPI(
@@ -55,7 +56,12 @@ app.add_middleware(
 # Add Gzip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# No need to mount images directory since images will be served directly from BoardGameGeek
+# Mount images directory for local development
+if os.path.exists(IMAGES_DIR):
+    logger.info(f"Mounting images directory from {IMAGES_DIR}")
+    app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
+else:
+    logger.warning(f"Images directory not found at {IMAGES_DIR}")
 
 # # Serve static frontend files
 # if os.path.exists(STATIC_DIR):

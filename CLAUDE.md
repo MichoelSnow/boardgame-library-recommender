@@ -20,7 +20,7 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 # Setup Python environment
 poetry install
-poetry shell  # Always activate this before running backend commands
+eval $(poetry env activate)  # Always activate this before running backend commands
 
 # Frontend setup
 cd frontend && npm install
@@ -28,8 +28,8 @@ cd frontend && npm install
 
 ### Development Servers
 ```bash
-# Backend server (requires Poetry shell)
-poetry shell
+# Backend server (requires eval $(poetry env activate))
+eval $(poetry env activate)
 uvicorn backend.app.main:app --reload
 
 # Frontend server

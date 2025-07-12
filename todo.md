@@ -6,10 +6,17 @@
 
 # UI 
 - Add year to details page
+- Add icon to chrome tab
 
 # Code
-- Move to 3.12
+- Move to python 3.12
 
 # App
-- Move to a server
+- Allow for multiple selection in player count
+- Add option to update recommendations
+- Sort categories and mechanics alphabetically
+- Add a guide
+
+# Fly.io
 - Add redundancy to the server of having multiple volumes at the same time, in case one volume goes down
+- Add user logging, e.g., last login time
