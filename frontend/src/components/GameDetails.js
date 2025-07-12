@@ -20,6 +20,13 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import PeopleIcon from '@mui/icons-material/People';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
+import StarBorderOutlinedIcon from '@mui/icons-material/StarBorderOutlined';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import ChildCareIcon from '@mui/icons-material/ChildCare';
 import { apiBaseUrl, imageBaseUrl } from '../config';
 
 // Helper function to decode HTML entities and preserve line breaks
@@ -40,6 +47,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
   const [loading, setLoading] = useState(false);
   const [selectedGame, setSelectedGame] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [bgColor, setBgColor] = useState('#f5f5f5');
 
   // Get the appropriate image URL based on environment
   const getImageUrl = (imageUrl) => {
@@ -52,6 +60,33 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     
     // Otherwise, use the proxy through our backend
     return `${imageBaseUrl}/${imageUrl.split('/').pop()}`;
+  };
+
+  // Handle image load to extract dominant color for background (same as GameCard)
+  const handleImageLoad = (event) => {
+    const img = event.target;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let r = 0, g = 0, b = 0;
+    const total = imageData.length / 4;
+    
+    for (let i = 0; i < imageData.length; i += 4) {
+      r += imageData[i];
+      g += imageData[i + 1];
+      b += imageData[i + 2];
+    }
+    
+    r = Math.floor(r / total);
+    g = Math.floor(g / total);
+    b = Math.floor(b / total);
+    
+    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+    setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
   };
 
   useEffect(() => {
@@ -181,7 +216,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
         scroll="paper"
       >
         <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
             {game.image && (
               <Box
                 component="img"
@@ -189,16 +224,19 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                 alt={game.name}
                 sx={{
                   width: 100,
-                  height: 100,
+                  height: { xs: 120, sm: 140 }, // Responsive height constraint
                   objectFit: 'contain',
-                  backgroundColor: '#f5f5f5'
+                  backgroundColor: bgColor,
+                  transition: 'background-color 0.3s ease',
+                  flexShrink: 0
                 }}
                 crossOrigin="anonymous"
+                onLoad={handleImageLoad}
               />
             )}
-            <Box>
-              <Typography variant="h5">{game.name}</Typography>
-              <Box>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <Typography variant="h5" sx={{ mb: 1 }}>{game.name}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Tooltip title={likedGames.some(g => g.id === game.id) ? 'Unlike' : 'Like'}>
                   <IconButton onClick={handleLikeClick} size="small">
                     {likedGames.some(g => g.id === game.id) ? <ThumbUpIcon color="success" /> : <ThumbUpOutlinedIcon />}
@@ -209,6 +247,95 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                     {dislikedGames.some(g => g.id === game.id) ? <ThumbDownIcon color="error" /> : <ThumbDownOutlinedIcon />}
                   </IconButton>
                 </Tooltip>
+              </Box>
+              
+              {/* Game Statistics */}
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+                gap: { xs: 0.75, sm: 1.5 }, // Smaller gap on mobile (xs), normal gap on larger screens
+                alignItems: 'center'
+              }}>
+                {/* Players - 1st (matches GameCard order) */}
+                <Tooltip title="Player Count">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <PeopleIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {game.min_players === game.max_players
+                        ? `${game.min_players} players`
+                        : `${game.min_players}-${game.max_players} players`}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+                
+                {/* Play Time - 2nd (matches GameCard order) */}
+                <Tooltip title="Play Time">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <AccessTimeIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {game.min_playtime === game.max_playtime
+                        ? `${game.min_playtime} min`
+                        : `${game.min_playtime}-${game.max_playtime} min`}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+                
+                {/* Complexity - 3rd (matches GameCard order) */}
+                <Tooltip title="Game Weight (Complexity)">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <PsychologyAltOutlinedIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {game.average_weight ? `${game.average_weight.toFixed(1)}/5` : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+                
+                {/* Rating - 4th (matches GameCard order) - Hidden on mobile */}
+                <Tooltip title="Average Rating">
+                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                    <StarBorderOutlinedIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      {game.average ? `${game.average.toFixed(1)}/10` : 'N/A'}
+                    </Typography>
+                  </Box>
+                </Tooltip>
+                
+                {/* Additional fields after core GameCard info */}
+                {/* Age - Hidden on mobile */}
+                {game.minimum_age && (
+                  <Tooltip title="Minimum Age">
+                    <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                      <ChildCareIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {game.minimum_age}+
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                )}
+                
+                {/* Year Published */}
+                {game.year_published && (
+                  <Tooltip title="Year Published">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <CalendarTodayIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        {game.year_published}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                )}
+                
+                {/* BGG Rank - Hidden on mobile */}
+                {game.rank && game.rank > 0 && (
+                  <Tooltip title="BoardGameGeek Rank">
+                    <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
+                      <TrendingUpIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        #{game.rank}
+                      </Typography>
+                    </Box>
+                  </Tooltip>
+                )}
               </Box>
             </Box>
           </Box>

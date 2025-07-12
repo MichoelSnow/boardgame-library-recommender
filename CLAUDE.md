@@ -38,6 +38,8 @@ cd frontend && npm start
 
 **Note**: The `--reload` flag automatically reloads the backend server when any Python file changes are detected. No manual restart is needed during development.
 
+**Development Environment**: Unless explicitly told otherwise, assume that both the backend and frontend development servers are already running and ready for testing.
+
 ### Data Collection Pipeline (3-step process)
 ```bash
 # Step 1: Collect rankings

@@ -5,7 +5,6 @@
 
 
 # UI 
-- Add year to details page
 - Add icon to chrome tab
 
 # Code
