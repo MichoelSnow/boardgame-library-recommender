@@ -5,7 +5,6 @@
 
 
 # UI 
-- Add icon to chrome tab
 
 # Code
 - Move to python 3.12
