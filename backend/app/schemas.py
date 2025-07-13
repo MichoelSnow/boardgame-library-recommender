@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl, Field
 from typing import List, Optional, Dict, Any
 
 
@@ -321,6 +321,51 @@ class User(UserBase):
 
     class Config:
         from_attributes = True
+
+
+# Password Change Schemas
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=6, description="Password must be at least 6 characters")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PasswordChangeResponse(BaseModel):
+    message: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# User Suggestion Schemas
+class UserSuggestionCreate(BaseModel):
+    comment: str
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        str_min_length=1,
+        str_max_length=1000
+    )
+
+
+class UserSuggestionResponse(BaseModel):
+    id: int
+    comment: str
+    timestamp: str
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSuggestion(BaseModel):
+    id: int
+    user_id: int
+    comment: str
+    timestamp: str
+    user: User
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Token Schemas

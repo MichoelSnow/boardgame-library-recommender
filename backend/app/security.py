@@ -69,15 +69,47 @@ async def get_current_active_user(current_user: schemas.User = Depends(get_curre
     return current_user
 
 def create_initial_admin(username: str, password: str):
+    """Legacy function for backward compatibility"""
+    create_user_cli(username, password, is_admin=True)
+
+def create_user_cli(username: str, password: str, is_admin: bool = False):
+    """Create a user via command line interface"""
     from .database import SessionLocal
     from . import crud, schemas
+    
+    if len(password) < 6:
+        print("Error: Password must be at least 6 characters long.")
+        return
+    
     db = SessionLocal()
     try:
         if crud.get_user_by_username(db, username=username):
-            print(f"Admin user '{username}' already exists.")
+            user_type = "admin" if is_admin else "regular"
+            print(f"User '{username}' already exists.")
             return
-        admin_user = schemas.UserCreate(username=username, password=password, is_admin=True)
-        crud.create_user(db, admin_user)
-        print(f"Admin user '{username}' created.")
+        
+        user = schemas.UserCreate(username=username, password=password, is_admin=is_admin)
+        crud.create_user(db, user)
+        user_type = "admin" if is_admin else "regular"
+        print(f"{user_type.capitalize()} user '{username}' created successfully.")
+    finally:
+        db.close()
+
+def reset_password_cli(username: str, new_password: str):
+    """Reset password for existing user via command line interface"""
+    from .database import SessionLocal
+    from . import crud
+    
+    if len(new_password) < 6:
+        print("Error: Password must be at least 6 characters long.")
+        return
+    
+    db = SessionLocal()
+    try:
+        success = crud.admin_reset_password(db, username=username, new_password=new_password)
+        if success:
+            print(f"Password for user '{username}' updated successfully.")
+        else:
+            print(f"Error: User '{username}' not found.")
     finally:
         db.close() 

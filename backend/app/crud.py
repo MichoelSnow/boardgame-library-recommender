@@ -445,3 +445,33 @@ def authenticate_user(db: Session, username: str, password: str):
     if not security.verify_password(password, user.hashed_password):
         return False
     return user
+
+def create_user_suggestion(db: Session, user_id: int, suggestion: schemas.UserSuggestionCreate):
+    db_suggestion = models.UserSuggestion(
+        user_id=user_id,
+        comment=suggestion.comment
+    )
+    db.add(db_suggestion)
+    db.commit()
+    db.refresh(db_suggestion)
+    return db_suggestion
+
+def change_user_password(db: Session, user_id: int, old_password: str, new_password: str):
+    user = get_user(db, user_id)
+    if not user:
+        return False
+    if not security.verify_password(old_password, user.hashed_password):
+        return False
+    
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    return True
+
+def admin_reset_password(db: Session, username: str, new_password: str):
+    user = get_user_by_username(db, username)
+    if not user:
+        return False
+    
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    return True

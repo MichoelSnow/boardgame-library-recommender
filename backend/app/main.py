@@ -434,6 +434,36 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
 async def read_users_me(current_user: schemas.User = Depends(security.get_current_active_user)):
     return current_user
 
+@app.put("/api/users/me/password", response_model=schemas.PasswordChangeResponse)
+def change_password(
+    password_request: schemas.PasswordChangeRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user)
+):
+    success = crud.change_user_password(
+        db=db, 
+        user_id=current_user.id, 
+        old_password=password_request.current_password,
+        new_password=password_request.new_password
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    return schemas.PasswordChangeResponse(message="Password changed successfully")
+
+@app.post("/api/suggestions/", response_model=schemas.UserSuggestionResponse)
+def create_suggestion(
+    suggestion: schemas.UserSuggestionCreate, 
+    db: Session = Depends(get_db), 
+    current_user: schemas.User = Depends(security.get_current_active_user)
+):
+    db_suggestion = crud.create_user_suggestion(db=db, user_id=current_user.id, suggestion=suggestion)
+    return schemas.UserSuggestionResponse(
+        id=db_suggestion.id,
+        comment=db_suggestion.comment,
+        timestamp=db_suggestion.timestamp.isoformat(),
+        username=current_user.username
+    )
+
 
 # Serve static frontend files
 if os.path.exists(STATIC_DIR):
@@ -444,9 +474,15 @@ else:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Create initial admin user.")
-    parser.add_argument("--username", required=True, help="Admin username")
-    parser.add_argument("--password", required=True, help="Admin password")
+    parser = argparse.ArgumentParser(description="Create user account.")
+    parser.add_argument("--username", required=True, help="Username")
+    parser.add_argument("--password", required=True, help="Password")
+    parser.add_argument("--admin", action="store_true", help="Create as admin user (default: regular user)")
+    parser.add_argument("--reset-password", action="store_true", help="Reset password for existing user")
     args = parser.parse_args()
-    security.create_initial_admin(args.username, args.password)
+    
+    if args.reset_password:
+        security.reset_password_cli(args.username, args.password)
+    else:
+        security.create_user_cli(args.username, args.password, args.admin)
 
