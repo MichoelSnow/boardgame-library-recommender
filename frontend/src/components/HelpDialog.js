@@ -189,54 +189,59 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 your liked and disliked games.
               </Typography>
               
-              <Typography variant="subtitle2" gutterBottom>Step 3: Refine Your Recommendations (The Tricky Part!)</Typography>
+              <Typography variant="subtitle2" gutterBottom>Step 3: Refresh Your Recommendations (Simple!)</Typography>
               <Alert severity="info" sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>If you want to update your recommendations:</Typography>
+                <Typography variant="subtitle2" gutterBottom>To update your recommendations with new preferences:</Typography>
                 <List dense>
                   <ListItem sx={{ pl: 0 }}>
                     <ListItemText 
-                      primary="1. While viewing recommendations, continue liking/disliking games"
+                      primary="1. Continue liking/disliking games (this automatically enables the refresh button)"
                     />
                   </ListItem>
                   <ListItem sx={{ pl: 0 }}>
                     <ListItemText 
-                      primary="2. Click 'Show All Games' to return to the main catalog"
-                    />
-                  </ListItem>
-                  <ListItem sx={{ pl: 0 }}>
-                    <ListItemText 
-                      primary="3. Click 'Recommend Games' again to get updated recommendations"
+                      primary="2. Click 'Refresh Recommendations' when you're ready for updated recommendations"
                     />
                   </ListItem>
                 </List>
               </Alert>
               
+              <Typography variant="subtitle2" gutterBottom>Step 4: Toggle Between Views</Typography>
+              <Typography paragraph>
+                Use the "Show Recommendations" toggle switch to easily switch between viewing 
+                only your recommended games or browsing the full game library. Your recommendations 
+                stay saved while you explore!
+              </Typography>
+              
               <Typography variant="subtitle2" gutterBottom>What Works in Recommendation Mode:</Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="✓ Liking and disliking games" />
+                  <ListItemText primary="✓ Liking and disliking games" secondary="Automatically enables 'Refresh Recommendations' button" />
                 </ListItem>
                 <ListItem>
                   <ListItemText primary="✓ Viewing game details" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ All Board Games toggle" />
+                  <ListItemText primary="✓ All Board Games toggle" secondary="Filters recommendations between PAX library and all games" />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="✓ Show Recommendations toggle" secondary="Switch between recommendation view and full library" />
                 </ListItem>
                 <ListItem>
                   <ListItemText primary="✓ Pagination through recommendations" />
                 </ListItem>
               </List>
               
-              <Typography variant="subtitle2" gutterBottom>What Doesn't Work in Recommendation Mode:</Typography>
+              <Typography variant="subtitle2" gutterBottom>What's Different in Recommendation Mode:</Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="✗ Search" secondary="Disabled while viewing recommendations" />
+                  <ListItemText primary="• Search and most filters" secondary="Only work when 'Show Recommendations' toggle is OFF (browsing full library)" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✗ Most filters" secondary="Sort, player count, mechanics, etc." />
+                  <ListItemText primary="• Sort options" secondary="Recommendations are automatically sorted by relevance" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✗ Automatic recommendation updates" secondary="Must manually refresh as described above" />
+                  <ListItemText primary="• Easy view switching" secondary="Toggle between recommendations and full library without losing your recommendations" />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -360,16 +365,24 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 "I liked more games but my recommendations didn't change"
               </Typography>
               <Typography paragraph>
-                You need to click "Show All Games" then "Recommend Games" again. 
-                The system doesn't automatically update recommendations.
+                When you like/dislike more games, the "Refresh Recommendations" button becomes enabled. 
+                Click it to get updated recommendations based on your new preferences.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>
                 "The search and filters aren't working"
               </Typography>
               <Typography paragraph>
-                You're probably in recommendation mode. Click "Show All Games" to return to the 
-                main catalog where all filters work.
+                You're viewing recommendations with the "Show Recommendations" toggle turned ON. 
+                Turn the toggle OFF to browse the full library where all search and filters work normally.
+              </Typography>
+              
+              <Typography variant="subtitle2" gutterBottom>
+                "How do I switch between recommendations and the full library?"
+              </Typography>
+              <Typography paragraph>
+                Use the "Show Recommendations" toggle switch that appears after you get your first recommendations. 
+                Toggle it ON to see only recommended games, or OFF to browse the full library with all filters available.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>

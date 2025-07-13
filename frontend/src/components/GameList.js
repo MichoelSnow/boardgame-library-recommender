@@ -121,6 +121,11 @@ const GameList = () => {
   const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
     localStorage.getItem('hasSeenNonLibraryMessage') === 'true'
   );
+  
+  // New states for separated recommendation workflow
+  const [hasRecommendations, setHasRecommendations] = useState(false);
+  const [showingRecommendations, setShowingRecommendations] = useState(false);
+  const [recommendationsStale, setRecommendationsStale] = useState(false);
 
   const handleLikeGame = (game) => {
     setLikedGames(prev => {
@@ -131,6 +136,11 @@ const GameList = () => {
       }
     });
     setDislikedGames(prev => prev.filter(g => g.id !== game.id)); // remove from disliked
+    
+    // Mark recommendations as stale if we have recommendations
+    if (hasRecommendations) {
+      setRecommendationsStale(true);
+    }
   };
 
   const handleDislikeGame = (game) => {
@@ -142,13 +152,13 @@ const GameList = () => {
       }
     });
     setLikedGames(prev => prev.filter(g => g.id !== game.id)); // remove from liked
+    
+    // Mark recommendations as stale if we have recommendations
+    if (hasRecommendations) {
+      setRecommendationsStale(true);
+    }
   };
 
-  const handleShowAllGames = () => {
-    setIsRecommendation(false);
-    setCurrentPage(1);
-    setSortBy('rank');
-  };
 
   const handleRecommend = async () => {
     try {
@@ -167,6 +177,11 @@ const GameList = () => {
       setIsRecommendation(true);
       setSortBy('recommendation_score');
       setActiveFilter(null);
+      
+      // Update new recommendation states
+      setHasRecommendations(true);
+      setShowingRecommendations(true);
+      setRecommendationsStale(false);
     } catch (err) {
       console.error('Failed to fetch recommendations:', err);
     } finally {
@@ -192,6 +207,12 @@ const GameList = () => {
     setCurrentPage(1);
     setIsRecommendation(false);
     setPaxOnly(true);
+    
+    // Reset recommendation states
+    setHasRecommendations(false);
+    setShowingRecommendations(false);
+    setRecommendationsStale(false);
+    setAllRecommendations([]);
   };
 
   const handlePlayerCountChange = (event, newCount) => {
@@ -320,7 +341,7 @@ const GameList = () => {
   }, []);
 
   useEffect(() => {
-    if (isRecommendation) {
+    if (showingRecommendations && hasRecommendations) {
       let newGameList = allRecommendations;
       if (paxOnly && paxGameIds.length > 0) {
         const paxSet = new Set(paxGameIds);
@@ -329,8 +350,11 @@ const GameList = () => {
       setGameList(newGameList);
       setTotalGames(newGameList.length);
       setCurrentPage(1);
+      setIsRecommendation(true);
+    } else {
+      setIsRecommendation(false);
     }
-  }, [isRecommendation, paxOnly, allRecommendations, paxGameIds]);
+  }, [showingRecommendations, hasRecommendations, paxOnly, allRecommendations, paxGameIds]);
 
   const isSortFiltered = sortBy !== 'rank';
   const sortButtonLabel = isSortFiltered ? (sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort') : 'Sort';
@@ -531,7 +555,7 @@ const GameList = () => {
         <Stack spacing={2} sx={{ mb: 2 }}>
           {/* Search Input */}
           <Tooltip 
-            title={isRecommendation ? "Search is disabled in recommendation mode. Click 'Show All Games' to enable search." : "Search games by name"}
+            title={isRecommendation ? "Search is disabled in recommendation mode. Untoggle 'Show Recommendations' to enable search." : "Search games by name"}
             placement="top"
           >
             <TextField
@@ -744,15 +768,18 @@ const GameList = () => {
 
           {/* Action Buttons and Filter Chips */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
-              {isRecommendation ? (
-                <Tooltip title="Return to the main game list. Click this before getting updated recommendations!">
-                  <Button 
-                    variant="contained" 
-                    onClick={handleShowAllGames}
-                    data-tour="show-all-button"
-                  >
-                    Show All Games
-                  </Button>
+              {hasRecommendations ? (
+                <Tooltip title={recommendationsStale ? "Generate new recommendations based on your updated preferences" : "Recommendations are up to date with your current preferences"}>
+                  <span>
+                    <Button 
+                      variant="contained" 
+                      onClick={handleRecommend}
+                      disabled={!recommendationsStale || isRecommendationLoading}
+                      data-tour="refresh-recommendations-button"
+                    >
+                      Refresh Recommendations
+                    </Button>
+                  </span>
                 </Tooltip>
               ) : (
                 <Tooltip title={user ? "Get recommendations based on your liked/disliked games. Need at least 1 liked or disliked game." : "You must be logged in to get recommendations"}>
@@ -777,6 +804,21 @@ const GameList = () => {
                     Liked/Disliked ({likedGames.length}/{dislikedGames.length})
                 </Button>
               </Tooltip>
+              {hasRecommendations && (
+                <Tooltip title="Toggle between showing only recommended games or the full game library">
+                  <FormControlLabel
+                    control={
+                      <Switch 
+                        checked={showingRecommendations} 
+                        onChange={(e) => setShowingRecommendations(e.target.checked)}
+                        data-tour="show-recommendations-toggle"
+                      />
+                    }
+                    label="Show Recommendations"
+                    sx={{ ml: 1 }}
+                  />
+                </Tooltip>
+              )}
               {renderFilterChips()}
           </Box>
         </Stack>

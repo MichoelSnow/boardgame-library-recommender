@@ -11,7 +11,6 @@
 
 # App
 - Allow for multiple selection in player count
-- Add option to update recommendations
 - Sort categories and mechanics alphabetically
 
 # Fly.io

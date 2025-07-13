@@ -66,11 +66,18 @@ const tourSteps = [
   },
   {
     id: 'recommendation-workflow',
-    title: 'Important: Updating Recommendations',
-    content: 'To update recommendations after liking more games: 1) Click "Show All Games", then 2) Click "Recommend Games" again. This is the most confusing part!',
-    target: '[data-tour="show-all-button"]',
+    title: 'Updating & Viewing Recommendations',
+    content: 'After your first recommendations: 1) Like/dislike more games to enable "Refresh Recommendations", then 2) Use the "Show Recommendations" toggle to switch between recommended games and full library.',
+    target: '[data-tour="refresh-recommendations-button"]',
     position: 'top',
     important: true
+  },
+  {
+    id: 'show-recommendations-toggle',
+    title: 'Show Recommendations Toggle',
+    content: 'This toggle appears after getting recommendations. Turn it on to see only your recommended games, or off to browse the full library with your recommendations saved.',
+    target: '[data-tour="show-recommendations-toggle"]',
+    position: 'top'
   },
   {
     id: 'help-button',
