@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Table, ForeignKey, JSON, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, Table, ForeignKey, JSON, DateTime, Boolean, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 from typing import Optional
@@ -238,3 +238,19 @@ class PAXGame(Base):
     
     # Relationship to BoardGame if bgg_id exists
     board_game = relationship("BoardGame", foreign_keys=[bgg_id])
+
+
+# Composite Performance Indexes
+# These indexes exist in production and improve query performance for common operations
+
+# Categories composite index - for efficient category filtering per game
+Index('ix_categories_composite', Category.game_id, Category.boardgamecategory_id)
+
+# Games player range index - for efficient player count range queries
+Index('ix_games_player_range', BoardGame.min_players, BoardGame.max_players)
+
+# Mechanics composite index - for efficient mechanic filtering per game
+Index('ix_mechanics_composite', Mechanic.game_id, Mechanic.boardgamemechanic_id)
+
+# Suggested players composite index - for complex player recommendation queries
+Index('ix_suggested_players_composite', SuggestedPlayer.game_id, SuggestedPlayer.player_count, SuggestedPlayer.recommendation_level)
