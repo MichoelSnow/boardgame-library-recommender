@@ -12,10 +12,12 @@ import {
 import HomeIcon from '@mui/icons-material/Home';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import FeedbackIcon from '@mui/icons-material/Feedback';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import AuthContext from '../context/AuthContext';
 import HelpDialog from './HelpDialog';
 import GuidedTour from './GuidedTour';
 import SuggestionsModal from './SuggestionsModal';
+import PasswordChangeModal from './PasswordChangeModal';
 
 function Navbar() {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ function Navbar() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
 
   return (
     <AppBar position="static">
@@ -73,6 +76,21 @@ function Navbar() {
               </Button>
             </Tooltip>
           )}
+
+          {user && (
+            <Tooltip title="Change your password">
+              <Button
+                color="inherit"
+                onClick={() => setPasswordChangeOpen(true)}
+                startIcon={<VpnKeyIcon />}
+                sx={{ mr: 2, textTransform: 'none' }}
+              >
+                <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
+                  Change Password
+                </Typography>
+              </Button>
+            </Tooltip>
+          )}
           
           {user && (
             <Button color="inherit" onClick={logout}>Logout</Button>
@@ -91,6 +109,10 @@ function Navbar() {
       <SuggestionsModal 
         open={suggestionsOpen} 
         onClose={() => setSuggestionsOpen(false)}
+      />
+      <PasswordChangeModal 
+        open={passwordChangeOpen} 
+        onClose={() => setPasswordChangeOpen(false)}
       />
     </AppBar>
   );

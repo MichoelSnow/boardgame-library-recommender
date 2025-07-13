@@ -17,4 +17,3 @@
 # Fly.io
 - Add redundancy to the server of having multiple volumes at the same time, in case one volume goes down
 - Add user logging, e.g., last login time
-- Add user comments
