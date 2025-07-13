@@ -323,6 +323,37 @@ class User(UserBase):
         from_attributes = True
 
 
+# User Suggestion Schemas
+class UserSuggestionCreate(BaseModel):
+    comment: str
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        str_strip_whitespace=True,
+        str_min_length=1,
+        str_max_length=1000
+    )
+
+
+class UserSuggestionResponse(BaseModel):
+    id: int
+    comment: str
+    timestamp: str
+    username: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserSuggestion(BaseModel):
+    id: int
+    user_id: int
+    comment: str
+    timestamp: str
+    user: User
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Token Schemas
 class Token(BaseModel):
     access_token: str

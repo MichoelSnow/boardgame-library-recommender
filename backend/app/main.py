@@ -434,6 +434,20 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current
 async def read_users_me(current_user: schemas.User = Depends(security.get_current_active_user)):
     return current_user
 
+@app.post("/api/suggestions/", response_model=schemas.UserSuggestionResponse)
+def create_suggestion(
+    suggestion: schemas.UserSuggestionCreate, 
+    db: Session = Depends(get_db), 
+    current_user: schemas.User = Depends(security.get_current_active_user)
+):
+    db_suggestion = crud.create_user_suggestion(db=db, user_id=current_user.id, suggestion=suggestion)
+    return schemas.UserSuggestionResponse(
+        id=db_suggestion.id,
+        comment=db_suggestion.comment,
+        timestamp=db_suggestion.timestamp.isoformat(),
+        username=current_user.username
+    )
+
 
 # Serve static frontend files
 if os.path.exists(STATIC_DIR):
@@ -444,9 +458,10 @@ else:
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Create initial admin user.")
-    parser.add_argument("--username", required=True, help="Admin username")
-    parser.add_argument("--password", required=True, help="Admin password")
+    parser = argparse.ArgumentParser(description="Create user account.")
+    parser.add_argument("--username", required=True, help="Username")
+    parser.add_argument("--password", required=True, help="Password")
+    parser.add_argument("--admin", action="store_true", help="Create as admin user (default: regular user)")
     args = parser.parse_args()
-    security.create_initial_admin(args.username, args.password)
+    security.create_user_cli(args.username, args.password, args.admin)
 

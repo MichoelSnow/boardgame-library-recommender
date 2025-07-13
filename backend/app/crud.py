@@ -445,3 +445,13 @@ def authenticate_user(db: Session, username: str, password: str):
     if not security.verify_password(password, user.hashed_password):
         return False
     return user
+
+def create_user_suggestion(db: Session, user_id: int, suggestion: schemas.UserSuggestionCreate):
+    db_suggestion = models.UserSuggestion(
+        user_id=user_id,
+        comment=suggestion.comment
+    )
+    db.add(db_suggestion)
+    db.commit()
+    db.refresh(db_suggestion)
+    return db_suggestion

@@ -14,6 +14,20 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationship to UserSuggestion
+    suggestions = relationship("UserSuggestion", back_populates="user")
+
+class UserSuggestion(Base):
+    __tablename__ = "user_suggestions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    comment = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship to User
+    user = relationship("User", back_populates="suggestions")
+
 class BoardGame(Base):
     __tablename__ = 'games'
     __allow_unmapped__ = True
