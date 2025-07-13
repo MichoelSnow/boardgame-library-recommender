@@ -137,7 +137,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     return (
       <Box sx={{ mb: 2 }}>
         <Typography variant="subtitle1" gutterBottom>
-          {label}{isFilterable && ' (filterable)'}
+          {label}{isFilterable && ' (click to filter)'}
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           {items.map((item) => {
@@ -151,21 +151,26 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                               type === 'mechanic' || type === 'category';
             
             return (
-              <Chip
+              <Tooltip 
                 key={id}
-                label={name}
-                size="small"
-                onClick={isClickable ? () => {
-                  onFilter(type, id, name);
-                  onClose();
-                } : undefined}
-                sx={isClickable ? {
-                  cursor: 'pointer',
-                  '&:hover': {
-                    backgroundColor: 'action.hover'
-                  }
-                } : undefined}
-              />
+                title={isClickable ? `Click to filter by ${name}` : name}
+                placement="top"
+              >
+                <Chip
+                  label={name}
+                  size="small"
+                  onClick={isClickable ? () => {
+                    onFilter(type, id, name);
+                    onClose();
+                  } : undefined}
+                  sx={isClickable ? {
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'action.hover'
+                    }
+                  } : undefined}
+                />
+              </Tooltip>
             );
           })}
         </Box>
