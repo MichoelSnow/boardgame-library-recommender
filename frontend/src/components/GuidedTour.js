@@ -22,10 +22,18 @@ const tourSteps = [
   },
   {
     id: 'pax-toggle',
-    title: 'PAX Games Only',
-    content: 'Turn this on to focus only on games available at the convention. Great for finding games you can actually try!',
+    title: 'All Board Games Toggle',
+    content: 'By default, you see only PAX library games. Toggle this on to include all board games for broader recommendations.',
     target: '[data-tour="pax-toggle"]',
     position: 'bottom'
+  },
+  {
+    id: 'library-indicator',
+    title: 'Library Game Indicator',
+    content: 'Look for the book icon on game cards - it shows which games are available in the PAX library. Games without this icon are not at the convention.',
+    target: '[data-tour="game-card"]:first-child',
+    position: 'top',
+    highlight: '[data-tour="like-buttons"]'
   },
   {
     id: 'player-filter',
@@ -37,7 +45,7 @@ const tourSteps = [
   {
     id: 'like-buttons',
     title: 'Like & Dislike Games',
-    content: 'Use the thumbs up and thumbs down buttons on game cards to indicate your preferences. This is key for getting recommendations!',
+    content: 'Use the thumbs up and thumbs down buttons to indicate your preferences. Library games (with book icons) are great to like since you can actually play them!',
     target: '[data-tour="game-card"]:first-child',
     position: 'top',
     highlight: '[data-tour="like-buttons"]'

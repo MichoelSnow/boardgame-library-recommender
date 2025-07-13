@@ -16,6 +16,7 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import { apiBaseUrl, imageBaseUrl } from '../config';
 
 const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
@@ -53,7 +54,7 @@ const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
     return src;
   };
 
-const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDislike, compact = false }) => {
+const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDislike, compact = false, isPaxGame = false }) => {
   const [bgColor, setBgColor] = useState('#f5f5f5');
   
   // Use different image sources based on environment
@@ -221,9 +222,20 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
         </CardContent>
       </Box>
       <Box 
-        sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, borderLeft: '1px solid', borderColor: 'divider' }}
+        sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', p: 0.5, borderLeft: '1px solid', borderColor: 'divider' }}
         data-tour="like-buttons"
       >
+        {isPaxGame ? (
+          <Tooltip title="Available in PAX Library" placement="left">
+            <IconButton size="small" sx={{ mb: 2, cursor: 'default' }}>
+              <MenuBookIcon color="primary" />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <IconButton size="small" disabled sx={{ mb: 2, visibility: 'hidden' }}>
+            <MenuBookIcon />
+          </IconButton>
+        )}
         <Tooltip title={liked ? 'Unlike' : 'Like'} placement="left">
           <IconButton onClick={handleLikeClick} size="small">
             {liked ? <ThumbUpIcon color="success" /> : <ThumbUpOutlinedIcon />}

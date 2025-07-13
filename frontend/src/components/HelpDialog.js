@@ -26,6 +26,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
 import SortIcon from '@mui/icons-material/Sort';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 
 const HelpDialog = ({ open, onClose, onStartTour }) => {
   const [expanded, setExpanded] = useState('getting-started');
@@ -60,7 +61,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Welcome to the PAX TableTop Board Game Catalog! This tool helps you discover board games 
+                Welcome to the PAX Tabletop Board Game Catalog! This tool helps you discover board games 
                 available at the convention and get personalized recommendations.
               </Typography>
               <Typography variant="subtitle2" gutterBottom>Quick Overview:</Typography>
@@ -136,18 +137,28 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               
               <Divider sx={{ my: 2 }} />
               
-              <Typography variant="subtitle2" gutterBottom>PAX Games Toggle:</Typography>
+              <Typography variant="subtitle2" gutterBottom>Library Games Filter:</Typography>
               <Typography paragraph>
-                Use the "PAX Games Only" toggle to focus exclusively on games available at the convention. 
-                This is especially useful when you want to try games you can actually play here!
+                By default, the catalog shows only PAX library games. Use the "All Board Games" toggle to 
+                include non-library games for recommendations and information. Games in the PAX library are 
+                marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>Weight (Complexity) Levels:</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
                 <Chip label="Beginner Friendly (≤ 2.0)" size="small" />
                 <Chip label="Midweight (2.0 - 4.0)" size="small" />
-                <Chip label="Heavy Cardboard (≥ 4.0)" size="small" />
+                <Chip label="Heavy (≥ 4.0)" size="small" />
               </Box>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Typography variant="subtitle2" gutterBottom>Library Game Indicators:</Typography>
+              <Typography paragraph>
+                Games available in the PAX library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
+                on each game card. When you toggle to "All Board Games", games without this icon are not available 
+                at the convention but are included for recommendation purposes.
+              </Typography>
             </AccordionDetails>
           </Accordion>
 
@@ -209,7 +220,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                   <ListItemText primary="✓ Viewing game details" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ PAX Games Only toggle" />
+                  <ListItemText primary="✓ All Board Games toggle" />
                 </ListItem>
                 <ListItem>
                   <ListItemText primary="✓ Pagination through recommendations" />
@@ -308,7 +319,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary="1. Turn on 'PAX Games Only' to focus on available games"
+                    primary={<>1. Browse PAX library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon</>}
                   />
                 </ListItem>
                 <ListItem>

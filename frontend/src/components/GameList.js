@@ -31,6 +31,7 @@ import GameDetails from './GameDetails';
 import GameCard from './GameCard';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
 import { apiBaseUrl } from '../config';
@@ -115,7 +116,11 @@ const GameList = () => {
   const [isRecommendation, setIsRecommendation] = useState(false);
   const [allRecommendations, setAllRecommendations] = useState([]);
   const [paxGameIds, setPaxGameIds] = useState([]); // Store PAX game IDs for filtering
-  const [paxOnly, setPaxOnly] = useState(false);
+  const [paxOnly, setPaxOnly] = useState(true);
+  const [showNonLibraryNotification, setShowNonLibraryNotification] = useState(false);
+  const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
+    localStorage.getItem('hasSeenNonLibraryMessage') === 'true'
+  );
 
   const handleLikeGame = (game) => {
     setLikedGames(prev => {
@@ -186,7 +191,7 @@ const GameList = () => {
     setActiveFilter(null);
     setCurrentPage(1);
     setIsRecommendation(false);
-    setPaxOnly(false);
+    setPaxOnly(true);
   };
 
   const handlePlayerCountChange = (event, newCount) => {
@@ -512,6 +517,7 @@ const GameList = () => {
               disliked={dislikedGames.some(g => g.id === game.id)}
               onLike={() => handleLikeGame(game)}
               onDislike={() => handleDislikeGame(game)}
+              isPaxGame={paxGameIds.includes(game.id)}
             />
           </Grid>
         ))}
@@ -547,10 +553,19 @@ const GameList = () => {
           {/* Filter Bar */}
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
             <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
-              <Tooltip title="Filter for games available at PAX">
+              <Tooltip title="Show non-library games for recommendations and information">
                 <FormControlLabel
-                  control={<Switch checked={paxOnly} onChange={(e) => setPaxOnly(e.target.checked)} />}
-                  label="PAX Games Only"
+                  control={<Switch checked={!paxOnly} onChange={(e) => {
+                    const showNonLibrary = e.target.checked;
+                    setPaxOnly(!showNonLibrary);
+                    setShowNonLibraryNotification(false);
+                    if (showNonLibrary && !hasSeenNonLibraryMessage) {
+                      setShowNonLibraryNotification(true);
+                      setHasSeenNonLibraryMessage(true);
+                      localStorage.setItem('hasSeenNonLibraryMessage', 'true');
+                    }
+                  }} />}
+                  label="All Board Games"
                   sx={{ mr: 2 }}
                   data-tour="pax-toggle"
                 />
@@ -679,7 +694,7 @@ const GameList = () => {
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   <Button size="small" variant={weight.beginner ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, beginner: !w.beginner }))}>Beginner Friendly (≤ 2.0)</Button>
                   <Button size="small" variant={weight.midweight ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, midweight: !w.midweight }))}>Midweight (2.0 - 4.0)</Button>
-                  <Button size="small" variant={weight.heavy ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, heavy: !w.heavy }))}>Heavy Cardboard (≥ 4.0)</Button>
+                  <Button size="small" variant={weight.heavy ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, heavy: !w.heavy }))}>Heavy (≥ 4.0)</Button>
                 </Box>
               )}
               {activeFilter === 'mechanics' && (
@@ -779,6 +794,17 @@ const GameList = () => {
               <Typography variant="h6">Generating recommendations...</Typography>
             </Stack>
           </Box>
+        )}
+
+        {showNonLibraryNotification && (
+          <Alert 
+            severity="info" 
+            onClose={() => setShowNonLibraryNotification(false)}
+            sx={{ mb: 2 }}
+          >
+            We are showing you non-library games for recommendation and informational purposes only. 
+            Any game without a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25 }} /> icon is not in the library.
+          </Alert>
         )}
 
         {renderGameGrid()}
