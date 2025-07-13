@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -7,13 +7,19 @@ import {
   IconButton,
   Box,
   Button,
+  Tooltip,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import AuthContext from '../context/AuthContext';
+import HelpDialog from './HelpDialog';
+import GuidedTour from './GuidedTour';
 
 function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   return (
     <AppBar position="static">
@@ -35,13 +41,35 @@ function Navbar() {
           PAX TableTop Board Game Catalog
         </Typography>
 
-        {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography sx={{ mr: 2 }}>Welcome, {user.username}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Tooltip title="Help & User Guide">
+            <Button
+              color="inherit"
+              onClick={() => setHelpOpen(true)}
+              startIcon={<HelpOutlineIcon />}
+              sx={{ mr: 3, textTransform: 'none' }}
+              data-tour="help-button"
+            >
+              <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
+                How to Use This Site
+              </Typography>
+            </Button>
+          </Tooltip>
+          
+          {user && (
             <Button color="inherit" onClick={logout}>Logout</Button>
-          </Box>
-        )}
+          )}
+        </Box>
       </Toolbar>
+      <HelpDialog 
+        open={helpOpen} 
+        onClose={() => setHelpOpen(false)}
+        onStartTour={() => setTourOpen(true)}
+      />
+      <GuidedTour 
+        isOpen={tourOpen} 
+        onClose={() => setTourOpen(false)} 
+      />
     </AppBar>
   );
 }

@@ -524,20 +524,25 @@ const GameList = () => {
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Stack spacing={2} sx={{ mb: 2 }}>
           {/* Search Input */}
-          <TextField
-            label="Search Games"
-            variant="outlined"
-            value={inputValue}
-            onChange={handleSearchChange}
-            disabled={isRecommendation}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Tooltip 
+            title={isRecommendation ? "Search is disabled in recommendation mode. Click 'Show All Games' to enable search." : "Search games by name"}
+            placement="top"
+          >
+            <TextField
+              label="Search Games"
+              variant="outlined"
+              value={inputValue}
+              onChange={handleSearchChange}
+              disabled={isRecommendation}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Tooltip>
 
           {/* Filter Bar */}
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
@@ -547,9 +552,10 @@ const GameList = () => {
                   control={<Switch checked={paxOnly} onChange={(e) => setPaxOnly(e.target.checked)} />}
                   label="PAX Games Only"
                   sx={{ mr: 2 }}
+                  data-tour="pax-toggle"
                 />
               </Tooltip>
-              <Tooltip title={sortButtonLabel}>
+              <Tooltip title={isRecommendation ? "Sort is disabled in recommendation mode" : sortButtonLabel}>
                 <Button
                   variant={isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined'}
                   onClick={() => handleToggleFilter('sort')}
@@ -560,18 +566,19 @@ const GameList = () => {
                   {sortButtonLabel}
                 </Button>
               </Tooltip>
-              <Tooltip title={playerButtonLabel}>
+              <Tooltip title={isRecommendation ? "Player filter is disabled in recommendation mode" : playerButtonLabel}>
                 <Button
                   variant={isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined'}
                   onClick={() => handleToggleFilter('players')}
                   startIcon={<PeopleIcon />}
                   disabled={isRecommendation}
                   sx={{ textTransform: 'none' }}
+                  data-tour="player-filter"
                 >
                   {playerButtonLabel}
                 </Button>
               </Tooltip>
-              <Tooltip title={weightButtonLabel}>
+              <Tooltip title={isRecommendation ? "Weight filter is disabled in recommendation mode" : weightButtonLabel}>
                 <Button
                   variant={isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined'}
                   onClick={() => handleToggleFilter('weight')}
@@ -582,7 +589,7 @@ const GameList = () => {
                   {weightButtonLabel}
                 </Button>
               </Tooltip>
-              <Tooltip title={mechanicsButtonLabel}>
+              <Tooltip title={isRecommendation ? "Mechanics filter is disabled in recommendation mode" : mechanicsButtonLabel}>
                 <Button
                   variant={isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined'}
                   onClick={() => handleToggleFilter('mechanics')}
@@ -593,7 +600,7 @@ const GameList = () => {
                   {mechanicsButtonLabel}
                 </Button>
               </Tooltip>
-              <Tooltip title={categoriesButtonLabel}>
+              <Tooltip title={isRecommendation ? "Categories filter is disabled in recommendation mode" : categoriesButtonLabel}>
                 <Button
                   variant={isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined'}
                   onClick={() => handleToggleFilter('categories')}
@@ -605,7 +612,7 @@ const GameList = () => {
                 </Button>
               </Tooltip>
             </Stack>
-            <Tooltip title="Clear all active filters and search">
+            <Tooltip title={isRecommendation ? "Reset filters is disabled in recommendation mode" : "Clear all active filters and search"}>
               <Button onClick={handleResetFilters} size="small" disabled={isRecommendation}>
                   Reset Filters
               </Button>
@@ -723,19 +730,24 @@ const GameList = () => {
           {/* Action Buttons and Filter Chips */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               {isRecommendation ? (
-                <Tooltip title="Return to the main game list">
-                  <Button variant="contained" onClick={handleShowAllGames}>
+                <Tooltip title="Return to the main game list. Click this before getting updated recommendations!">
+                  <Button 
+                    variant="contained" 
+                    onClick={handleShowAllGames}
+                    data-tour="show-all-button"
+                  >
                     Show All Games
                   </Button>
                 </Tooltip>
               ) : (
-                <Tooltip title={user ? "Get recommendations based on your liked/disliked games" : "You must be logged in to get recommendations"}>
+                <Tooltip title={user ? "Get recommendations based on your liked/disliked games. Need at least 1 liked or disliked game." : "You must be logged in to get recommendations"}>
                   <span>
                     <Button
                       onClick={handleRecommend}
                       variant="contained"
                       color="primary"
                       disabled={!user || (likedGames.length === 0 && dislikedGames.length === 0) || isRecommendationLoading}
+                      data-tour="recommend-button"
                     >
                       Recommend Games
                     </Button>

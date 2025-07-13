@@ -128,6 +128,7 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
           boxShadow: 6
         },
       }}
+      data-tour="game-card"
     >
       <Box 
         onClick={onClick} 
@@ -219,7 +220,10 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
           </Box>
         </CardContent>
       </Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, borderLeft: '1px solid', borderColor: 'divider' }}>
+      <Box 
+        sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, borderLeft: '1px solid', borderColor: 'divider' }}
+        data-tour="like-buttons"
+      >
         <Tooltip title={liked ? 'Unlike' : 'Like'} placement="left">
           <IconButton onClick={handleLikeClick} size="small">
             {liked ? <ThumbUpIcon color="success" /> : <ThumbUpOutlinedIcon />}
