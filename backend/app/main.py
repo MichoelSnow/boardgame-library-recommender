@@ -425,7 +425,7 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(security.get_current_active_user)):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Only admin users can create new users.")
-    db_user = crud.get_user_by_username(db, username=user.username)
+    db_user = crud.get_user_by_username(db, username=user.username.lower())
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)

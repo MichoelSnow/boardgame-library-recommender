@@ -83,15 +83,16 @@ def create_user_cli(username: str, password: str, is_admin: bool = False):
     
     db = SessionLocal()
     try:
-        if crud.get_user_by_username(db, username=username):
+        normalized_username = username.lower()
+        if crud.get_user_by_username(db, username=normalized_username):
             user_type = "admin" if is_admin else "regular"
-            print(f"User '{username}' already exists.")
+            print(f"User '{normalized_username}' already exists.")
             return
         
-        user = schemas.UserCreate(username=username, password=password, is_admin=is_admin)
+        user = schemas.UserCreate(username=normalized_username, password=password, is_admin=is_admin)
         crud.create_user(db, user)
         user_type = "admin" if is_admin else "regular"
-        print(f"{user_type.capitalize()} user '{username}' created successfully.")
+        print(f"{user_type.capitalize()} user '{normalized_username}' created successfully.")
     finally:
         db.close()
 
@@ -106,10 +107,11 @@ def reset_password_cli(username: str, new_password: str):
     
     db = SessionLocal()
     try:
-        success = crud.admin_reset_password(db, username=username, new_password=new_password)
+        normalized_username = username.lower()
+        success = crud.admin_reset_password(db, username=normalized_username, new_password=new_password)
         if success:
-            print(f"Password for user '{username}' updated successfully.")
+            print(f"Password for user '{normalized_username}' updated successfully.")
         else:
-            print(f"Error: User '{username}' not found.")
+            print(f"Error: User '{normalized_username}' not found.")
     finally:
         db.close() 

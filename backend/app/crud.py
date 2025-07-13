@@ -424,12 +424,12 @@ def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def get_user_by_username(db: Session, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+    return db.query(models.User).filter(func.lower(models.User.username) == username.lower()).first()
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
     db_user = models.User(
-        username=user.username,
+        username=user.username.lower(),
         hashed_password=hashed_password,
         is_admin=user.is_admin if hasattr(user, 'is_admin') else False
     )
@@ -439,7 +439,7 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 def authenticate_user(db: Session, username: str, password: str):
-    user = get_user_by_username(db, username)
+    user = get_user_by_username(db, username.lower())
     if not user:
         return False
     if not security.verify_password(password, user.hashed_password):
@@ -468,7 +468,7 @@ def change_user_password(db: Session, user_id: int, old_password: str, new_passw
     return True
 
 def admin_reset_password(db: Session, username: str, new_password: str):
-    user = get_user_by_username(db, username)
+    user = get_user_by_username(db, username.lower())
     if not user:
         return False
     
