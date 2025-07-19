@@ -262,6 +262,17 @@ def get_mechanics_cached(db: Session, skip: int = 0, limit: int = 100):
     
     return [{"boardgamemechanic_id": m[0], "boardgamemechanic_name": m[1]} for m in mechanics]
 
+def get_categories_cached(db: Session, skip: int = 0, limit: int = 100):
+    """Get categories with pagination and caching-friendly structure."""
+    categories = db.query(
+        models.Category.boardgamecategory_id,
+        models.Category.boardgamecategory_name
+    ).distinct().order_by(
+        models.Category.boardgamecategory_name
+    ).offset(skip).limit(limit).all()
+
+    return [{"boardgamecategory_id": c[0], "boardgamecategory_name": c[1]} for c in categories]
+
 def get_mechanics_count(db: Session):
     """Get total count of unique mechanics for pagination."""
     return db.query(models.Mechanic.boardgamemechanic_id).distinct().count()

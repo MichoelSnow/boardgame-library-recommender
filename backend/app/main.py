@@ -337,7 +337,7 @@ def read_mechanics_by_frequency(db: Session = Depends(get_db)):
 def read_categories_by_frequency(db: Session = Depends(get_db)):
     return crud.get_categories_by_frequency(db=db)
 
-@app.get("/api/categories", response_model=List[schemas.Category])
+@app.get("/api/categories/", response_model=List[schemas.CategoryBase])
 def read_categories(db: Session = Depends(get_db)):
     categories = crud.get_categories_cached(db)
     return categories

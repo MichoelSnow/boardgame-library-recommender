@@ -252,18 +252,22 @@ const GameList = () => {
 
   // Fetch mechanics by frequency
   const { data: popularMechanics = [] } = useQuery({
-    queryKey: ['mechanics_by_frequency'],
+    // queryKey: ['mechanics_by_frequency'],
+    queryKey: ['mechanics_alphabetically'],    
     queryFn: async () => {
-      const response = await axios.get(`${apiBaseUrl}/mechanics/by_frequency`);
+      // const response = await axios.get(`${apiBaseUrl}/mechanics/by_frequency`);
+      const response = await axios.get(`${apiBaseUrl}/mechanics/`);
       return response.data;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
   const { data: popularCategories = [] } = useQuery({
-    queryKey: ['categories_by_frequency'],
+    // queryKey: ['categories_by_frequency'],
+    queryKey: ['categories_alphabetically'],
     queryFn: async () => {
-      const response = await axios.get(`${apiBaseUrl}/categories/by_frequency`);
+      // const response = await axios.get(`${apiBaseUrl}/categories/by_frequency`);
+      const response = await axios.get(`${apiBaseUrl}/categories/`);
       return response.data;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
