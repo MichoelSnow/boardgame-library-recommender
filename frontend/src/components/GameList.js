@@ -726,45 +726,71 @@ const GameList = () => {
                 </Box>
               )}
               {activeFilter === 'mechanics' && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {popularMechanics.map(mech => (
-                    <Button
-                      key={mech.boardgamemechanic_id}
-                      variant={selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id) ? 'contained' : 'outlined'}
-                      onClick={() => {
-                        const isSelected = selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id);
-                        if (isSelected) {
-                          setSelectedMechanics(selectedMechanics.filter(m => m.boardgamemechanic_id !== mech.boardgamemechanic_id));
-                        } else {
-                          setSelectedMechanics([...selectedMechanics, mech]);
-                        }
-                      }}
-                      size="small"
-                    >
-                      {mech.boardgamemechanic_name}
-                    </Button>
-                  ))}
+                <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
+                  <Grid container spacing={1}>
+                    {popularMechanics.map(mech => (
+                      <Grid item xs={6} sm={4} md={3} key={mech.boardgamemechanic_id}>
+                        <Button
+                          fullWidth
+                          variant={selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id) ? 'contained' : 'outlined'}
+                          onClick={() => {
+                            const isSelected = selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id);
+                            if (isSelected) {
+                              setSelectedMechanics(selectedMechanics.filter(m => m.boardgamemechanic_id !== mech.boardgamemechanic_id));
+                            } else {
+                              setSelectedMechanics([...selectedMechanics, mech]);
+                            }
+                          }}
+                          size="small"
+                          sx={{ 
+                            textAlign: 'center', 
+                            height: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.2,
+                            p: 1
+                          }}
+                        >
+                          {mech.boardgamemechanic_name}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
                 </Box>
               )}
               {activeFilter === 'categories' && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {popularCategories.map(cat => (
-                    <Button
-                      key={cat.boardgamecategory_id}
-                      variant={selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id) ? 'contained' : 'outlined'}
-                      onClick={() => {
-                        const isSelected = selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id);
-                        if (isSelected) {
-                          setSelectedCategories(selectedCategories.filter(c => c.boardgamecategory_id !== cat.boardgamecategory_id));
-                        } else {
-                          setSelectedCategories([...selectedCategories, cat]);
-                        }
-                      }}
-                      size="small"
-                    >
-                      {cat.boardgamecategory_name}
-                    </Button>
-                  ))}
+                <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
+                  <Grid container spacing={1}>
+                    {popularCategories.map(cat => (
+                      <Grid item xs={6} sm={4} md={3} key={cat.boardgamecategory_id}>
+                        <Button
+                          fullWidth
+                          variant={selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id) ? 'contained' : 'outlined'}
+                          onClick={() => {
+                            const isSelected = selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id);
+                            if (isSelected) {
+                              setSelectedCategories(selectedCategories.filter(c => c.boardgamecategory_id !== cat.boardgamecategory_id));
+                            } else {
+                              setSelectedCategories([...selectedCategories, cat]);
+                            }
+                          }}
+                          size="small"
+                          sx={{ 
+                            textAlign: 'center', 
+                            height: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            fontSize: '0.8rem',
+                            lineHeight: 1.2,
+                            p: 1
+                          }}
+                        >
+                          {cat.boardgamecategory_name}
+                        </Button>
+                      </Grid>
+                    ))}
+                  </Grid>
                 </Box>
               )}
             </>
