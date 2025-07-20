@@ -305,7 +305,7 @@ async def get_filter_options(db: Session = Depends(get_db)):
 async def list_mechanics(
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100
+    limit: int = 500
 ):
     try:
         # Check cache first
