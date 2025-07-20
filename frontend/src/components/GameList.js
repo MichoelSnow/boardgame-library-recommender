@@ -881,7 +881,13 @@ const GameList = () => {
 
         {renderGameGrid()}
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 4, gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {isRecommendation 
+              ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
+              : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`
+            }
+          </Typography>
           <Pagination
             count={Math.ceil(totalGames / gamesPerPage)}
             page={currentPage}
