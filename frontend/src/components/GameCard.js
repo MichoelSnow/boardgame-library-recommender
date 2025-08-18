@@ -17,6 +17,7 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import EmergencyIcon from '@mui/icons-material/Emergency';
 import { apiBaseUrl, imageBaseUrl } from '../config';
 
 const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
@@ -226,9 +227,15 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
         data-tour="like-buttons"
       >
         {isPaxGame ? (
-          <Tooltip title="Available in PAX Library" placement="left">
+          <Tooltip title={game.avg_box_volume && game.avg_box_volume <= 100 ? 
+            "Available in PAX Library, small games section" : 
+            "Available in PAX Library"} 
+            placement="left">
             <IconButton size="small" sx={{ mb: 2, cursor: 'default' }}>
               <MenuBookIcon color="primary" />
+              {game.avg_box_volume && game.avg_box_volume <= 100 && 
+                <EmergencyIcon sx={{ position: 'absolute', top: -3, right: -3, fontSize: '1rem', color: 'primary.main' }} />
+              }
             </IconButton>
           </Tooltip>
         ) : (

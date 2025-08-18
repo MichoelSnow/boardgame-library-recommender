@@ -198,7 +198,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     return (
       <Grid container spacing={3}>
         {recommendations.map((rec) => (
-          <Grid item xs={12} sm={6} md={4} key={rec.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={rec.id}>
             <GameCard
               game={rec}
               onClick={() => handleRecommendationClick(rec)}
@@ -347,14 +347,14 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               {renderList(game.designers, 'Designers', 'designer')}
               {renderList(game.artists, 'Artists', 'artist')}
               {renderList(game.mechanics, 'Mechanics', 'mechanic')}
               {renderList(game.categories, 'Categories', 'category')}
               {renderList(game.publishers, 'Publishers', 'publisher')}
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Description
               </Typography>
@@ -368,7 +368,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                 {decodeHtmlEntities(game.description)}
               </Typography>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle1" gutterBottom>
                 Similar Games

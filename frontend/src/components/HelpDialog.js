@@ -27,6 +27,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
 import SortIcon from '@mui/icons-material/Sort';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import EmergencyIcon from '@mui/icons-material/Emergency';
 
 const HelpDialog = ({ open, onClose, onStartTour }) => {
   const [expanded, setExpanded] = useState('getting-started');
@@ -158,6 +159,11 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 Games available in the PAX library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
                 on each game card. When you toggle to "All Board Games", games without this icon are not available 
                 at the convention but are included for recommendation purposes.
+              </Typography>
+              <Typography paragraph>
+                Small games are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', color: 'primary.main' }} />
+                <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> 
+                combined icon. These games are available in the special small games section of the PAX library.
               </Typography>
             </AccordionDetails>
           </Accordion>
@@ -324,7 +330,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary={<>1. Browse PAX library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon</>}
+                    primary={<>1. Browse PAX library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon (with <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> for small games)</>}
                   />
                 </ListItem>
                 <ListItem>

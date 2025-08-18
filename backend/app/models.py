@@ -72,6 +72,7 @@ class BoardGame(Base):
     strategy_games_rank = Column(Integer, index=True)
     thematic_rank = Column(Integer, index=True)
     wargames_rank = Column(Integer, index=True)
+    avg_box_volume = Column(Integer, index=True)
     
     # Relationships - all lazy loaded by default
     mechanics = relationship("Mechanic", back_populates="game", lazy="select")

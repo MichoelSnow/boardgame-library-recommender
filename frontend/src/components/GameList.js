@@ -504,7 +504,7 @@ const GameList = () => {
       return (
         <Grid container spacing={3}>
           {Array.from(new Array(gamesPerPage)).map((_, index) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={index}>
               <GameCardSkeleton />
             </Grid>
           ))}
@@ -536,7 +536,7 @@ const GameList = () => {
     return (
       <Grid container spacing={3}>
         {listToRender.map((game) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={game.id}>
+          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={game.id}>
             <GameCard 
               game={game} 
               onClick={() => handleGameClick(game)} 
@@ -729,7 +729,7 @@ const GameList = () => {
                 <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
                   <Grid container spacing={1}>
                     {popularMechanics.map(mech => (
-                      <Grid item xs={6} sm={4} md={3} key={mech.boardgamemechanic_id}>
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={mech.boardgamemechanic_id}>
                         <Button
                           fullWidth
                           variant={selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id) ? 'contained' : 'outlined'}
@@ -763,7 +763,7 @@ const GameList = () => {
                 <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
                   <Grid container spacing={1}>
                     {popularCategories.map(cat => (
-                      <Grid item xs={6} sm={4} md={3} key={cat.boardgamecategory_id}>
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={cat.boardgamecategory_id}>
                         <Button
                           fullWidth
                           variant={selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id) ? 'contained' : 'outlined'}

@@ -15,8 +15,6 @@
 - Sort categories and mechanics alphabetically
 - align the categories and mechanics into a fixed grid if possible
 - The ability to send yourself the list of recs via email or SMS
-- Add "+" to last player count option, as it returns all games with player counts of 12 or more
-    - That's actually not true.  If a game has a min player count of 13, the 12 player count will not return that game, e.g., "Court in the Act" and "CreaCity"
 - heavier lift: add a tag search
 
 # Fly.io

@@ -136,6 +136,7 @@ class BoardGameBase(BaseModel):
     strategy_games_rank: Optional[int] = None
     thematic_rank: Optional[int] = None
     wargames_rank: Optional[int] = None
+    avg_box_volume: Optional[int] = None
     recommendation_score: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
