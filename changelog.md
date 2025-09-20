@@ -2,7 +2,9 @@
 - backend changes
     - get_ratings now builds ratings using duckdb, writing all data to the database file instead of keeping everything in memory. This makes the script much faster and requires a lot less memory
     - Switched to using .env for BGG login creds when downloading rank data
-    
+    - Added functionality to import_data script to run SQL scripts post import such as calculate avg_box_volume
+    - when updating the database through the import script only delete the boardgame data, not user data
+
 
 # 2025-09-09
 - changed the app config to auto-stop the machine

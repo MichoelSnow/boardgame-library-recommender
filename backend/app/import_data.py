@@ -18,15 +18,45 @@ backend_dir = Path(__file__).parent.parent
 project_root = backend_dir.parent
 sys.path.append(str(backend_dir))
 
-from app import models, schemas, crud
+from app import models, schemas
 from app.database import SessionLocal, engine
 
+# We'll use a function to run SQL scripts after import
+def run_post_import_scripts():
+    """Run all SQL scripts in the scripts/sql directory."""
+    # Import here to avoid circular imports
+    sql_runner_path = backend_dir / "scripts" / "sql_runner.py"
+    if not sql_runner_path.exists():
+        logger.error(f"SQL runner script not found at {sql_runner_path}")
+        return False
+    
+    # Use subprocess to run the SQL runner
+    import subprocess
+    try:
+        result = subprocess.run(
+            [sys.executable, str(sql_runner_path), "--all"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info(f"SQL runner output: {result.stdout}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running SQL scripts: {e}")
+        logger.error(f"SQL runner stderr: {e.stderr}")
+        return False
+
 # Configure logging
+# Ensure logs directory exists within the backend directory
+log_dir = backend_dir / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file_path = log_dir / "import_data.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("logs/import_data.log"), 
+        logging.FileHandler(str(log_file_path)),
         logging.StreamHandler()
     ],
 )
@@ -262,13 +292,28 @@ def import_all_data(data_dir: str, timestamp: int, delete_existing: bool = False
     """
     logger.info(f"Starting data import from {data_dir}")
     
-    # Delete existing database if requested
+    # If requested, drop only the tables related to the imported datasets (preserve users and pax tables)
     if delete_existing:
-        db_path = Path(__file__).parent.parent / "database" / "boardgames.db"
-        if db_path.exists():
-            logger.info("Deleting existing database...")
-            db_path.unlink()
-            logger.info("Existing database deleted")
+        logger.info("Dropping existing import-related tables (preserving users and pax tables)...")
+        tables_to_drop = [
+            models.Mechanic.__table__,
+            models.Category.__table__,
+            models.Designer.__table__,
+            models.Artist.__table__,
+            models.Publisher.__table__,
+            models.SuggestedPlayer.__table__,
+            models.LanguageDependence.__table__,
+            models.Integration.__table__,
+            models.Implementation.__table__,
+            models.Compilation.__table__,
+            models.Expansion.__table__,
+            models.Family.__table__,
+            models.Version.__table__,
+            models.BoardGame.__table__,
+        ]
+        # Drop children first, then parent (games)
+        models.Base.metadata.drop_all(bind=engine, tables=tables_to_drop)
+        logger.info("Import-related tables dropped")
     
     # Create database tables
     logger.info("Creating database tables...")
@@ -321,6 +366,14 @@ def import_all_data(data_dir: str, timestamp: int, delete_existing: bool = False
         logger.info(f"Successfully imported {num_games} games")
     finally:
         db.close()
+    
+    # Run post-import SQL scripts if tables were recreated
+    if delete_existing:
+        logger.info("Running post-import SQL scripts...")
+        if run_post_import_scripts():
+            logger.info("Post-import SQL scripts completed successfully")
+        else:
+            logger.error("Some data calculations may be incomplete")
 
 def main():
     """Main function to import the most recent processed data."""
