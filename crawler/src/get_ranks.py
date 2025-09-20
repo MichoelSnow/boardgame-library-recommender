@@ -14,7 +14,7 @@ Usage:
 """
 
 from bs4 import BeautifulSoup
-import json
+import os
 import requests
 from zipfile import ZipFile
 from io import BytesIO
@@ -31,6 +31,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
+from dotenv import load_dotenv, find_dotenv
 
 # Configure logging
 logging.basicConfig(
@@ -53,10 +54,12 @@ def get_driver_and_cookies():
     LOGIN_PASSWORD_FIELD = '//*[@id="inputPassword"]'
     LOGIN_BUTTON = '//*[@id="mainbody"]/div/div/gg-login-page/div[1]/div/gg-login-form/form/fieldset/div[3]/button[1]'
 
-    with open("/home/msnow/config.json", "r") as fp:
-        secrets = json.load(fp)
-    USERNAME = secrets["bgg_crawler"]["username"]
-    PASSWORD = secrets["bgg_crawler"]["password"]
+    load_dotenv(find_dotenv())
+    USERNAME = os.getenv("BGG_USERNAME")
+    PASSWORD = os.getenv("BGG_PASSWORD")
+    if not USERNAME or not PASSWORD:
+        logger.error("Missing BGG_USERNAME or BGG_PASSWORD in environment")
+        raise ValueError("Missing BGG_USERNAME or BGG_PASSWORD in environment")
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -115,9 +118,9 @@ def get_boardgame_ranks(cookies: dict, save_file: bool = False):
     queried_at_utc = datetime.now().replace(microsecond=0).isoformat()
     
     with ZipFile(BytesIO(bg_ranks_zip.content)) as archive:
-        with archive.open("boardgames_ranks.csv") as csv:
-            df_bg_ranks = pd.read_csv(csv)
-            df_bg_ranks = df_bg_ranks["name"].str.replace("[“”]", '"', regex=True)
+        with archive.open("boardgames_ranks.csv") as csv_file:
+            df_bg_ranks = pd.read_csv(csv_file)
+            df_bg_ranks["name"] = df_bg_ranks["name"].str.replace("[“”]", '"', regex=True)
             df_bg_ranks["queried_at_utc"] = queried_at_utc
             logger.info(f"Successfully loaded {len(df_bg_ranks)} boardgames")
             if save_file:
@@ -140,7 +143,7 @@ def main():
     """Main function to get board game rankings."""
     try:
         cookies = get_driver_and_cookies()
-        df_ranks = get_boardgame_ranks(cookies, save_file=True)
+        _ = get_boardgame_ranks(cookies, save_file=True)
         logger.info("Successfully completed getting board game rankings")
     except Exception as e:
         logger.error(f"Error getting board game rankings: {str(e)}")

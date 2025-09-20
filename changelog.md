@@ -1,3 +1,9 @@
+# 2025-09-20
+- backend changes
+    - get_ratings now builds ratings using duckdb, writing all data to the database file instead of keeping everything in memory. This makes the script much faster and requires a lot less memory
+    - Switched to using .env for BGG login creds when downloading rank data
+    
+
 # 2025-09-09
 - changed the app config to auto-stop the machine
     - If there is no traffic to the site for a few minutes then the site will shut down.  When someone visits the site it will start up again.  The start up time is about a minute.

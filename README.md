@@ -141,6 +141,10 @@ The application follows a modern microservices-inspired architecture with clear 
 - Python 3.10+
 - Node.js 16+
 - Chrome/Chromium (for web scraping)
+```bash
+sudo apt-get update
+sudo apt-get install -y chromium-browser chromium-chromedriver
+```
 - Poetry (Python package manager)
 - Docker (for deployment)
 
@@ -185,6 +189,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # Development settings
 DEBUG=true
+
+# BoardGameGeek credentials
+BGG_USERNAME=
+BGG_PASSWORD=
 ```
 
 ## Data Collection and Processing
@@ -226,7 +234,8 @@ python crawler/src/get_ratings.py
 This will:
 - Process games in batches
 - Collect user ratings for each game
-- Save to `data/crawler/boardgame_ratings_TIMESTAMP.parquet`
+- Persist ratings to a DuckDB database at `data/crawler/ratings.duckdb` during crawling
+- After completion, export a snapshot to `data/crawler/boardgame_ratings_TIMESTAMP.parquet`
 
 The `get_game_data` and `get_ratings` scripts support the `--continue-from-last` flag to resume from the most recent output file if the process was interrupted:
 
@@ -234,6 +243,29 @@ The `get_game_data` and `get_ratings` scripts support the `--continue-from-last`
 python crawler/src/get_game_data.py --continue-from-last
 python crawler/src/get_ratings.py --continue-from-last
 ```
+
+#### DuckDB Ratings Backend
+
+The ratings crawler now writes all raw ratings into a persistent DuckDB database. This exists alongside the main SQLite backend and is used only for ratings collection and snapshots.
+
+- Location: `data/crawler/ratings.duckdb`
+- Table: `boardgame_ratings(game_id BIGINT, rating_round DOUBLE, username TEXT)`
+- Index: `idx_boardgame_ratings` on `(game_id, rating_round, username)`
+
+Setup (one-time):
+
+```bash
+# Ensure poetry env is active
+eval $(poetry env activate)
+
+# DuckDB is installed via Poetry dependencies automatically
+poetry install
+```
+
+Usage notes:
+- Crawling streams inserts to DuckDB and de-duplicates on `(game_id, rating_round, username)`.
+- On completion, a Parquet snapshot in the previous "wide" format is exported to `boardgame_ratings_TIMESTAMP.parquet` so downstream processing remains unchanged.
+- `--continue-from-last` prefers the DuckDB snapshot as the resume seed if present, otherwise falls back to the latest Parquet file.
 
 ### 4. Process the Data
 

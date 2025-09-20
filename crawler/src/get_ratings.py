@@ -22,6 +22,8 @@ from time import sleep, time
 from pathlib import Path
 import argparse
 import bs4
+import duckdb
+import csv
 
 # Configure logging
 logging.basicConfig(
@@ -38,7 +40,7 @@ def get_boardgame_ratings(
     batch_saves: bool = False,
     batch_size: int = 20,
     log_level: str = "INFO",
-    drop_partial_ratings: bool = False,
+    keep_partial_ratings: bool = False,
     update_numratings: bool = False,
 ):
     """
@@ -66,6 +68,23 @@ def get_boardgame_ratings(
     data_dir.mkdir(parents=True, exist_ok=True)
     save_path = data_dir / f"boardgame_ratings_{query_time}.parquet"
 
+    # Initialize DuckDB persistent store for ratings
+    duckdb_path = data_dir / "ratings.duckdb"
+    con = duckdb.connect(str(duckdb_path))
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS boardgame_ratings (
+            game_id BIGINT,
+            rating_round DOUBLE,
+            username TEXT
+        );
+        """
+    )
+    # Index to speed up de-dup checks
+    con.execute(
+        "CREATE INDEX IF NOT EXISTS idx_boardgame_ratings ON boardgame_ratings(game_id, rating_round, username);"
+    )
+
     boardgame_master_dict = {}
     boardgame_data_ratings = boardgame_data.loc[boardgame_data["numratings"] > 100].sort_values(
         by="numratings", ascending=True
@@ -88,7 +107,7 @@ def get_boardgame_ratings(
         completed_ids = boardgame_data_ratings.loc[
             (boardgame_data_ratings["ratings_pulled"] - boardgame_data_ratings["numratings"])
             / (boardgame_data_ratings["numratings"])
-            >= -0.01,
+            >= -0.1,
             "id",
         ].tolist()
         logger.info(
@@ -100,16 +119,41 @@ def get_boardgame_ratings(
         df_missing_ratings = boardgame_data_ratings.loc[
             (boardgame_data_ratings["ratings_pulled"] - boardgame_data_ratings["numratings"])
             / (boardgame_data_ratings["numratings"])
-            < -0.01
+            < -0.1
         ]
         logger.info(
             f"Found {df_missing_ratings.shape[0]} boardgames with missing ratings"
         )
-        if drop_partial_ratings:
+        if not keep_partial_ratings:
             logger.info("Dropping partial ratings")
             boardgame_ratings = boardgame_ratings.loc[
                 ~(boardgame_ratings["id"].isin(df_missing_ratings["id"]))
             ]
+            # Also remove any partial rows for these games from the DuckDB snapshot
+            # so interim exports built from DuckDB cannot include half-complete data
+            if df_missing_ratings.shape[0] > 0:
+                ids_to_drop = (
+                    df_missing_ratings["id"].dropna().astype("int64").tolist()
+                )
+                if len(ids_to_drop) > 0:
+                    try:
+                        con.register(
+                            "to_delete_games", pd.DataFrame({"game_id": ids_to_drop})
+                        )
+                        con.execute(
+                            """
+                            DELETE FROM boardgame_ratings
+                            WHERE game_id IN (SELECT game_id FROM to_delete_games);
+                            """
+                        )
+                        con.unregister("to_delete_games")
+                        logger.info(
+                            f"Removed {len(ids_to_drop)} game(s) with partial ratings from DuckDB"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to delete partial ratings from DuckDB: {str(e)}"
+                        )
         else:
             logger.info(
                 "Keeping partial ratings and will continue to pull down the missing ratings"
@@ -119,7 +163,7 @@ def get_boardgame_ratings(
         df_ratings_tmp.index.name = None
         boardgame_master_dict = df_ratings_tmp.to_dict(orient="index")
 
-        if not drop_partial_ratings and df_missing_ratings.shape[0] > 0:
+        if keep_partial_ratings and df_missing_ratings.shape[0] > 0:
             for _, row in df_missing_ratings.iterrows():
                 ratings_count_dict = {row["id"]: row["numratings"]}
                 max_ratings_page = math.ceil(row["numratings"] / 100)
@@ -131,6 +175,7 @@ def get_boardgame_ratings(
                     start_page=start_page,
                     batch_saves=batch_saves,
                     save_path=save_path,
+                    duckdb_conn=con,
                 )
                 logger.info(f"Successfully completed fetching ratings for {row['id']}")
             df_ratings = (
@@ -210,32 +255,22 @@ def get_boardgame_ratings(
             ratings_count_dict=ratings_count_dict,
             batch_saves=batch_saves,
             save_path=save_path,
+            duckdb_conn=con,
         )
 
-        if batch_saves:
-            logger.info(f"Saving batch {batch_num + 1} data")
-            df_ratings = (
-                pd.DataFrame()
-                .from_dict(data=boardgame_master_dict, orient="index")
-                .reset_index(names="id")
-            )
-            df_ratings.to_parquet(save_path)
-            logger.info(f"Saved batch {batch_num + 1} data to {save_path}")
+        # Ratings are persisted to DuckDB incrementally; skip interim Parquet writes
 
     if len(boardgame_ids) > 0:
-        df_ratings = (
-            pd.DataFrame()
-            .from_dict(data=boardgame_master_dict, orient="index")
-            .reset_index(names="id")
-        )
-        logger.info("Successfully completed fetching all ratings")
-        df_ratings.to_parquet(save_path)
+        logger.info("Successfully completed fetching all ratings. Exporting snapshot to Parquet...")
+        df_ratings_wide = build_wide_ratings_df_from_duckdb(con)
+        df_ratings_wide.to_parquet(save_path)
         logger.info(f"Saved final data to {save_path}")
     else:
         logger.warning("No ratings were fetched")
 
     # Restore original logging level
     logger.setLevel(current_level)
+    con.close()
 
 
 def iterate_through_ratings_pages(
@@ -245,6 +280,7 @@ def iterate_through_ratings_pages(
     start_page: int = 1,
     batch_saves: bool = False,
     save_path: str = None,
+    duckdb_conn: duckdb.DuckDBPyConnection = None,
 ):
     """
     Helper function to iterate through paginated rating data from BGG API.
@@ -272,43 +308,54 @@ def iterate_through_ratings_pages(
         soup_rating_xml = BeautifulSoup(bgg_rating_response.content, "xml")
         ratings_xml_list = soup_rating_xml.find_all("item", attrs={"type": "boardgame"})
 
+        rows_for_page = []
         for game_xml in ratings_xml_list:
-            if int(game_xml["id"]) not in boardgame_master_dict:
-                boardgame_master_dict[int(game_xml["id"])] = {}
-            boardgame_master_dict[int(game_xml["id"])] = extract_ratings(
-                game_dict=boardgame_master_dict[int(game_xml["id"])], game_xml=game_xml
+            game_id = int(game_xml["id"])
+            if game_id not in boardgame_master_dict:
+                boardgame_master_dict[game_id] = {}
+            per_game_new = parse_ratings_to_dict(game_xml)
+            for rating_round, users in per_game_new.items():
+                if rating_round not in boardgame_master_dict[game_id]:
+                    boardgame_master_dict[game_id][rating_round] = list(users)
+                else:
+                    boardgame_master_dict[game_id][rating_round].extend(users)
+            for rating_round, users in per_game_new.items():
+                for username in users:
+                    rows_for_page.append((game_id, float(rating_round), username))
+
+        if duckdb_conn is not None and len(rows_for_page) > 0:
+            df_insert = pd.DataFrame(rows_for_page, columns=["game_id", "rating_round", "username"])
+            df_insert = df_insert.drop_duplicates()
+            duckdb_conn.register("ratings_tmp", df_insert)
+            duckdb_conn.execute(
+                """
+                INSERT INTO boardgame_ratings
+                SELECT game_id, rating_round, username
+                FROM ratings_tmp t
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM boardgame_ratings b
+                    WHERE b.game_id = t.game_id
+                      AND b.rating_round = t.rating_round
+                      AND b.username = t.username
+                );
+                """
             )
-        if batch_saves and page_num % 100 == 0:
-            df_ratings = (
-                pd.DataFrame()
-                .from_dict(data=boardgame_master_dict, orient="index")
-                .reset_index(names="id")
-            )
-            logger.info(f"Saving ratings page {page_num} of {max_ratings_page} data to {save_path}")
-            df_ratings.to_parquet(save_path)
-            logger.info(
-                f"Saved ratings page {page_num} of {max_ratings_page} data to {save_path}"
-            )
-        elif page_num % 100 == 0:
+            duckdb_conn.unregister("ratings_tmp")
+
+        if page_num % 100 == 0:
             logger.info(f"Processed ratings page {page_num} of {max_ratings_page}")
         sleep(1)
     return boardgame_master_dict
 
 
-def extract_ratings(game_dict: dict, game_xml: bs4.element.Tag):
+def parse_ratings_to_dict(game_xml: bs4.element.Tag) -> dict:
     """
-    Extract user ratings from BGG XML.
-
-    Args:
-        game_dict (dict): Dictionary to store rating data
-        game_xml (bs4.element.Tag): BeautifulSoup XML element for a game
-
-    Returns:
-        dict: Updated dictionary containing user ratings
+    Parse a game's XML into {rating_round_str: [usernames...]}
+    without mutating an existing aggregate.
     """
+    game_dict: dict = {}
     ratings_list = game_xml.find_all("comment")
     for rating in ratings_list:
-        # round the rating to the nearest 0.5
         rating_round = str(round(2 * float(rating["rating"])) / 2)
         if rating_round not in game_dict:
             game_dict[rating_round] = [rating["username"]]
@@ -317,6 +364,51 @@ def extract_ratings(game_dict: dict, game_xml: bs4.element.Tag):
     return game_dict
 
 
+def build_wide_ratings_df_from_duckdb(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """
+    Build the wide ratings DataFrame (id + rating bucket columns of username lists)
+    from the persistent DuckDB table to match prior Parquet format.
+    """
+    df_long = con.execute(
+        """
+        SELECT game_id, rating_round, list(username) AS usernames
+        FROM boardgame_ratings
+        GROUP BY game_id, rating_round
+        """
+    ).fetch_df()
+
+    df_long["usernames"] = df_long["usernames"].apply(lambda x: x.tolist())
+    df_wide = df_long.pivot(index="game_id", columns="rating_round", values="usernames")
+    df_wide.columns.name = None
+    df_wide = df_wide.reset_index(names="id")
+    df_wide.columns = df_wide.columns.astype(str)
+
+    # master: dict = {}
+    # for _, row in df_long.iterrows():
+    #     game_id = int(row["game_id"])
+    #     rating_key = str(row["rating_round"])  # keep columns as str like prior format
+    #     usernames = row["usernames"]
+    #     # DuckDB may return a list type for list_agg
+    #     if isinstance(usernames, list):
+    #         usernames_list = usernames
+    #     else:
+    #         usernames_list = [usernames]
+    #     if game_id not in master:
+    #         master[game_id] = {}
+    #     master[game_id][rating_key] = usernames_list
+
+    # if len(master) == 0:
+    #     return pd.DataFrame(columns=["id"])  # empty
+
+    # df_wide = (
+    #     pd.DataFrame()
+    #     .from_dict(data=master, orient="index")
+    #     .reset_index(names="id")
+    # )
+    return df_wide
+
+
+    
 def main():
     """Main function to get board game ratings."""
     try:
@@ -327,19 +419,29 @@ def main():
             help="Continue from the most recent output file",
         )
         parser.add_argument(
-            "--drop-partial-ratings",
-            action="store_true",
-            help="Drop games with partial ratings instead of continuing to fetch missing ratings",
-        )
-        parser.add_argument(
             "--update-numratings",
             action="store_true",
             help="Update number of ratings for games with missing ratings",
         )
+        parser.add_argument(
+            "--keep-partial-ratings",
+            action="store_true",
+            help="Keep games with partial ratings instead of dropping them",
+        )
         args = parser.parse_args()
 
-        # Get the most recent game data file
+
+        # Get the most recent game_ranks file
         data_dir = Path(__file__).parent.parent.parent / "data" / "crawler"
+        game_ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+        if not game_ranks_files:
+            raise FileNotFoundError("No game ranks files found")
+        latest_ranks = max(game_ranks_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Using game ranks file: {latest_ranks}")
+        df_ranks = pd.read_csv(latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE, usecols=["id", "is_expansion"])
+        non_expansion_ids = df_ranks.loc[df_ranks["is_expansion"] == 0, "id"].tolist()
+
+        # Get the most recent game data file        
         game_files = list(data_dir.glob("boardgame_data_*.parquet"))
         if not game_files:
             raise FileNotFoundError("No game data files found")
@@ -349,23 +451,36 @@ def main():
 
         # Read game data
         df_games = pd.read_parquet(latest_games)
+        df_games = df_games.loc[df_games["id"].isin(non_expansion_ids)]
 
-        # Get existing ratings if continuing
+        
+
+        # Get existing ratings if continuing (prefer DuckDB snapshot if present)
         existing_ratings = None
         if args.continue_from_last:
-            ratings_files = list(data_dir.glob("boardgame_ratings_*.parquet"))
-            if ratings_files:
-                latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
-                logger.info(f"Continuing from ratings file: {latest_ratings}")
-                existing_ratings = pd.read_parquet(latest_ratings)
+            duckdb_path = data_dir / "ratings.duckdb"
+            if duckdb_path.exists():
+                logger.info(f"Continuing from DuckDB ratings at: {duckdb_path}")
+                con = duckdb.connect(str(duckdb_path))
+                try:
+                    existing_ratings = build_wide_ratings_df_from_duckdb(con)
+                finally:
+                    con.close()
+                logger.info(f"Pulled ratings from DuckDB ratings at: {duckdb_path}")
+            else:
+                ratings_files = list(data_dir.glob("boardgame_ratings_*.parquet"))
+                if ratings_files:
+                    latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
+                    logger.info(f"Continuing from ratings file: {latest_ratings}")
+                    existing_ratings = pd.read_parquet(latest_ratings)
 
         # Get ratings
         get_boardgame_ratings(
-            df_games,
+            boardgame_data=df_games,
             boardgame_ratings=existing_ratings,
             batch_saves=True,
-            drop_partial_ratings=args.drop_partial_ratings,
             update_numratings=args.update_numratings,
+            keep_partial_ratings=args.keep_partial_ratings,
         )
         logger.info("Successfully completed getting board game ratings")
 
