@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  frontend-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: npm audit (frontend)
+        run: |
+          if [ -f frontend/package-lock.json ]; then
+            cd frontend
+            npm audit --audit-level=high
+          else
+            echo "No frontend/package-lock.json found; skipping npm audit."
+          fi
+
+  python-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Install Python dependencies
+        run: |
+          poetry install --no-interaction --with dev
+      - name: Poetry metadata check
+        run: |
+          poetry check
+      - name: Python format check
+        run: |
+          poetry run black --check backend crawler
+      - name: Python import sanity check
+        run: |
+          poetry run python -m compileall backend crawler
+      - name: Python tests (if runnable in CI)
+        run: |
+          if poetry run python -c "import pytest" >/dev/null 2>&1 && [ -f backend/database/boardgames.db ]; then
+            poetry run pytest backend/tests crawler/tests -q
+          else
+            echo "Skipping pytest (pytest missing or backend/database/boardgames.db not present in CI)."
+          fi
+  
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Frontend build
+        run: |
+          if [ -f frontend/package-lock.json ]; then
+            cd frontend
+            npm ci
+            npm run build
+          else
+            echo "No frontend/package-lock.json found; skipping frontend build."
+          fi

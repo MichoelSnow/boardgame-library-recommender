@@ -1,0 +1,34 @@
+name: PR Agent
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr_agent:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run PR agent
+        uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          config.model: "gemini/gemini-3-flash-preview"
+          config.fallback_models: '["gemini/gemini-2.5-flash","gemini/gemini-2.5-flash-lite"]'
+          config.max_model_tokens: "40000"
+          config.custom_model_max_tokens: "40000"
+          config.max_description_tokens: "400"
+          config.max_commits_tokens: "400"
+          pr_description.max_ai_calls: "2"
+          pr_description.enable_pr_diagram: "false"
+          pr_code_suggestions.max_number_of_calls: "2"
+          pr_code_suggestions.parallel_calls: "false"
+          github_action_config.auto_review: "true"
+          github_action_config.auto_describe: "true"
+          github_action_config.pr_actions: '["opened", "reopened"]'

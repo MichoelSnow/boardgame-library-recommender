@@ -145,6 +145,16 @@ async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
 async def api_root():
     return {"message": "Board Game Recommender API"}
 
+@app.get("/api/version")
+async def api_version():
+    """Return runtime build metadata for release traceability."""
+    return {
+        "app_version": app.version,
+        "git_sha": os.getenv("APP_GIT_SHA", "unknown"),
+        "build_timestamp": os.getenv("APP_BUILD_TIMESTAMP", "unknown"),
+        "environment": os.getenv("NODE_ENV", "development")
+    }
+
 # Move the root endpoint to /api and keep this as a fallback for API requests
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
@@ -485,4 +495,3 @@ if __name__ == "__main__":
         security.reset_password_cli(args.username, args.password)
     else:
         security.create_user_cli(args.username, args.password, args.admin)
-

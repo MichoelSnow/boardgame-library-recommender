@@ -4,6 +4,10 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
+# Build metadata
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y gcc curl sqlite3 nodejs npm && rm -rf /var/lib/apt/lists/*
 
@@ -159,6 +163,8 @@ RUN chmod +x /app/start.sh
 ENV PYTHONPATH=/app
 ENV DATABASE_DIR=/data
 ENV DATABASE_PATH=/data/boardgames.db
+ENV APP_GIT_SHA=${GIT_SHA}
+ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 # No need to set IMAGES_DIR since images will be served from BoardGameGeek
 ENV NODE_ENV=production
 
