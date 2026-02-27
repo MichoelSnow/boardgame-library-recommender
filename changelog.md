@@ -1,3 +1,13 @@
+# Release Mapping Template
+- Date:
+- Environment: `dev` or `prod`
+- Git tag:
+- Git commit SHA:
+- Fly release version:
+- Build timestamp (UTC):
+- Data/schema migration impact:
+- Notes:
+
 # 2025-09-20
 - backend changes
     - get_ratings now builds ratings using duckdb, writing all data to the database file instead of keeping everything in memory. This makes the script much faster and requires a lot less memory

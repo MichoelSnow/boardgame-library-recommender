@@ -39,14 +39,14 @@ Execution rule:
 - Full phase completion: all `P0` + `P1` items are done (`P2` may defer if explicitly tracked).
 
 ### Phase 0: Release Hygiene and Traceability (1-2 days)
-- [ ] [P1] Add Docker build arg `GIT_SHA`.
-- [ ] [P1] Set runtime env var `APP_GIT_SHA` from build arg.
-- [ ] [P0] Add `/api/version` endpoint returning commit SHA, build timestamp, app version, and environment.
-- [ ] [P0] Add deploy/rollback runbook in `docs/` with smoke-test commands.
-- [ ] [P1] Add release map entry format in changelog (`tag <-> commit <-> fly release`).
+- [x] [P1] Add Docker build arg `GIT_SHA`.
+- [x] [P1] Set runtime env var `APP_GIT_SHA` from build arg.
+- [x] [P0] Add `/api/version` endpoint returning commit SHA, build timestamp, app version, and environment.
+- [x] [P0] Add deploy/rollback runbook in `docs/` with smoke-test commands.
+- [x] [P1] Add release map entry format in changelog (`tag <-> commit <-> fly release`).
 - [ ] [P0] Verify on deployed app that `/api/version` returns expected SHA.
-- [ ] [P1] Add/standardize GitHub Actions CI workflow file(s) (`.github/workflows/ci.yml` or equivalent).
-- [ ] [P1] Configure PR-Agent (AI code review) integration and document usage/guardrails.
+- [x] [P1] Add/standardize GitHub Actions CI workflow file(s) (`.github/workflows/ci.yml` or equivalent).
+- [x] [P1] Configure PR-Agent (AI code review) integration and document usage/guardrails.
 
 ### Phase 1: Environment Strategy (Dev vs Prod) (1-2 days)
 - [ ] [P0] Define two Fly environments/apps: `dev` and `prod`.
@@ -203,6 +203,10 @@ Execution rule:
 - [ ] [P0] Add required status checks in branch protection for `main`.
 - [ ] [P0] Enforce merge blocking on failed lint/tests/security checks.
 - [ ] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
+- [ ] [P0] Re-enable `python-quality` CI job and require it to pass.
+- [ ] [P0] Re-enable `frontend-build` CI job and require it to pass.
+- [ ] [P1] Re-enable `frontend-audit` CI job with agreed vulnerability policy (baseline/allowlist/threshold).
+- [ ] [P0] Make Python CI tests deterministic by creating a CI test DB fixture/setup step (no silent test skips allowed).
 - [ ] [P1] Add a `Quality Commands` section in docs with exact local commands:
 - [ ] [P1] Python format/lint/fix commands (`black`, `ruff`).
 - [ ] [P1] Frontend format/lint commands (`prettier`, `eslint`).
