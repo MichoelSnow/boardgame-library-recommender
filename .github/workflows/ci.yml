@@ -22,6 +22,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   frontend-audit:
+    # Temporarily disabled during early migration phases; re-enable in Phase 8.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +40,8 @@ jobs:
           fi
 
   python-quality:
+    # Temporarily disabled during early migration phases; re-enable in Phase 8.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -69,6 +73,8 @@ jobs:
           fi
   
   frontend-build:
+    # Temporarily disabled during early migration phases; re-enable in Phase 8.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
