@@ -45,6 +45,8 @@ Execution rule:
 - [ ] [P0] Add deploy/rollback runbook in `docs/` with smoke-test commands.
 - [ ] [P1] Add release map entry format in changelog (`tag <-> commit <-> fly release`).
 - [ ] [P0] Verify on deployed app that `/api/version` returns expected SHA.
+- [ ] [P1] Add/standardize GitHub Actions CI workflow file(s) (`.github/workflows/ci.yml` or equivalent).
+- [ ] [P1] Configure PR-Agent (AI code review) integration and document usage/guardrails.
 
 ### Phase 1: Environment Strategy (Dev vs Prod) (1-2 days)
 - [ ] [P0] Define two Fly environments/apps: `dev` and `prod`.
