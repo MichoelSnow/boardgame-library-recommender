@@ -206,6 +206,7 @@ Execution rule:
 - [ ] [P0] Re-enable `python-quality` CI job and require it to pass.
 - [ ] [P0] Re-enable `frontend-build` CI job and require it to pass.
 - [ ] [P1] Re-enable `frontend-audit` CI job with agreed vulnerability policy (baseline/allowlist/threshold).
+- [ ] [P0] Make Python CI tests deterministic by creating a CI test DB fixture/setup step (no silent test skips allowed).
 - [ ] [P1] Add a `Quality Commands` section in docs with exact local commands:
 - [ ] [P1] Python format/lint/fix commands (`black`, `ruff`).
 - [ ] [P1] Frontend format/lint commands (`prettier`, `eslint`).
