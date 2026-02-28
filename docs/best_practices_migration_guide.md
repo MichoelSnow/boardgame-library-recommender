@@ -44,22 +44,22 @@ Execution rule:
 - [x] [P0] Add `/api/version` endpoint returning commit SHA, build timestamp, app version, and environment.
 - [x] [P0] Add deploy/rollback runbook in `docs/` with smoke-test commands.
 - [x] [P1] Add release map entry format in changelog (`tag <-> commit <-> fly release`).
-- [ ] [P0] Verify on deployed app that `/api/version` returns expected SHA.
+- [x] [P0] Verify on deployed app that `/api/version` returns expected SHA.
 - [x] [P1] Add/standardize GitHub Actions CI workflow file(s) (`.github/workflows/ci.yml` or equivalent).
 - [x] [P1] Configure PR-Agent (AI code review) integration and document usage/guardrails.
 
 ### Phase 1: Environment Strategy (Dev vs Prod) (1-2 days)
-- [ ] [P0] Define two Fly environments/apps: `dev` and `prod`.
-- [ ] [P0] Define separate persistent data volumes for `dev` and `prod`.
-- [ ] [P0] Define separate env var sets/secrets for `dev` and `prod`.
-- [ ] [P1] Document branch-to-environment deployment mapping.
-- [ ] [P0] Document promotion flow: deploy to `dev`, validate, then promote to `prod`.
-- [ ] [P0] Document emergency rollback flow for `prod` and verification steps post-rollback.
-- [ ] [P1] Define Fly config parity policy (`fly.toml` templates for dev/prod; only intentional differences allowed).
-- [ ] [P2] Document Fly region strategy (single-region vs multi-region) and rationale.
-- [ ] [P1] Define Fly resource sizing baseline (CPU/RAM/concurrency) for each environment.
-- [ ] [P2] Define scaling trigger thresholds and runbook for resizing.
-- [ ] [P0] Define strict CORS policy per environment (explicit allowed origins; no wildcard+credentials in production).
+- [x] [P0] Define two Fly environments/apps: `dev` and `prod`.
+- [x] [P0] Define separate persistent data volumes for `dev` and `prod`.
+- [x] [P0] Define separate env var sets/secrets for `dev` and `prod`.
+- [x] [P1] Document branch-to-environment deployment mapping.
+- [x] [P0] Document promotion flow: deploy to `dev`, validate, then promote to `prod`.
+- [x] [P0] Document emergency rollback flow for `prod` and verification steps post-rollback.
+- [x] [P1] Define Fly config parity policy (`fly.toml` templates for dev/prod; only intentional differences allowed).
+- [x] [P2] Document Fly region strategy (single-region vs multi-region) and rationale.
+- [x] [P1] Define Fly resource sizing baseline (CPU/RAM/concurrency) for each environment.
+- [x] [P2] Define scaling trigger thresholds and runbook for resizing.
+- [x] [P0] Define strict CORS policy per environment (explicit allowed origins; no wildcard+credentials in production).
 
 ### Phase 2: Contract Correctness (3-5 days)
 - [ ] [P1] Audit backend models/schemas/crud for naming mismatches and broken paths.
@@ -67,10 +67,11 @@ Execution rule:
 - [ ] [P1] Audit frontend field usage against backend schema.
 - [ ] [P0] Fix known frontend mismatch (`minimum_age` -> `min_age`) and similar issues.
 - [ ] [P1] Add explicit API validation for query params and sort fields.
-- [ ] [P1] Decide recommender artifact policy (fail-fast or degraded mode).
-- [ ] [P0] Implement chosen policy with explicit logs and API behavior.
+- [x] [P1] Decide recommender artifact policy (fail-fast or degraded mode).
+- [x] [P0] Implement chosen policy with explicit logs and API behavior.
+- [ ] [P0] Add `pytest` to the project dev toolchain/environment and verify it runs locally.
 - [ ] [P0] Add tests for the chosen policy.
-- [ ] [P0] Define degraded-mode API response contract for recommendation endpoints.
+- [x] [P0] Define degraded-mode API response contract for recommendation endpoints.
 - [ ] [P1] Define frontend degraded-state UX copy and behavior when recommendations are unavailable.
 
 ### Phase 3: Promotion Gates (Pre-Prod Validation) (1-2 days)
@@ -82,7 +83,7 @@ Execution rule:
 - [ ] [P1] Define pass/fail criteria and who can approve promotion (you).
 - [ ] [P1] Add checklist template for each promotion event.
 - [ ] [P1] Add performance regression gate (baseline latency/error thresholds) before prod promotion.
-- [ ] [P1] Define Fly deploy strategy and document when to use it.
+- [x] [P1] Define Fly deploy strategy and document when to use it.
 - [ ] [P0] Verify Fly health checks pass before marking deploy successful.
 - [ ] [P1] Record deploy traceability on each promotion (git SHA, Fly release version, migration/version marker).
 - [ ] [P0] Document and test Fly rollback command path for failed promotions.
@@ -169,9 +170,9 @@ Execution rule:
 - [ ] [P1] Define performance regression thresholds and failure policy.
 
 ### Phase 7: Security Hardening (2-4 days)
-- [ ] [P0] Remove insecure production fallback behavior for `SECRET_KEY`.
-- [ ] [P0] Make production startup fail if required security env vars are missing.
-- [ ] [P1] Add `gitleaks` to CI.
+- [x] [P0] Remove insecure production fallback behavior for `SECRET_KEY`.
+- [x] [P0] Make production startup fail if required security env vars are missing.
+- [x] [P1] Add `gitleaks` to CI.
 - [ ] [P1] Add Python dependency audit (`pip-audit` or equivalent) to CI.
 - [ ] [P1] Add npm dependency audit policy to CI.
 - [ ] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
@@ -286,12 +287,12 @@ Execution rule:
 13. Phase 12
 
 ## Definition of Done: "Best Practices Baseline"
-- [ ] [P1] Runtime release metadata available via `/api/version`.
+- [x] [P1] Runtime release metadata available via `/api/version`.
 - [ ] [P1] CI enforces lint, tests, and security checks on every PR.
 - [ ] [P1] Core backend and frontend flows have regression coverage.
 - [ ] [P1] Deploy/rollback runbook exists and has been exercised.
 - [ ] [P1] Known schema/contract mismatches are resolved.
-- [ ] [P1] Dev and prod environments are separated and documented.
+- [x] [P1] Dev and prod environments are separated and documented.
 - [ ] [P1] Promotion to prod requires passing pre-prod validation checklist.
 - [ ] [P1] Production supports degraded recommendation mode with email alerts for embedding failures.
 - [ ] [P1] Toolchain is modernized to Poetry `2.3.x` and latest compatible Python target (`3.13` preferred, `3.12` fallback).

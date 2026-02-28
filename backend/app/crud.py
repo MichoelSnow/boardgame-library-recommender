@@ -344,10 +344,7 @@ def get_recommendations(
     Get game recommendations based on liked and disliked games.
     """
     from . import recommender  # Lazy import to avoid circular dependencies
-    
-    # Load model if needed
-    recommender.ModelManager.get_instance().load_model()
-    
+
     return recommender.get_recommendations(
         db=db,
         limit=limit,

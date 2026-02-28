@@ -1,0 +1,31 @@
+# fly.dev.toml app configuration file for pax-tt-app-dev
+
+app = 'pax-tt-app-dev'
+primary_region = 'iad'
+
+[env]
+  DATABASE_PATH = "/data/boardgames.db"
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  size = 'shared-cpu-4x'
+
+[mounts]
+  source = "boardgames_data_dev"
+  destination = "/data"
+
+[[restart]]
+  policy = "on-failure"
+  retries = 3
+
+[processes]
+  app = "/app/start.sh"

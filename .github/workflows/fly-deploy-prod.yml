@@ -1,17 +1,23 @@
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+# Manual promotion workflow for production deploys after dev validation.
 
-name: Fly Deploy Dev
+name: Fly Deploy Prod
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Branch, tag, or commit SHA to deploy to production"
+        required: false
+        default: "main"
+
 jobs:
   deploy:
-    name: Deploy dev app
+    name: Deploy prod app
     runs-on: ubuntu-latest
-    concurrency: deploy-dev
+    concurrency: deploy-prod
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Build metadata
         run: |
@@ -20,8 +26,8 @@ jobs:
       - name: Deploy
         run: |
           flyctl deploy --remote-only \
-            -c fly.dev.toml \
-            -a pax-tt-app-dev \
+            -c fly.toml \
+            -a pax-tt-app \
             --build-arg GIT_SHA="${{ env.DEPLOY_GIT_SHA }}" \
             --build-arg BUILD_TIMESTAMP="${{ env.BUILD_TIMESTAMP }}"
         env:

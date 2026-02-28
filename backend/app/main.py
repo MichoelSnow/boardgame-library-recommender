@@ -13,14 +13,10 @@ from pathlib import Path
 from . import crud, models, schemas, recommender, security
 from .database import engine, SessionLocal, CORSAwareStaticFiles
 import time
-from functools import lru_cache
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
-# import sys
-from pathlib import Path
-from fastapi import APIRouter
 
 # Configure logging
 logging.basicConfig(
@@ -44,10 +40,40 @@ app = FastAPI(
     version="1.0.0"
 )
 
+def get_cors_origins() -> List[str]:
+    """Resolve CORS origins from env with safe defaults."""
+    env_value = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    node_env = os.getenv("NODE_ENV", "development").lower()
+
+    if env_value.strip():
+        origins = [origin.strip() for origin in env_value.split(",") if origin.strip()]
+    elif node_env == "production":
+        # Production defaults to explicit origins only (no wildcard).
+        origins = [
+            "https://pax-tt-app.fly.dev",
+            "https://pax-tt-app-dev.fly.dev",
+        ]
+    else:
+        origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+
+    if node_env == "production" and ("*" in origins or not origins):
+        raise RuntimeError(
+            "Invalid production CORS configuration. "
+            "Set explicit CORS_ALLOWED_ORIGINS (comma-separated)."
+        )
+    return origins
+
+# Resolve CORS config once at startup so invalid production config fails fast.
+cors_origins = get_cors_origins()
+logger.info("Configured CORS origins: %s", cors_origins)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -364,7 +390,21 @@ async def get_pax_game_ids(db: Session = Depends(get_db)):
 async def startup_event():
     """Load the recommender model on startup."""
     logger.info("Loading recommender model...")
-    recommender.ModelManager.get_instance().load_model()
+    try:
+        recommender.ModelManager.get_instance().load_model()
+    except FileNotFoundError as exc:
+        logger.error(
+            "Recommendation model unavailable at startup: %s. "
+            "The app will stay up, but recommendations will return empty results.",
+            exc,
+        )
+    except Exception as exc:
+        logger.error(
+            "Recommendation model failed to load at startup: %s. "
+            "The app will stay up, but recommendations may be unavailable.",
+            exc,
+            exc_info=True,
+        )
 
 class RecommendationRequest(schemas.BaseModel):
     liked_games: Optional[List[int]] = None
