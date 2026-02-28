@@ -13,6 +13,7 @@
 - `flyctl` authenticated.
 - Correct app selected (`dev` or `prod`).
 - Required secrets are already set in Fly.
+- Local development also requires `.env` with `SECRET_KEY` (minimum 32 characters) before the backend will start.
 
 ## Deploy to Dev
 This is the normal path for `main` branch changes.

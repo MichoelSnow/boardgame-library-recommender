@@ -25,6 +25,14 @@ class ModelManager:
             cls._instance = cls()
         return cls._instance
 
+    @staticmethod
+    def _extract_timestamp(file_path: Path, prefix: str) -> Optional[str]:
+        stem = file_path.stem
+        expected_prefix = f"{prefix}_"
+        if not stem.startswith(expected_prefix):
+            return None
+        return stem[len(expected_prefix):]
+
     def load_model(self):
         """Load the most recent game embeddings from the data directory."""
         if self._game_embeddings is not None:
@@ -40,9 +48,35 @@ class ModelManager:
         if not reverse_mappings_files:
             raise FileNotFoundError("No reverse mapping files found")
 
-        latest_game_embeddings = max(game_embeddings_files, key=lambda x: x.stat().st_mtime)
-        latest_reverse_mappings = max(reverse_mappings_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Loading embeddings from: {latest_game_embeddings}")
+        reverse_mappings_by_timestamp = {}
+        for mapping_file in reverse_mappings_files:
+            timestamp = self._extract_timestamp(mapping_file, "reverse_mappings")
+            if timestamp:
+                reverse_mappings_by_timestamp[timestamp] = mapping_file
+
+        matched_pairs = []
+        for embeddings_file in game_embeddings_files:
+            timestamp = self._extract_timestamp(embeddings_file, "game_embeddings")
+            if not timestamp:
+                continue
+            mapping_file = reverse_mappings_by_timestamp.get(timestamp)
+            if mapping_file:
+                matched_pairs.append((embeddings_file, mapping_file))
+
+        if not matched_pairs:
+            raise FileNotFoundError(
+                "No matched embeddings/reverse mapping artifact pairs found"
+            )
+
+        latest_game_embeddings, latest_reverse_mappings = max(
+            matched_pairs,
+            key=lambda pair: pair[0].stat().st_mtime,
+        )
+        logger.info(
+            "Loading embeddings from: %s with mapping: %s",
+            latest_game_embeddings,
+            latest_reverse_mappings,
+        )
 
         # Load the embeddings
         self._game_embeddings = sparse.load_npz(latest_game_embeddings)
