@@ -13,11 +13,16 @@ import time
 import csv
 import argparse
 
+try:
+    from .logging_utils import build_log_handlers
+except ImportError:
+    from logging_utils import build_log_handlers
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("data_processor.log"), logging.StreamHandler()],
+    handlers=build_log_handlers("data_processor.log"),
 )
 logger = logging.getLogger(__name__)
 

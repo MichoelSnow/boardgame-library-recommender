@@ -20,6 +20,7 @@ sys.path.append(str(backend_dir))
 
 from app import models, schemas
 from app.database import SessionLocal, engine
+from app.logging_utils import build_log_handlers
 
 # We'll use a function to run SQL scripts after import
 def run_post_import_scripts():
@@ -47,18 +48,10 @@ def run_post_import_scripts():
         return False
 
 # Configure logging
-# Ensure logs directory exists within the backend directory
-log_dir = backend_dir / "logs"
-log_dir.mkdir(parents=True, exist_ok=True)
-log_file_path = log_dir / "import_data.log"
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(str(log_file_path)),
-        logging.StreamHandler()
-    ],
+    handlers=build_log_handlers("import_data.log"),
 )
 logger = logging.getLogger(__name__)
 

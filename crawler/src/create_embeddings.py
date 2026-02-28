@@ -8,11 +8,16 @@ import logging
 from pathlib import Path
 import json
 
+try:
+    from .logging_utils import build_log_handlers
+except ImportError:
+    from logging_utils import build_log_handlers
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("recommender.log"), logging.StreamHandler()],
+    handlers=build_log_handlers("recommender.log"),
 )
 logger = logging.getLogger(__name__)
 

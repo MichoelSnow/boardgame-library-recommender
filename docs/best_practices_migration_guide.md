@@ -17,9 +17,52 @@ _Last updated: 2026-02-27_
 - Known-good tag/release mapping exists:
   - Git tag: `prod-v0.1`
   - Fly release: `v34`
+- Current semantic app version baseline should be treated as:
+  - `0.1.0`
 - Local repo may contain additional unpushed dependency updates; this guide assumes work proceeds from the tagged baseline plus new planned changes.
 - [x] [P0] Known-good production baseline tag exists (`prod-v0.1`).
 - [x] [P0] Baseline Fly release mapping is recorded (`v34`).
+
+## Release Increment Policy
+- Do not bump the app version on every commit.
+- `dev` deploys should normally keep the same app version and rely on `git_sha` + `build_timestamp` for traceability.
+- Every intentional `prod` release should bump the app version by at least one increment.
+- Before `1.0.0`, treat:
+  - patch bumps as internal hardening and bug-fix releases
+  - minor bumps as the correct place for breaking changes or meaningful user-visible capability changes
+
+### Recommended Phase-to-Version Mapping
+- Phases 0-3:
+  - default release type: patch
+  - rationale: release hygiene, environment setup, contract correctness, promotion safety
+  - example: `0.1.0` -> `0.1.1`
+- Phase 4:
+  - default release type: no bump for docs-only evaluation
+  - bump to minor only if you ship a real architecture/runtime decision to `prod`
+  - example: `0.1.1` -> `0.2.0`
+- Phase 5:
+  - default release type: patch
+  - rationale: repo structure and naming cleanup should not usually change user-facing behavior
+- Phase 6:
+  - default release type: no bump for test-only work
+  - patch if bug fixes are bundled into the release that goes to `prod`
+- Phase 7:
+  - default release type: patch
+  - rationale: security hardening should produce a distinct production release, even if user-visible behavior is mostly unchanged
+- Phase 8:
+  - default release type: no bump for CI-only work
+  - patch only if user-facing or runtime behavior changes ship with it
+- Phase 9:
+  - default release type: patch
+  - rationale: toolchain/runtime modernization changes deployment/runtime expectations even if features do not change
+
+### Version Bump Timing
+1. Complete the milestone you intend to ship.
+2. Validate the candidate in `dev`.
+3. Decide the next version number.
+4. Update the version in the repo.
+5. Promote that exact validated SHA to `prod`.
+6. Tag the production release with the matching semantic version.
 
 ## Project-Specific Risks to Address
 - Schema/model naming drift in some backend CRUD paths.
@@ -62,31 +105,33 @@ Execution rule:
 - [x] [P0] Define strict CORS policy per environment (explicit allowed origins; no wildcard+credentials in production).
 
 ### Phase 2: Contract Correctness (3-5 days)
-- [ ] [P1] Audit backend models/schemas/crud for naming mismatches and broken paths.
-- [ ] [P0] Fix known backend path mismatches (including CRUD helper fields).
-- [ ] [P1] Audit frontend field usage against backend schema.
-- [ ] [P0] Fix known frontend mismatch (`minimum_age` -> `min_age`) and similar issues.
-- [ ] [P1] Add explicit API validation for query params and sort fields.
+- [x] [P1] Audit backend models/schemas/crud for naming mismatches and broken paths.
+- [x] [P0] Fix known backend path mismatches (including CRUD helper fields).
+- [x] [P1] Audit frontend field usage against backend schema.
+- [x] [P0] Fix known frontend mismatch (`minimum_age` -> `min_age`) and similar issues.
+- [x] [P1] Add explicit API validation for query params and sort fields.
 - [x] [P1] Decide recommender artifact policy (fail-fast or degraded mode).
 - [x] [P0] Implement chosen policy with explicit logs and API behavior.
-- [ ] [P0] Add `pytest` to the project dev toolchain/environment and verify it runs locally.
-- [ ] [P0] Add tests for the chosen policy.
+- [x] [P0] Add `pytest` to the project dev toolchain/environment and verify it runs locally.
+- [x] [P0] Add tests for the chosen policy.
 - [x] [P0] Define degraded-mode API response contract for recommendation endpoints.
-- [ ] [P1] Define frontend degraded-state UX copy and behavior when recommendations are unavailable.
+- [x] [P1] Centralize local file-based logs under the root `logs/` directory and remove scattered log outputs from source directories.
+- [x] [P1] Define frontend degraded-state UX copy and behavior when recommendations are unavailable.
 
 ### Phase 3: Promotion Gates (Pre-Prod Validation) (1-2 days)
-- [ ] [P1] Define required checks before prod promotion:
-- [ ] [P1] API smoke tests.
-- [ ] [P1] Auth flow smoke tests.
-- [ ] [P1] Recommendation endpoint health check.
-- [ ] [P0] Embedding file integrity/existence check in target environment.
-- [ ] [P1] Define pass/fail criteria and who can approve promotion (you).
-- [ ] [P1] Add checklist template for each promotion event.
-- [ ] [P1] Add performance regression gate (baseline latency/error thresholds) before prod promotion.
+- [x] [P1] Define required checks before prod promotion.
+- [x] [P1] API smoke tests.
+- [x] [P1] Auth flow smoke tests.
+- [x] [P1] Recommendation endpoint health check.
+- [x] [P0] Embedding file integrity/existence check in target environment.
+- [x] [P1] Define pass/fail criteria and who can approve promotion (you).
+- [x] [P1] Add checklist template for each promotion event.
+- [x] [P1] Add performance regression gate (baseline latency/error thresholds) before prod promotion.
 - [x] [P1] Define Fly deploy strategy and document when to use it.
 - [ ] [P0] Verify Fly health checks pass before marking deploy successful.
-- [ ] [P1] Record deploy traceability on each promotion (git SHA, Fly release version, migration/version marker).
-- [ ] [P0] Document and test Fly rollback command path for failed promotions.
+- [x] [P1] Record deploy traceability on each promotion (git SHA, Fly release version, migration/version marker).
+- [x] [P1] Make the app read its semantic version from one canonical source so release bumps happen in one place.
+- [x] [P0] Document and test Fly rollback command path for failed promotions.
 
 ### Phase 4: Architecture and Tooling Reassessment (3-6 days)
 - [ ] [P1] Document current and expected usage profile:

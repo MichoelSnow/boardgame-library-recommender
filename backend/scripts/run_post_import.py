@@ -17,19 +17,13 @@ sys.path.append(str(backend_dir))
 
 # Import SQL runner
 from sql_runner import run_all_scripts, run_specific_scripts
+from app.logging_utils import build_log_handlers
 
 # Configure logging
-log_dir = backend_dir / "logs"
-log_dir.mkdir(parents=True, exist_ok=True)
-log_file_path = log_dir / "post_import.log"
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(str(log_file_path)),
-        logging.StreamHandler()
-    ],
+    handlers=build_log_handlers("post_import.log"),
 )
 logger = logging.getLogger(__name__)
 
