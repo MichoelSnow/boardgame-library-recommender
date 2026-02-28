@@ -25,10 +25,7 @@ backend/database/images/*.jpg
 backend/database/images/*.png
 
 # Logs
-*.log
-import.log
-backend/logs/*.log
-crawler/logs/*.log
+logs/*.log
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
@@ -55,3 +52,4 @@ frontend/build/
 
 # Scratch
 cursor_plans.MD
+.tmp/

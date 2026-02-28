@@ -7,6 +7,34 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _get_or_create_named_relation(
+    db: Session,
+    model,
+    game_id: int,
+    name_field: str,
+    name_value: str,
+):
+    """Return an existing named relation row or create it if missing."""
+    existing = (
+        db.query(model)
+        .filter(
+            model.game_id == game_id,
+            getattr(model, name_field) == name_value,
+        )
+        .first()
+    )
+    if existing is not None:
+        return existing
+
+    relation = model(
+        game_id=game_id,
+        **{name_field: name_value},
+    )
+    db.add(relation)
+    db.commit()
+    return relation
+
 # def get_games(db: Session, skip: int = 0, limit: int = 100):
 #     return db.query(models.BoardGame).offset(skip).limit(limit).all()
 
@@ -239,10 +267,10 @@ def create_game(db: Session, game: schemas.BoardGameCreate):
     return db_game
 
 def get_filter_options(db: Session):
-    designers = db.query(models.Designer.name).distinct().all()
-    mechanics = db.query(models.Mechanic.name).distinct().all()
-    categories = db.query(models.Category.name).distinct().all()
-    publishers = db.query(models.Publisher.name).distinct().all()
+    designers = db.query(models.Designer.boardgamedesigner_name).distinct().all()
+    mechanics = db.query(models.Mechanic.boardgamemechanic_name).distinct().all()
+    categories = db.query(models.Category.boardgamecategory_name).distinct().all()
+    publishers = db.query(models.Publisher.boardgamepublisher_name).distinct().all()
     
     return {
         "designers": [d[0] for d in designers],
@@ -278,34 +306,49 @@ def get_mechanics_count(db: Session):
     return db.query(models.Mechanic.boardgamemechanic_id).distinct().count()
 
 def add_mechanic(db: Session, game_id: int, mechanic_name: str):
-    mechanic = models.Mechanic(game_id=game_id, name=mechanic_name)
-    db.add(mechanic)
-    db.commit()
-    return mechanic
+    return _get_or_create_named_relation(
+        db=db,
+        model=models.Mechanic,
+        game_id=game_id,
+        name_field="boardgamemechanic_name",
+        name_value=mechanic_name,
+    )
 
 def add_category(db: Session, game_id: int, category_name: str):
-    category = models.Category(game_id=game_id, name=category_name)
-    db.add(category)
-    db.commit()
-    return category
+    return _get_or_create_named_relation(
+        db=db,
+        model=models.Category,
+        game_id=game_id,
+        name_field="boardgamecategory_name",
+        name_value=category_name,
+    )
 
 def add_designer(db: Session, game_id: int, designer_name: str):
-    designer = models.Designer(game_id=game_id, name=designer_name)
-    db.add(designer)
-    db.commit()
-    return designer
+    return _get_or_create_named_relation(
+        db=db,
+        model=models.Designer,
+        game_id=game_id,
+        name_field="boardgamedesigner_name",
+        name_value=designer_name,
+    )
 
 def add_artist(db: Session, game_id: int, artist_name: str):
-    artist = models.Artist(game_id=game_id, name=artist_name)
-    db.add(artist)
-    db.commit()
-    return artist
+    return _get_or_create_named_relation(
+        db=db,
+        model=models.Artist,
+        game_id=game_id,
+        name_field="boardgameartist_name",
+        name_value=artist_name,
+    )
 
 def add_publisher(db: Session, game_id: int, publisher_name: str):
-    publisher = models.Publisher(game_id=game_id, name=publisher_name)
-    db.add(publisher)
-    db.commit()
-    return publisher
+    return _get_or_create_named_relation(
+        db=db,
+        model=models.Publisher,
+        game_id=game_id,
+        name_field="boardgamepublisher_name",
+        name_value=publisher_name,
+    )
 
 def get_mechanics_by_frequency(db: Session):
     """Returns mechanics sorted by frequency of use in games."""

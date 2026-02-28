@@ -33,11 +33,16 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from dotenv import load_dotenv, find_dotenv
 
+try:
+    from .logging_utils import build_log_handlers
+except ImportError:
+    from logging_utils import build_log_handlers
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("get_ranks.log"), logging.StreamHandler()],
+    handlers=build_log_handlers("get_ranks.log"),
 )
 logger = logging.getLogger(__name__)
 

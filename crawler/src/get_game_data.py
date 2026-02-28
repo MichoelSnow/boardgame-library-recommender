@@ -25,11 +25,16 @@ import argparse
 import bs4
 import html
 import csv
+
+try:
+    from .logging_utils import build_log_handlers
+except ImportError:
+    from logging_utils import build_log_handlers
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("get_game_data.log"), logging.StreamHandler()],
+    handlers=build_log_handlers("get_game_data.log"),
 )
 logger = logging.getLogger(__name__)
 

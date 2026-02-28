@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, memo, useContext } from 'react';
+import React, { useState, useEffect, memo, useContext } from 'react';
 import {
   Container,
   Grid,
@@ -22,7 +22,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import debounce from 'lodash/debounce';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
@@ -118,6 +117,7 @@ const GameList = () => {
   const [paxGameIds, setPaxGameIds] = useState([]); // Store PAX game IDs for filtering
   const [paxOnly, setPaxOnly] = useState(true);
   const [showNonLibraryNotification, setShowNonLibraryNotification] = useState(false);
+  const [recommendationNotice, setRecommendationNotice] = useState(null);
   const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
     localStorage.getItem('hasSeenNonLibraryMessage') === 'true'
   );
@@ -163,6 +163,9 @@ const GameList = () => {
   const handleRecommend = async () => {
     try {
       setIsRecommendationLoading(true);
+      setRecommendationNotice(null);
+      const fallbackGames = response?.games || [];
+      const fallbackTotal = response?.total || 0;
       const recommendationPayload = {
         liked_games: likedGames.map(g => g.id),
         disliked_games: dislikedGames.map(g => g.id),
@@ -172,6 +175,39 @@ const GameList = () => {
         ...recommendationPayload,
         pax_only: false
       });
+      const recommendationsAvailable =
+        allResponse.headers['x-recommendations-available'] !== 'false';
+
+      if (!recommendationsAvailable) {
+        setAllRecommendations([]);
+        setGameList(fallbackGames);
+        setTotalGames(fallbackTotal);
+        setHasRecommendations(false);
+        setShowingRecommendations(false);
+        setIsRecommendation(false);
+        setRecommendationNotice({
+          severity: 'warning',
+          message:
+            'Recommendations are temporarily unavailable while recommendation artifacts are missing or invalid. The rest of the app is still available.',
+        });
+        return;
+      }
+
+      if (allResponse.data.length === 0) {
+        setAllRecommendations([]);
+        setGameList(fallbackGames);
+        setTotalGames(fallbackTotal);
+        setHasRecommendations(false);
+        setShowingRecommendations(false);
+        setIsRecommendation(false);
+        setRecommendationNotice({
+          severity: 'info',
+          message:
+            'No recommendations matched your current liked and disliked games. Try adjusting your selections.',
+        });
+        return;
+      }
+
       setAllRecommendations(allResponse.data);
       setCurrentPage(1);
       setIsRecommendation(true);
@@ -183,6 +219,10 @@ const GameList = () => {
       setShowingRecommendations(true);
       setRecommendationsStale(false);
     } catch (err) {
+      setRecommendationNotice({
+        severity: 'error',
+        message: 'Unable to generate recommendations right now.',
+      });
       console.error('Failed to fetch recommendations:', err);
     } finally {
       setIsRecommendationLoading(false);
@@ -213,6 +253,7 @@ const GameList = () => {
     setShowingRecommendations(false);
     setRecommendationsStale(false);
     setAllRecommendations([]);
+    setRecommendationNotice(null);
   };
 
   const handlePlayerCountChange = (event, newCount) => {
@@ -228,27 +269,29 @@ const GameList = () => {
     }
   };
 
-  // Debounced search function
-  const debouncedSetSearchTerm = useCallback(
-    debounce((value) => {
-      setSearchTerm(value);
-    }, 500),
-    []
-  );
-
   // Handle search input change
   const handleSearchChange = (event) => {
     setInputValue(event.target.value);
-    debouncedSetSearchTerm(event.target.value);
   };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [inputValue]);
 
   // Remove page parameter from URL on mount
   useEffect(() => {
     if (searchParams.has('page')) {
-      searchParams.delete('page');
-      setSearchParams(searchParams);
+      const nextSearchParams = new URLSearchParams(searchParams);
+      nextSearchParams.delete('page');
+      setSearchParams(nextSearchParams);
     }
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   // Fetch mechanics by frequency
   const { data: popularMechanics = [] } = useQuery({
@@ -876,6 +919,16 @@ const GameList = () => {
           >
             We are showing you non-library games for recommendation and informational purposes only. 
             Any game without a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25 }} /> icon is not in the library.
+          </Alert>
+        )}
+
+        {recommendationNotice && (
+          <Alert
+            severity={recommendationNotice.severity}
+            onClose={() => setRecommendationNotice(null)}
+            sx={{ mb: 2 }}
+          >
+            {recommendationNotice.message}
           </Alert>
         )}
 

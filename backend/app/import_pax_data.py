@@ -20,15 +20,13 @@ sys.path.append(str(backend_dir))
 
 from app import models, schemas, crud
 from app.database import SessionLocal, engine
+from app.logging_utils import build_log_handlers
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("logs/import_pax_data.log"), 
-        logging.StreamHandler()
-    ],
+    handlers=build_log_handlers("import_pax_data.log"),
 )
 logger = logging.getLogger(__name__)
 

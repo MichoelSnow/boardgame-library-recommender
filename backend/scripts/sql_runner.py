@@ -19,19 +19,13 @@ backend_dir = Path(__file__).parent.parent
 sys.path.append(str(backend_dir))
 
 from app.database import engine as app_engine
+from app.logging_utils import build_log_handlers
 
 # Configure logging
-log_dir = backend_dir / "logs"
-log_dir.mkdir(parents=True, exist_ok=True)
-log_file_path = log_dir / "sql_runner.log"
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(str(log_file_path)),
-        logging.StreamHandler()
-    ],
+    handlers=build_log_handlers("sql_runner.log"),
 )
 logger = logging.getLogger(__name__)
 

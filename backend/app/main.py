@@ -1,11 +1,11 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, status, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Depends, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, RedirectResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import List, Optional
+from typing import List, Literal, Optional
 import logging
 import httpx
 from sqlalchemy.orm import Session
@@ -17,11 +17,14 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
+from .logging_utils import build_log_handlers
+from .versioning import get_app_version
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=build_log_handlers("app.log"),
 )
 logger = logging.getLogger(__name__)
 
@@ -37,8 +40,50 @@ STATIC_DIR = PROJECT_ROOT / "frontend" / "build"
 app = FastAPI(
     title="Board Game Recommender API",
     description="API for board game recommendations and filtering",
-    version="1.0.0"
+    version=get_app_version(),
 )
+
+GameSortField = Literal[
+    "rank",
+    "abstracts_rank",
+    "cgs_rank",
+    "childrens_games_rank",
+    "family_games_rank",
+    "party_games_rank",
+    "strategy_games_rank",
+    "thematic_rank",
+    "wargames_rank",
+    "name_asc",
+    "name_desc",
+    "recommendation_score",
+]
+
+
+def apply_recommendation_status_headers(response: Response) -> None:
+    """Expose recommendation availability so the UI can distinguish degraded mode."""
+    for key, value in get_recommendation_status_headers().items():
+        response.headers[key] = value
+
+
+def get_recommendation_status_headers() -> dict[str, str]:
+    """Build recommendation availability headers for success and error paths."""
+    model_status = recommender.ModelManager.get_instance().get_status()
+    return {
+        "X-Recommendations-Available": (
+            "true" if model_status["available"] else "false"
+        ),
+        "X-Recommendations-State": model_status["state"],
+    }
+
+
+def apply_recommendation_status_to_http_exception(
+    exc: HTTPException,
+) -> HTTPException:
+    """Ensure recommendation state headers survive exception responses."""
+    headers = dict(exc.headers or {})
+    headers.update(get_recommendation_status_headers())
+    exc.headers = headers
+    return exc
 
 def get_cors_origins() -> List[str]:
     """Resolve CORS origins from env with safe defaults."""
@@ -219,11 +264,11 @@ async def proxy_image(url: str):
 @app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(
     db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 24,
-    sort_by: Optional[str] = "rank",
+    skip: int = Query(0, ge=0),
+    limit: int = Query(24, ge=1, le=100),
+    sort_by: GameSortField = "rank",
     search: Optional[str] = None,
-    players: Optional[int] = None,
+    players: Optional[int] = Query(None, ge=1, le=12),
     designer_id: Optional[str] = None,
     artist_id: Optional[str] = None,
     recommendations: Optional[str] = None,
@@ -275,10 +320,11 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
 @app.get("/api/recommendations/{game_id}/", response_model=List[schemas.BoardGameOut])  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,
+    response: Response,
     db: Session = Depends(get_db),
-    limit: int = 10,
+    limit: int = Query(10, ge=1, le=50),
     disliked_games: Optional[str] = None,
-    anti_weight: float = 1.0,
+    anti_weight: float = Query(1.0, gt=0),
     pax_only: Optional[bool] = False
 ):
     """
@@ -312,10 +358,24 @@ async def get_recommendations(
             anti_weight=anti_weight,
             pax_only=pax_only
         )
+        apply_recommendation_status_headers(response)
         return recommendations
+    except HTTPException as exc:
+        raise apply_recommendation_status_to_http_exception(exc)
     except Exception as e:
         logger.error(f"Error getting recommendations for game {game_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting recommendations")
+        raise apply_recommendation_status_to_http_exception(
+            HTTPException(status_code=500, detail="Error getting recommendations")
+        )
+
+@app.get("/api/recommendations/status")
+@app.get("/api/recommendations/status/")
+async def get_recommendation_status(response: Response):
+    """Return whether recommendation artifacts are currently available."""
+    model_status = recommender.ModelManager.get_instance().get_status()
+    apply_recommendation_status_headers(response)
+    return model_status
+
 
 @app.get("/api/filter-options/", response_model=schemas.FilterOptions)
 async def get_filter_options(db: Session = Depends(get_db)):
@@ -409,13 +469,14 @@ async def startup_event():
 class RecommendationRequest(schemas.BaseModel):
     liked_games: Optional[List[int]] = None
     disliked_games: Optional[List[int]] = None
-    limit: int = 24
-    anti_weight: float = 1.0
+    limit: int = schemas.Field(24, ge=1, le=50)
+    anti_weight: float = schemas.Field(1.0, gt=0)
     pax_only: bool = False
 
 @app.post("/api/recommendations", response_model=List[schemas.BoardGameOut])
 async def get_multi_game_recommendations(
     request: RecommendationRequest,
+    response: Response,
     db: Session = Depends(get_db)
 ):
     """
@@ -431,10 +492,15 @@ async def get_multi_game_recommendations(
             anti_weight=request.anti_weight,
             pax_only=request.pax_only
         )
+        apply_recommendation_status_headers(response)
         return recommendations
+    except HTTPException as exc:
+        raise apply_recommendation_status_to_http_exception(exc)
     except Exception as e:
         logger.error(f"Error getting recommendations: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting recommendations")
+        raise apply_recommendation_status_to_http_exception(
+            HTTPException(status_code=500, detail="Error getting recommendations")
+        )
 
 # Add a direct token endpoint at the root level
 @app.post("/token", response_model=schemas.Token)

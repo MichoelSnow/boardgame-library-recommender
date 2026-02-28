@@ -314,7 +314,7 @@ This will:
 - Find the most recent processed games files
 - Import all games and related entities into the database
 - Process data in batches of 200 games
-- Log progress to `backend/logs/import_data.log`
+- Log progress to `logs/import_data.log`
 
 You can also delete the existing database before import:
 
@@ -334,7 +334,7 @@ This will:
 - Find the most recent PAX games file in `data/pax/`
 - Import PAX games and link them to existing BoardGame records via BGG ID
 - Enable PAX-only filtering in the application
-- Log progress to `backend/logs/import_pax_data.log`
+- Log progress to `logs/import_pax_data.log`
 
 ## Testing
 
@@ -372,18 +372,18 @@ python tests/create_indexes.py
 
 ```bash
 # View recent logs
-tail -f backend/logs/import_data.log
-tail -f backend/logs/import_pax_data.log
+tail -f logs/import_data.log
+tail -f logs/import_pax_data.log
 ```
 
 ### Log Files
 
-- **`backend/logs/import_data.log`**: Main data import process logs
-- **`backend/logs/import_pax_data.log`**: PAX games import process logs
-- **`backend/logs/data_processor.log`**: Data processing operations
-- **`backend/logs/get_ratings.log`**: Rating data collection
-- **`backend/logs/get_game_data.log`**: Game data collection
-- **`backend/logs/image_downloader.log`**: Image download operations
+- **`logs/import_data.log`**: Main data import process logs
+- **`logs/import_pax_data.log`**: PAX games import process logs
+- **`logs/data_processor.log`**: Data processing operations
+- **`logs/get_ratings.log`**: Rating data collection
+- **`logs/get_game_data.log`**: Game data collection
+- **`logs/image_downloader.log`**: Image download operations
 
 ### Log Rotation
 
@@ -391,7 +391,7 @@ For production, consider implementing log rotation:
 
 ```bash
 # Add to crontab for weekly log cleanup
-0 0 * * 0 find backend/logs -name "*.log" -mtime +30 -delete
+0 0 * * 0 find logs -name "*.log" -mtime +30 -delete
 ```
 
 ## Running the Development Servers

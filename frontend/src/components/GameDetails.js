@@ -13,6 +13,7 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import axios from 'axios';
 import GameCard from './GameCard';
@@ -45,6 +46,8 @@ const decodeHtmlEntities = (text) => {
 const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames, onLike, onDislike }) => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [recommendationsAvailable, setRecommendationsAvailable] = useState(true);
+  const [recommendationError, setRecommendationError] = useState('');
   const [selectedGame, setSelectedGame] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [bgColor, setBgColor] = useState('#f5f5f5');
@@ -93,10 +96,16 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     const fetchRecommendations = async () => {
       if (!game) return;
       setLoading(true);
+      setRecommendationError('');
+      setRecommendationsAvailable(true);
       try {
         const response = await axios.get(`${apiBaseUrl}/recommendations/${game.id}`);
+        setRecommendationsAvailable(
+          response.headers['x-recommendations-available'] !== 'false'
+        );
         setRecommendations(response.data);
       } catch (err) {
+        setRecommendationError('Unable to load similar games right now.');
         console.error('Failed to fetch recommendations:', err);
       } finally {
         setLoading(false);
@@ -188,9 +197,22 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     }
 
     if (!recommendations || recommendations.length === 0) {
+      if (recommendationError) {
+        return <Alert severity="error">{recommendationError}</Alert>;
+      }
+
+      if (!recommendationsAvailable) {
+        return (
+          <Alert severity="warning">
+            Recommendations are temporarily unavailable while recommendation artifacts
+            are missing or invalid. The rest of the app is still available.
+          </Alert>
+        );
+      }
+
       return (
         <Typography variant="body2" color="text.secondary">
-          No recommendations available.
+          No similar games matched this title.
         </Typography>
       );
     }
@@ -307,12 +329,12 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                 
                 {/* Additional fields after core GameCard info */}
                 {/* Age - Hidden on mobile */}
-                {game.minimum_age && (
+                {game.min_age && (
                   <Tooltip title="Minimum Age">
                     <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
                       <ChildCareIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
                       <Typography variant="body2" color="text.secondary">
-                        {game.minimum_age}+
+                        {game.min_age}+
                       </Typography>
                     </Box>
                   </Tooltip>

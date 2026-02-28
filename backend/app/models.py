@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Table, ForeignKey, JSON, DateTime, Boolean, Index
+from sqlalchemy import Column, Integer, String, Float, Table, ForeignKey, JSON, DateTime, Boolean, Index, UniqueConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .database import Base
 from typing import Optional
@@ -91,6 +91,13 @@ class BoardGame(Base):
 
 class Mechanic(Base):
     __tablename__ = 'mechanics'
+    __table_args__ = (
+        UniqueConstraint(
+            'game_id',
+            'boardgamemechanic_name',
+            name='uq_mechanics_game_id_name',
+        ),
+    )
     
     id = Column(Integer, primary_key=True)
     game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
@@ -100,6 +107,13 @@ class Mechanic(Base):
 
 class Category(Base):
     __tablename__ = 'categories'
+    __table_args__ = (
+        UniqueConstraint(
+            'game_id',
+            'boardgamecategory_name',
+            name='uq_categories_game_id_name',
+        ),
+    )
     
     id = Column(Integer, primary_key=True)
     game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
@@ -109,6 +123,13 @@ class Category(Base):
 
 class Designer(Base):
     __tablename__ = 'designers'
+    __table_args__ = (
+        UniqueConstraint(
+            'game_id',
+            'boardgamedesigner_name',
+            name='uq_designers_game_id_name',
+        ),
+    )
     
     id = Column(Integer, primary_key=True)
     game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
@@ -118,6 +139,13 @@ class Designer(Base):
 
 class Artist(Base):
     __tablename__ = 'artists'
+    __table_args__ = (
+        UniqueConstraint(
+            'game_id',
+            'boardgameartist_name',
+            name='uq_artists_game_id_name',
+        ),
+    )
     
     id = Column(Integer, primary_key=True)
     game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
@@ -127,6 +155,13 @@ class Artist(Base):
 
 class Publisher(Base):
     __tablename__ = 'publishers'
+    __table_args__ = (
+        UniqueConstraint(
+            'game_id',
+            'boardgamepublisher_name',
+            name='uq_publishers_game_id_name',
+        ),
+    )
     
     id = Column(Integer, primary_key=True)
     game_id = Column(Integer, ForeignKey('games.id'), index=True)  # Indexed for joins
