@@ -1,5 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from dotenv import load_dotenv
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
@@ -10,11 +11,15 @@ import os
 from . import crud, schemas
 from .database import SessionLocal
 
+load_dotenv()
+
 # Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "a_hard_to_guess_secret_key") # Fallback for local dev
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY must be set in the environment before starting the app.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

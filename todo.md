@@ -20,3 +20,6 @@
 # Fly.io
 - Add redundancy to the server of having multiple volumes at the same time, in case one volume goes down
 - Add user logging, e.g., last login time
+
+# Notebooks
+- Add back in google-api-python-client, google-auth-httplib2, and google-auth-oauthlib for crawler/notebooks/pax_tabletop_library.ipynb

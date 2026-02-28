@@ -37,6 +37,8 @@ class ModelManager:
         
         if not game_embeddings_files:
             raise FileNotFoundError("No embeddings files found")
+        if not reverse_mappings_files:
+            raise FileNotFoundError("No reverse mapping files found")
 
         latest_game_embeddings = max(game_embeddings_files, key=lambda x: x.stat().st_mtime)
         latest_reverse_mappings = max(reverse_mappings_files, key=lambda x: x.stat().st_mtime)

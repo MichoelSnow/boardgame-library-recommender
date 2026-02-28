@@ -4,28 +4,50 @@
 - Standardize deployment and rollback for the Fly `dev` and `prod` apps.
 - Ensure each release is traceable to git commit + Fly release.
 
+## Deployment Policy
+- Pull requests and feature branches run CI only.
+- Pushes to `main` auto-deploy to the Fly `dev` app via GitHub Actions.
+- Production deploys are manual promotions using the `Fly Deploy Prod` GitHub Actions workflow after `dev` smoke checks pass.
+
 ## Preconditions
 - `flyctl` authenticated.
 - Correct app selected (`dev` or `prod`).
 - Required secrets are already set in Fly.
 
-## Deploy (with build metadata)
-1. Get metadata values:
-```bash
-GIT_SHA=$(git rev-parse HEAD)
-BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-```
+## Deploy to Dev
+This is the normal path for `main` branch changes.
 
-2. Deploy:
-```bash
-fly deploy -a <APP_NAME> \
-  --build-arg GIT_SHA="$GIT_SHA" \
-  --build-arg BUILD_TIMESTAMP="$BUILD_TIMESTAMP"
-```
-
+1. Merge to `main`.
+2. GitHub Actions automatically runs `Fly Deploy Dev`.
 3. Verify release version:
 ```bash
-fly releases -a <APP_NAME> | head -n 5
+fly releases -a pax-tt-app-dev | head -n 5
+```
+
+## Promote to Prod (Default)
+This is the canonical production deploy path.
+
+1. Open GitHub Actions.
+2. Select `Fly Deploy Prod`.
+3. Click `Run workflow`.
+4. Leave `git_ref` as `main` to deploy the current `main` branch, or enter a specific tag / commit SHA.
+5. Wait for the workflow to complete successfully.
+6. Verify release version:
+```bash
+fly releases -a pax-tt-app | head -n 5
+```
+
+## Local Emergency Fallback Deploy
+Use this only if the GitHub Actions workflow is unavailable and you need to deploy manually.
+
+```bash
+scripts/fly_deploy.sh prod
+```
+
+For a local manual deploy to dev:
+
+```bash
+scripts/fly_deploy.sh dev
 ```
 
 ## Post-Deploy Smoke Checks
