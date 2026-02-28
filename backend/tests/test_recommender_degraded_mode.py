@@ -48,11 +48,12 @@ def test_load_model_uses_newest_matched_artifact_pair(monkeypatch, tmp_path):
     old_mapping.write_text(json.dumps({"0": 111}), encoding="utf-8")
     new_mapping.write_text(json.dumps({"0": 222}), encoding="utf-8")
 
-    os.utime(old_embeddings, (100, 100))
-    os.utime(old_mapping, (100, 100))
-    os.utime(new_embeddings, (200, 200))
-    os.utime(new_mapping, (200, 200))
-    os.utime(unmatched_embeddings, (300, 300))
+    # Make mtimes misleading on purpose; filename timestamp should still win.
+    os.utime(old_embeddings, (400, 400))
+    os.utime(old_mapping, (400, 400))
+    os.utime(new_embeddings, (100, 100))
+    os.utime(new_mapping, (100, 100))
+    os.utime(unmatched_embeddings, (500, 500))
 
     monkeypatch.setenv("DATABASE_DIR", str(tmp_path))
 

@@ -61,11 +61,29 @@ GameSortField = Literal[
 
 def apply_recommendation_status_headers(response: Response) -> None:
     """Expose recommendation availability so the UI can distinguish degraded mode."""
+    for key, value in get_recommendation_status_headers().items():
+        response.headers[key] = value
+
+
+def get_recommendation_status_headers() -> dict[str, str]:
+    """Build recommendation availability headers for success and error paths."""
     model_status = recommender.ModelManager.get_instance().get_status()
-    response.headers["X-Recommendations-Available"] = (
-        "true" if model_status["available"] else "false"
-    )
-    response.headers["X-Recommendations-State"] = model_status["state"]
+    return {
+        "X-Recommendations-Available": (
+            "true" if model_status["available"] else "false"
+        ),
+        "X-Recommendations-State": model_status["state"],
+    }
+
+
+def apply_recommendation_status_to_http_exception(
+    exc: HTTPException,
+) -> HTTPException:
+    """Ensure recommendation state headers survive exception responses."""
+    headers = dict(exc.headers or {})
+    headers.update(get_recommendation_status_headers())
+    exc.headers = headers
+    return exc
 
 def get_cors_origins() -> List[str]:
     """Resolve CORS origins from env with safe defaults."""
@@ -342,11 +360,13 @@ async def get_recommendations(
         )
         apply_recommendation_status_headers(response)
         return recommendations
-    except HTTPException:
-        raise
+    except HTTPException as exc:
+        raise apply_recommendation_status_to_http_exception(exc)
     except Exception as e:
         logger.error(f"Error getting recommendations for game {game_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting recommendations")
+        raise apply_recommendation_status_to_http_exception(
+            HTTPException(status_code=500, detail="Error getting recommendations")
+        )
 
 @app.get("/api/recommendations/status")
 @app.get("/api/recommendations/status/")
@@ -474,11 +494,13 @@ async def get_multi_game_recommendations(
         )
         apply_recommendation_status_headers(response)
         return recommendations
-    except HTTPException:
-        raise
+    except HTTPException as exc:
+        raise apply_recommendation_status_to_http_exception(exc)
     except Exception as e:
         logger.error(f"Error getting recommendations: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Error getting recommendations")
+        raise apply_recommendation_status_to_http_exception(
+            HTTPException(status_code=500, detail="Error getting recommendations")
+        )
 
 # Add a direct token endpoint at the root level
 @app.post("/token", response_model=schemas.Token)

@@ -9,6 +9,7 @@
 
 # Code
 - Move to python 3.12
+- After the Python upgrade, simplify backend/app/versioning.py to rely on stdlib tomllib only (remove the fallback parser path if no longer needed)
 
 # App
 - Allow for multiple selection in player count
