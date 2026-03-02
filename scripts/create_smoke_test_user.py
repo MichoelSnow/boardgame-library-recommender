@@ -7,6 +7,7 @@ import os
 import sys
 
 from validation_common import (
+    APP_CONFIG,
     build_url,
     post_form_json,
     request_with_retry,
@@ -27,6 +28,9 @@ def create_smoke_test_user(
     username: str | None = None,
     password: str | None = None,
 ) -> int:
+    if environment not in APP_CONFIG:
+        raise RuntimeError(f"Invalid environment: {environment}")
+
     admin_username, admin_password = resolve_admin_credentials()
     if not admin_username or not admin_password:
         raise RuntimeError(
