@@ -50,8 +50,17 @@
 - `flyctl` authenticated.
 - Correct app selected (`dev` or `prod`).
 - Required secrets are already set in Fly.
+- Treat database migrations as required on every deploy, even if a given commit appears not to change schema. This is the conservative default for this project.
 - Local development also requires `.env` with `SECRET_KEY` (minimum 32 characters) before the backend will start.
-- Optional but recommended for full auth smoke coverage: set `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` in local `.env`.
+- Optional but recommended for full auth smoke coverage: set environment-specific smoke-test credentials in local `.env`:
+  - shared username: `SMOKE_TEST_USERNAME`
+  - env-specific passwords:
+    - `SMOKE_TEST_PASSWORD_LOCAL`
+    - `SMOKE_TEST_PASSWORD_DEV`
+    - `SMOKE_TEST_PASSWORD_PROD`
+- If you want to create or recreate the smoke-test user via script, also set:
+  - `ADMIN_USERNAME`
+  - `ADMIN_PASSWORD`
 
 ## Quick Wake Commands
 Fly machines may be stopped when idle because `auto_stop_machines = 'stop'`.
@@ -74,7 +83,11 @@ This is the normal path for `main` branch changes.
 
 1. Merge to `main`.
 2. GitHub Actions automatically runs `Fly Deploy Dev`.
-3. Verify release version:
+3. Run the database migration on the deployed dev app:
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+```
+4. Verify release version:
 ```bash
 fly releases -a pax-tt-app-dev | head -n 5
 ```
@@ -82,28 +95,33 @@ fly releases -a pax-tt-app-dev | head -n 5
 ## Validate Dev (After Every Successful Merge to `main`)
 Run this after each successful merge to `main` once the `Fly Deploy Dev` workflow finishes.
 
-1. Run the core validation script:
+1. Run the database migration on the deployed dev app:
 ```bash
-python scripts/validate_dev_deploy.py
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
-2. Confirm the script reports all of the following:
+2. Run the core validation script:
+```bash
+poetry run python scripts/validate_dev_deploy.py
+```
+3. Confirm the database migration step completed successfully before treating the deploy as valid.
+4. Confirm the script reports all of the following:
 - `/api` responded with the expected message
 - deployed `git_sha` matches `main`
 - `build_timestamp` is populated
 - Fly health checks are configured and passing
 - unauthenticated access is rejected on protected endpoints
-- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` are set, the positive login flow succeeds
+- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD_DEV` are set, the positive login flow succeeds
 - recommendation artifact files exist in `/data`
 - at least one matched artifact timestamp pair exists
 - the recommendation endpoint returns non-empty results for the canonical smoke-test game (`224517`)
 - latency thresholds pass for `/api`, `/api/version`, and the canonical recommendation endpoint
-3. The script also records the validated SHA at `.tmp/validated_dev_sha.txt` for the prod promotion step.
-4. Additional manual checks are only required when the merge affects the related area:
+5. The script also records the validated SHA at `.tmp/validated_dev_sha.txt` for the prod promotion step.
+6. Additional manual checks are only required when the merge affects the related area:
 - if frontend behavior changed: open the dev site in a browser and verify the main UI loads plus the affected flow renders correctly
 - if auth changed: manually test the full login, current-user flow, and password change path as applicable (the scripted auth smoke is intentionally lightweight)
 - if deployment/config changed: review Fly logs and confirm startup logs show the app loaded a matched embeddings/mapping pair successfully
-5. If validation passes and the change is intended for release, continue to **Promote to Prod (Default)** below using the validated SHA.
-6. If validation fails, fix forward on a new branch or roll back the dev deployment path as needed before promoting anything to prod.
+7. If validation passes and the change is intended for release, continue to **Promote to Prod (Default)** below using the validated SHA.
+8. If validation fails, fix forward on a new branch or roll back the dev deployment path as needed before promoting anything to prod.
 
 ## Promote to Prod (Default)
 This is the canonical production deploy path.
@@ -118,32 +136,37 @@ cat .tmp/validated_dev_sha.txt
 5. Click `Run workflow`.
 6. Set `git_ref` to the exact validated commit SHA from `.tmp/validated_dev_sha.txt` (not just `main` unless you have confirmed they are identical).
 7. Wait for the workflow to complete successfully.
-8. Verify the new Fly release exists:
+8. Run the database migration on the deployed prod app:
+```bash
+fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+```
+9. Verify the database migration completed successfully before treating the production deploy as valid.
+10. Verify the new Fly release exists:
 ```bash
 fly releases -a pax-tt-app | head -n 5
 ```
-9. Run the core production validation script:
+11. Run the core production validation script:
 ```bash
-python scripts/validate_prod_release.py
+poetry run python scripts/validate_prod_release.py
 ```
-10. Confirm the script reports all of the following:
+12. Confirm the script reports all of the following:
 - `/api` responded with the expected message
 - deployed `git_sha` matches the validated SHA from `.tmp/validated_dev_sha.txt`
 - `build_timestamp` is populated
 - Fly health checks are configured and passing
 - unauthenticated access is rejected on protected endpoints
-- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` are set, the positive login flow succeeds
+- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD_PROD` are set, the positive login flow succeeds
 - recommendation artifact files exist in `/data`
 - at least one matched artifact timestamp pair exists
 - the recommendation endpoint returns non-empty results for the canonical smoke-test game (`224517`)
 - latency thresholds pass for `/api`, `/api/version`, and the canonical recommendation endpoint
 - deploy traceability is recorded locally in `logs/deploy_traceability.jsonl`
 - a valid rollback target is resolved and the exact rollback command is printed
-11. Additional manual checks are only required when the release affects the related area:
+13. Additional manual checks are only required when the release affects the related area:
 - if frontend behavior changed: open `https://pax-tt-app.fly.dev` and verify the main UI plus the changed user flow render correctly
 - if auth changed: manually test the full login, current-user flow, and password change path as applicable in `prod` (the scripted auth smoke is intentionally lightweight)
 - if deployment/config changed: review `fly logs -a pax-tt-app` and confirm startup logs show the app loaded a matched embeddings/mapping pair successfully
-12. If any production validation step fails, stop and either fix forward immediately or run the rollback steps below.
+14. If any production validation step fails, stop and either fix forward immediately or run the rollback steps below.
 
 ## Local Emergency Fallback Deploy
 Use this only if the GitHub Actions workflow is unavailable and you need to deploy manually.
@@ -156,6 +179,13 @@ For a local manual deploy to dev:
 
 ```bash
 scripts/fly_deploy.sh dev
+```
+
+After either manual deploy, run the required migration before validation:
+
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 
 ## Post-Deploy Smoke Checks
@@ -181,7 +211,7 @@ curl -fsS "https://<APP_HOST>/api/games/?limit=1"
 ## Rollback
 1. Resolve and verify the rollback target:
 ```bash
-python scripts/prepare_fly_rollback.py --env prod
+poetry run python scripts/prepare_fly_rollback.py --env prod
 ```
 
 2. Identify target release manually if needed:
@@ -198,14 +228,16 @@ fly releases rollback <RELEASE_VERSION> -a <APP_NAME>
 - `/api`
 - `/api/version`
 - `/api/games/?limit=1`
-- `python scripts/validate_prod_release.py`
+- `poetry run python scripts/validate_prod_release.py`
+
+5. If the rollback target predates the currently applied schema, assess whether a downgrade is actually required before attempting one. Default to fixing forward unless you have a tested downgrade path for the affected migrations.
 
 ## Release Mapping Record
 For each production deploy, record:
 1. Git tag or commit SHA
 2. Fly release version
 3. Deployment timestamp
-4. Notes (schema/data migration impact, if any)
+4. Notes (schema/data migration impact, if any; include whether `alembic upgrade head` was run successfully)
 
 The standard production validation flow now appends this record automatically to:
 - `logs/deploy_traceability.jsonl`

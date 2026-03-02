@@ -36,7 +36,7 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_dev_deploy.py
+poetry run python scripts/validate_dev_deploy.py
 ```
 
 What it validates:
@@ -45,7 +45,7 @@ What it validates:
 - `build_timestamp` is populated
 - Fly health checks are configured and passing
 - unauthenticated access is rejected on protected endpoints
-- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` are set, the positive login flow succeeds
+- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD_DEV` are set, the positive login flow succeeds
 - recommendation artifact files exist
 - at least one matched embeddings/mapping pair exists
 - recommendation endpoint returns non-empty results for the canonical smoke-test game (`224517`)
@@ -64,7 +64,7 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_prod_release.py
+poetry run python scripts/validate_prod_release.py
 ```
 
 Prerequisite:
@@ -76,7 +76,7 @@ What it validates:
 - `build_timestamp` is populated
 - Fly health checks are configured and passing
 - unauthenticated access is rejected on protected endpoints
-- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` are set, the positive login flow succeeds
+- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD_PROD` are set, the positive login flow succeeds
 - recommendation artifact files exist
 - at least one matched embeddings/mapping pair exists
 - recommendation endpoint returns non-empty results for the canonical smoke-test game (`224517`)
@@ -95,13 +95,13 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_fly_release.py --env dev --expected-ref main
-python scripts/validate_fly_release.py --env prod --expected-ref <commit-sha>
+poetry run python scripts/validate_fly_release.py --env dev --expected-ref main
+poetry run python scripts/validate_fly_release.py --env prod --expected-ref <commit-sha>
 ```
 
 Optional:
 ```bash
-python scripts/validate_fly_release.py --env dev --expected-ref main --write-sha-path .tmp/validated_dev_sha.txt
+poetry run python scripts/validate_fly_release.py --env dev --expected-ref main --write-sha-path .tmp/validated_dev_sha.txt
 ```
 
 What it validates:
@@ -120,8 +120,8 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_recommendation_artifacts.py --env dev
-python scripts/validate_recommendation_artifacts.py --env prod
+poetry run python scripts/validate_recommendation_artifacts.py --env dev
+poetry run python scripts/validate_recommendation_artifacts.py --env prod
 ```
 
 What it validates:
@@ -145,8 +145,8 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_recommendation_endpoint.py --env dev --game-id 224517
-python scripts/validate_recommendation_endpoint.py --env prod --game-id 224517
+poetry run python scripts/validate_recommendation_endpoint.py --env dev --game-id 224517
+poetry run python scripts/validate_recommendation_endpoint.py --env prod --game-id 224517
 ```
 
 What it validates:
@@ -169,18 +169,26 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_auth_flow.py --env dev
-python scripts/validate_auth_flow.py --env prod
+poetry run python scripts/validate_auth_flow.py --env local
+poetry run python scripts/validate_auth_flow.py --env dev
+poetry run python scripts/validate_auth_flow.py --env prod
 ```
 
 Optional positive-login coverage:
 ```bash
-python scripts/validate_auth_flow.py --env dev --username <user> --password <password>
+poetry run python scripts/validate_auth_flow.py --env dev --username <user> --password <password>
 ```
 
 What it validates:
 - protected endpoints reject unauthenticated access with `401`
-- if `SMOKE_TEST_USERNAME` and `SMOKE_TEST_PASSWORD` are set (or passed as args), login succeeds and `/api/users/me/` returns the expected user
+- if environment-specific smoke-test credentials are set in `.env` (or passed as args), login succeeds and `/api/users/me/` returns the expected user
+
+Environment variable lookup order:
+- shared username: `SMOKE_TEST_USERNAME`
+- for `--env local`: `SMOKE_TEST_PASSWORD_LOCAL`
+- for `--env dev`: `SMOKE_TEST_PASSWORD_DEV`
+- for `--env prod`: `SMOKE_TEST_PASSWORD_PROD`
+- fallback password: `SMOKE_TEST_PASSWORD`
 
 ### `validate_performance_gate.py`
 
@@ -193,8 +201,8 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_performance_gate.py --env dev
-python scripts/validate_performance_gate.py --env prod
+poetry run python scripts/validate_performance_gate.py --env dev
+poetry run python scripts/validate_performance_gate.py --env prod
 ```
 
 Default thresholds:
@@ -213,8 +221,8 @@ When to use:
 
 Usage:
 ```bash
-python scripts/validate_fly_health_checks.py --env dev
-python scripts/validate_fly_health_checks.py --env prod
+poetry run python scripts/validate_fly_health_checks.py --env dev
+poetry run python scripts/validate_fly_health_checks.py --env prod
 ```
 
 ### `record_deploy_traceability.py`
@@ -228,11 +236,36 @@ When to use:
 
 Usage:
 ```bash
-python scripts/record_deploy_traceability.py --env prod --expected-sha-path .tmp/validated_dev_sha.txt --marker prod-promotion
+poetry run python scripts/record_deploy_traceability.py --env prod --expected-sha-path .tmp/validated_dev_sha.txt --marker prod-promotion
 ```
 
 Output:
 - Appends one JSON line to `logs/deploy_traceability.jsonl`
+
+### `create_smoke_test_user.py`
+
+Purpose:
+- Create the shared smoke-test user in `local`, `dev`, or `prod` using the app API
+
+When to use:
+- One-time setup for auth smoke testing
+- Recreate the smoke-test user if it is removed or credentials change
+
+Usage:
+```bash
+poetry run python scripts/create_smoke_test_user.py --env local
+poetry run python scripts/create_smoke_test_user.py --env dev
+poetry run python scripts/create_smoke_test_user.py --env prod
+```
+
+Required environment variables:
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `SMOKE_TEST_USERNAME`
+- environment-specific password:
+  - `SMOKE_TEST_PASSWORD_LOCAL`
+  - `SMOKE_TEST_PASSWORD_DEV`
+  - `SMOKE_TEST_PASSWORD_PROD`
 
 ### `prepare_fly_rollback.py`
 
@@ -245,8 +278,8 @@ When to use:
 
 Usage:
 ```bash
-python scripts/prepare_fly_rollback.py --env prod
-python scripts/prepare_fly_rollback.py --env prod --target-release v34
+poetry run python scripts/prepare_fly_rollback.py --env prod
+poetry run python scripts/prepare_fly_rollback.py --env prod --target-release v34
 ```
 
 ## Legacy / Utility Scripts

@@ -10,11 +10,33 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(dotenv_path=None, *args, **kwargs):
+        path = dotenv_path or ".env"
+        env_path = Path(path)
+        if not env_path.exists():
+            return False
+
+        loaded = False
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+                loaded = True
+        return loaded
 
 try:
     from tenacity import (
         retry,
+        retry_if_exception,
         retry_if_exception_type,
         stop_after_attempt,
         wait_exponential,
@@ -29,6 +51,9 @@ except ImportError:
     def retry_if_exception_type(*args, **kwargs):
         return None
 
+    def retry_if_exception(*args, **kwargs):
+        return None
+
     def stop_after_attempt(*args, **kwargs):
         return None
 
@@ -41,6 +66,10 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 APP_CONFIG = {
+    "local": {
+        "app_name": "local",
+        "base_url": os.getenv("LOCAL_APP_BASE_URL", "http://127.0.0.1:8000"),
+    },
     "dev": {
         "app_name": "pax-tt-app-dev",
         "base_url": "https://pax-tt-app-dev.fly.dev",
@@ -51,8 +80,13 @@ APP_CONFIG = {
     },
 }
 
+def _is_retryable_http_error(exc: BaseException) -> bool:
+    if not isinstance(exc, urllib.error.HTTPError):
+        return False
+    return exc.code == 429 or 500 <= exc.code <= 599
+
+
 RETRYABLE_EXCEPTIONS = (
-    urllib.error.HTTPError,
     urllib.error.URLError,
     TimeoutError,
 )
@@ -106,7 +140,10 @@ def request_once(
 
 
 @retry(
-    retry=retry_if_exception_type(RETRYABLE_EXCEPTIONS),
+    retry=(
+        retry_if_exception_type(RETRYABLE_EXCEPTIONS)
+        | retry_if_exception(_is_retryable_http_error)
+    ),
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
 )
@@ -179,9 +216,13 @@ def run_command(command: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def resolve_smoke_test_credentials(
+    environment: str,
     username: str | None = None,
     password: str | None = None,
 ) -> tuple[str | None, str | None]:
+    env_key = environment.upper()
     resolved_username = username or os.getenv("SMOKE_TEST_USERNAME")
-    resolved_password = password or os.getenv("SMOKE_TEST_PASSWORD")
+    resolved_password = password or os.getenv(
+        f"SMOKE_TEST_PASSWORD_{env_key}"
+    ) or os.getenv("SMOKE_TEST_PASSWORD")
     return resolved_username, resolved_password

@@ -36,11 +36,16 @@ export const AuthProvider = ({ children }) => {
 
     const login = useCallback(async (username, password) => {
         try {
-        const formData = new FormData();
+        const formData = new URLSearchParams();
         formData.append('username', username);
         formData.append('password', password);
+        formData.append('grant_type', 'password');
         
-            const response = await axios.post(`${apiBaseUrl}/token`, formData);
+            const response = await axios.post(`${apiBaseUrl}/token`, formData, {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+            });
         const { access_token } = response.data;
         
         setToken(access_token);
