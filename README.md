@@ -182,7 +182,8 @@ Create a `.env` file in the project root for local development:
 DATABASE_PATH=backend/database/boardgames.db
 
 # JWT authentication
-SECRET_KEY=replace-with-a-32-plus-character-secret
+SECRET_KEY=
+# Set to a unique 32+ character secret before running the app
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
@@ -539,7 +540,8 @@ The application uses a multi-stage Dockerfile:
 DATABASE_PATH=/data/boardgames.db
 
 # Authentication
-SECRET_KEY=replace-with-a-32-plus-character-secret
+SECRET_KEY=
+# Set to a unique 32+ character secret before deploying
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
