@@ -81,6 +81,11 @@ Execution rule:
 - Minimum phase completion: all `P0` items in the phase are done.
 - Full phase completion: all `P0` + `P1` items are done (`P2` may defer if explicitly tracked).
 
+Deployment verification rule:
+- For phases that include checks requiring a live Fly deployment, treat the phase PR/commit as implementation completion.
+- Final verification for those deploy-dependent items happens only after merge to `main`, automatic `dev` deployment, and successful post-merge validation against the deployed app.
+- Do not create a second "phase completion" commit just to satisfy deploy-time verification unless that validation uncovers a real bug that requires a code or config change.
+
 ### Phase 0: Release Hygiene and Traceability (1-2 days)
 - [x] [P1] Add Docker build arg `GIT_SHA`.
 - [x] [P1] Set runtime env var `APP_GIT_SHA` from build arg.
@@ -124,11 +129,12 @@ Execution rule:
 - [x] [P1] Auth flow smoke tests.
 - [x] [P1] Recommendation endpoint health check.
 - [x] [P0] Embedding file integrity/existence check in target environment.
+- [x] [P0] Run `alembic upgrade head` in the target environment on every dev and prod deploy before treating the deploy as valid.
 - [x] [P1] Define pass/fail criteria and who can approve promotion (you).
 - [x] [P1] Add checklist template for each promotion event.
 - [x] [P1] Add performance regression gate (baseline latency/error thresholds) before prod promotion.
 - [x] [P1] Define Fly deploy strategy and document when to use it.
-- [ ] [P0] Verify Fly health checks pass before marking deploy successful.
+- [x] [P0] Verify Fly health checks pass before marking deploy successful.
 - [x] [P1] Record deploy traceability on each promotion (git SHA, Fly release version, migration/version marker).
 - [x] [P1] Make the app read its semantic version from one canonical source so release bumps happen in one place.
 - [x] [P0] Document and test Fly rollback command path for failed promotions.

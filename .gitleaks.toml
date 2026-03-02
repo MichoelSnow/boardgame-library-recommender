@@ -1,0 +1,9 @@
+[allowlist]
+description = "Allow documentation placeholder env examples in README"
+paths = [
+  '''README\.md''',
+]
+
+regexes = [
+  '''SECRET_KEY=''',
+]

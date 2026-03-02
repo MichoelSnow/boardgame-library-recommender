@@ -71,6 +71,45 @@ const sortOptions = [
 // Generate player count options (1-12)
 const playerCountOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
+const VALID_PLAYER_RECOMMENDATIONS = new Set(['allowed', 'recommended', 'best']);
+const VALID_SORT_OPTIONS = new Set(sortOptions.map((option) => option.value));
+
+const parseIntegerParam = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const parseBooleanParam = (value, fallback) => {
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  return fallback;
+};
+
+const parseCsvIntegers = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((item) => Number.parseInt(item, 10))
+    .filter((item) => !Number.isNaN(item));
+};
+
+const buildPlaceholderSelection = (ids, idKey, nameKey) =>
+  ids.map((id) => ({
+    [idKey]: id,
+    [nameKey]: '',
+  }));
+
 // Memoized GameCardSkeleton component
 const GameCardSkeleton = memo(() => (
   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -85,21 +124,54 @@ const GameCardSkeleton = memo(() => (
 
 const GameList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [inputValue, setInputValue] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [playerOptions, setPlayerOptions] = useState({ count: null, recommendation: 'allowed' });
+  const initialSearchValue = searchParams.get('search') || '';
+  const initialPlayerCount = parseIntegerParam(searchParams.get('players'));
+  const initialPlayerRecommendation = searchParams.get('player_rec');
+  const initialWeightValues = new Set(
+    (searchParams.get('weight') || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+  const initialMechanicIds = parseCsvIntegers(searchParams.get('mechanics'));
+  const initialCategoryIds = parseCsvIntegers(searchParams.get('categories'));
+  const initialSortBy = searchParams.get('sort');
+  const initialPaxOnly = parseBooleanParam(searchParams.get('pax_only'), true);
+
+  const [inputValue, setInputValue] = useState(initialSearchValue);
+  const [searchTerm, setSearchTerm] = useState(initialSearchValue);
+  const [playerOptions, setPlayerOptions] = useState({
+    count: initialPlayerCount,
+    recommendation: VALID_PLAYER_RECOMMENDATIONS.has(initialPlayerRecommendation)
+      ? initialPlayerRecommendation
+      : 'allowed',
+  });
   const [weight, setWeight] = useState({
-    beginner: false,
-    midweight: false,
-    heavy: false
+    beginner: initialWeightValues.has('beginner'),
+    midweight: initialWeightValues.has('midweight'),
+    heavy: initialWeightValues.has('heavy')
   });
   const [selectedDesigners, setSelectedDesigners] = useState([]);
   const [selectedArtists, setSelectedArtists] = useState([]);
-  const [selectedMechanics, setSelectedMechanics] = useState([]);
-  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedMechanics, setSelectedMechanics] = useState(
+    buildPlaceholderSelection(
+      initialMechanicIds,
+      'boardgamemechanic_id',
+      'boardgamemechanic_name'
+    )
+  );
+  const [selectedCategories, setSelectedCategories] = useState(
+    buildPlaceholderSelection(
+      initialCategoryIds,
+      'boardgamecategory_id',
+      'boardgamecategory_name'
+    )
+  );
   const [selectedGame, setSelectedGame] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('rank');
+  const [sortBy, setSortBy] = useState(
+    VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank'
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 24;
   const [activeFilter, setActiveFilter] = useState(null);
@@ -115,7 +187,7 @@ const GameList = () => {
   const [isRecommendation, setIsRecommendation] = useState(false);
   const [allRecommendations, setAllRecommendations] = useState([]);
   const [paxGameIds, setPaxGameIds] = useState([]); // Store PAX game IDs for filtering
-  const [paxOnly, setPaxOnly] = useState(true);
+  const [paxOnly, setPaxOnly] = useState(initialPaxOnly);
   const [showNonLibraryNotification, setShowNonLibraryNotification] = useState(false);
   const [recommendationNotice, setRecommendationNotice] = useState(null);
   const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
@@ -126,6 +198,12 @@ const GameList = () => {
   const [hasRecommendations, setHasRecommendations] = useState(false);
   const [showingRecommendations, setShowingRecommendations] = useState(false);
   const [recommendationsStale, setRecommendationsStale] = useState(false);
+  const selectedMechanicIds = selectedMechanics.map(
+    (item) => item.boardgamemechanic_id
+  );
+  const selectedCategoryIds = selectedCategories.map(
+    (item) => item.boardgamecategory_id
+  );
 
   const handleLikeGame = (game) => {
     setLikedGames(prev => {
@@ -284,14 +362,76 @@ const GameList = () => {
     };
   }, [inputValue]);
 
-  // Remove page parameter from URL on mount
+  // Keep the current view state in the URL so refresh preserves search, sorting, and filters.
   useEffect(() => {
-    if (searchParams.has('page')) {
-      const nextSearchParams = new URLSearchParams(searchParams);
-      nextSearchParams.delete('page');
-      setSearchParams(nextSearchParams);
+    const nextSearchParams = new URLSearchParams(searchParams);
+
+    if (searchTerm) {
+      nextSearchParams.set('search', searchTerm);
+    } else {
+      nextSearchParams.delete('search');
     }
-  }, [searchParams, setSearchParams]);
+
+    if (sortBy !== 'rank') {
+      nextSearchParams.set('sort', sortBy);
+    } else {
+      nextSearchParams.delete('sort');
+    }
+
+    nextSearchParams.set('pax_only', String(paxOnly));
+
+    if (playerOptions.count) {
+      nextSearchParams.set('players', String(playerOptions.count));
+      if (playerOptions.recommendation !== 'allowed') {
+        nextSearchParams.set('player_rec', playerOptions.recommendation);
+      } else {
+        nextSearchParams.delete('player_rec');
+      }
+    } else {
+      nextSearchParams.delete('players');
+      nextSearchParams.delete('player_rec');
+    }
+
+    const activeWeights = Object.entries(weight)
+      .filter(([, checked]) => checked)
+      .map(([key]) => key);
+    if (activeWeights.length > 0) {
+      nextSearchParams.set('weight', activeWeights.join(','));
+    } else {
+      nextSearchParams.delete('weight');
+    }
+
+    if (selectedMechanicIds.length > 0) {
+      nextSearchParams.set('mechanics', selectedMechanicIds.join(','));
+    } else {
+      nextSearchParams.delete('mechanics');
+    }
+
+    if (selectedCategoryIds.length > 0) {
+      nextSearchParams.set('categories', selectedCategoryIds.join(','));
+    } else {
+      nextSearchParams.delete('categories');
+    }
+
+    nextSearchParams.delete('page');
+
+    if (nextSearchParams.toString() === searchParams.toString()) {
+      return;
+    }
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [
+    paxOnly,
+    playerOptions,
+    searchParams,
+    searchTerm,
+    selectedCategoryIds,
+    selectedCategories,
+    selectedMechanicIds,
+    selectedMechanics,
+    setSearchParams,
+    sortBy,
+    weight,
+  ]);
 
   // Fetch mechanics by frequency
   const { data: popularMechanics = [] } = useQuery({
@@ -305,6 +445,30 @@ const GameList = () => {
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
+  useEffect(() => {
+    if (!popularMechanics.length || !selectedMechanics.length) {
+      return;
+    }
+
+    const mechanicsById = new Map(
+      popularMechanics.map((item) => [item.boardgamemechanic_id, item])
+    );
+
+    setSelectedMechanics((previous) => {
+      let changed = false;
+      const next = previous.map((item) => {
+        const resolved = mechanicsById.get(item.boardgamemechanic_id);
+        if (resolved && resolved.boardgamemechanic_name !== item.boardgamemechanic_name) {
+          changed = true;
+          return resolved;
+        }
+        return item;
+      });
+
+      return changed ? next : previous;
+    });
+  }, [popularMechanics, selectedMechanics.length]);
+
   const { data: popularCategories = [] } = useQuery({
     // queryKey: ['categories_by_frequency'],
     queryKey: ['categories_alphabetically'],
@@ -316,9 +480,33 @@ const GameList = () => {
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
   });
 
+  useEffect(() => {
+    if (!popularCategories.length || !selectedCategories.length) {
+      return;
+    }
+
+    const categoriesById = new Map(
+      popularCategories.map((item) => [item.boardgamecategory_id, item])
+    );
+
+    setSelectedCategories((previous) => {
+      let changed = false;
+      const next = previous.map((item) => {
+        const resolved = categoriesById.get(item.boardgamecategory_id);
+        if (resolved && resolved.boardgamecategory_name !== item.boardgamecategory_name) {
+          changed = true;
+          return resolved;
+        }
+        return item;
+      });
+
+      return changed ? next : previous;
+    });
+  }, [popularCategories, selectedCategories.length]);
+
   // Fetch games with filters
   const { data: response = { games: [], total: 0 }, isLoading, error, isFetching } = useQuery({
-    queryKey: ['games', searchTerm, playerOptions, selectedDesigners, selectedArtists, selectedMechanics, selectedCategories, weight, sortBy, currentPage, paxOnly],
+    queryKey: ['games', searchTerm, playerOptions, selectedDesigners, selectedArtists, selectedMechanicIds, selectedCategoryIds, weight, sortBy, currentPage, paxOnly],
     queryFn: async () => {
       const params = {
         limit: gamesPerPage,
@@ -344,12 +532,12 @@ const GameList = () => {
         params.artist_id = selectedArtists.map(a => a.boardgameartist_id).join(',');
       }
 
-      if (selectedMechanics.length > 0) {
-        params.mechanics = selectedMechanics.map(m => m.boardgamemechanic_id).join(',');
+      if (selectedMechanicIds.length > 0) {
+        params.mechanics = selectedMechanicIds.join(',');
       }
 
-      if (selectedCategories.length > 0) {
-        params.categories = selectedCategories.map(c => c.boardgamecategory_id).join(',');
+      if (selectedCategoryIds.length > 0) {
+        params.categories = selectedCategoryIds.join(',');
       }
 
       const activeWeights = Object.entries(weight)

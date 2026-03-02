@@ -34,14 +34,26 @@ def validate_unauthenticated_rejection(environment: str) -> None:
 
 
 def validate_login_success(environment: str, username: str, password: str) -> None:
-    token_payload, _ = post_form_json(
-        build_url(environment, "/api/token"),
-        {
-            "grant_type": "password",
-            "username": username,
-            "password": password,
-        },
-    )
+    token_url = build_url(environment, "/api/token")
+    try:
+        token_payload, _ = post_form_json(
+            token_url,
+            {
+                "grant_type": "password",
+                "username": username,
+                "password": password,
+            },
+        )
+    except urllib.error.HTTPError as exc:
+        if exc.code in (400, 401):
+            raise RuntimeError(
+                "Smoke-test login failed. "
+                "Check that the smoke-test user exists in this environment and that "
+                "the configured password matches the database record."
+            ) from exc
+        raise RuntimeError(
+            f"Token endpoint returned unexpected status during smoke-test login: HTTP {exc.code}"
+        ) from exc
     access_token = token_payload.get("access_token")
     if not access_token:
         raise RuntimeError("Token endpoint did not return an access token.")
@@ -67,6 +79,7 @@ def validate_auth_flow(
     password: str | None = None,
 ) -> int:
     resolved_username, resolved_password = resolve_smoke_test_credentials(
+        environment,
         username=username,
         password=password,
     )
@@ -78,7 +91,7 @@ def validate_auth_flow(
         validate_login_success(environment, resolved_username, resolved_password)
     else:
         logger.warning(
-            "SMOKE_TEST_USERNAME/SMOKE_TEST_PASSWORD not set. "
+            "Environment-specific smoke-test credentials are not set. "
             "Skipped positive login smoke test and validated only unauthorized rejection."
         )
 
@@ -92,17 +105,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--env",
-        choices=["dev", "prod"],
+        choices=["local", "dev", "prod"],
         required=True,
         help="Target Fly environment to validate.",
     )
     parser.add_argument(
         "--username",
-        help="Optional smoke-test username. Falls back to SMOKE_TEST_USERNAME.",
+        help="Optional smoke-test username. Falls back to environment-specific .env vars.",
     )
     parser.add_argument(
         "--password",
-        help="Optional smoke-test password. Falls back to SMOKE_TEST_PASSWORD.",
+        help="Optional smoke-test password. Falls back to environment-specific .env vars.",
     )
     return parser.parse_args()
 

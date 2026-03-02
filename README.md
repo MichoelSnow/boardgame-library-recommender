@@ -36,7 +36,6 @@ pax_tt_recommender/
 │   │   ├── test_db_queries.py # Database connectivity tests
 │   │   ├── test_performance.py # API performance benchmarks
 │   │   └── create_indexes.py  # Database optimization
-│   ├── logs/                  # Application logs with rotation
 │   ├── alembic/               # Database migrations
 │   └── run_tests.py           # Test runner with batch execution
 ├── crawler/                   # BGG data collection pipeline
@@ -65,6 +64,7 @@ pax_tt_recommender/
 │   ├── crawler/               # Raw BGG data (Parquet files)
 │   ├── processed/             # Normalized CSV files (12+ types)
 │   └── pax/                   # PAX convention game data
+├── logs/                      # Centralized local runtime logs
 ├── scripts/                   # Build and deployment scripts
 │   ├── build-for-production.sh # Frontend build automation
 │   └── upload_to_fly_volume.sh # Fly.io deployment helper
@@ -87,7 +87,7 @@ The application follows a modern microservices-inspired architecture with clear 
 - **ModelManager Singleton**: Lazy-loading of sparse matrix embeddings
 - **Cosine Similarity**: Game-to-game recommendations using CSR matrices
 - **Anti-Recommendations**: Support for games users want to avoid
-- **Fallback System**: Random recommendations when embeddings unavailable
+- **Degraded Mode**: Keeps the app up and disables recommendations when embeddings are unavailable
 - **PAX Integration**: Filters recommendations for PAX convention games
 
 #### Authentication System (`backend/app/security.py`)
@@ -162,10 +162,9 @@ curl -sSL https://install.python-poetry.org | python3 -
 
 # Setup Python environment
 poetry install
-eval $(poetry env activate)  # Activate environment (use this instead of poetry shell)
 ```
 
-**Important**: Always use `eval $(poetry env activate)` before running backend commands. This ensures proper environment activation for all Python operations.
+**Important**: Run Python commands with `poetry run ...` instead of relying on shell activation. This keeps commands consistent with the project's managed environment.
 
 ### 2. Frontend Setup
 
@@ -183,7 +182,8 @@ Create a `.env` file in the project root for local development:
 DATABASE_PATH=backend/database/boardgames.db
 
 # JWT authentication
-SECRET_KEY=your-secret-key-here
+SECRET_KEY=
+# Set to a unique 32+ character secret before running the app
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
@@ -195,18 +195,29 @@ BGG_USERNAME=
 BGG_PASSWORD=
 ```
 
+Optional local-development values used by notebooks and validation scripts:
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_TOKEN_PATH=
+
+ADMIN_USERNAME=
+ADMIN_PASSWORD=
+SMOKE_TEST_USERNAME=
+SMOKE_TEST_PASSWORD_LOCAL=
+SMOKE_TEST_PASSWORD_DEV=
+SMOKE_TEST_PASSWORD_PROD=
+```
+
 ## Data Collection and Processing
 
-The crawler collects data from BoardGameGeek.com in a 3-stage pipeline. Always activate the Poetry environment first:
-
-```bash
-eval $(poetry env activate)
-```
+The crawler collects data from BoardGameGeek.com in a 3-stage pipeline. Run crawler commands with `poetry run python ...`.
 
 ### 1. Collect Board Game Rankings
 
 ```bash
-python crawler/src/get_ranks.py
+poetry run python crawler/src/get_ranks.py
 ```
 
 This will:
@@ -217,7 +228,7 @@ This will:
 ### 2. Collect Detailed Game Data
 
 ```bash
-python crawler/src/get_game_data.py
+poetry run python crawler/src/get_game_data.py
 ```
 
 This will:
@@ -228,7 +239,7 @@ This will:
 ### 3. Collect User Ratings
 
 ```bash
-python crawler/src/get_ratings.py
+poetry run python crawler/src/get_ratings.py
 ```
 
 This will:
@@ -240,8 +251,8 @@ This will:
 The `get_game_data` and `get_ratings` scripts support the `--continue-from-last` flag to resume from the most recent output file if the process was interrupted:
 
 ```bash
-python crawler/src/get_game_data.py --continue-from-last
-python crawler/src/get_ratings.py --continue-from-last
+poetry run python crawler/src/get_game_data.py --continue-from-last
+poetry run python crawler/src/get_ratings.py --continue-from-last
 ```
 
 #### DuckDB Ratings Backend
@@ -255,9 +266,6 @@ The ratings crawler now writes all raw ratings into a persistent DuckDB database
 Setup (one-time):
 
 ```bash
-# Ensure poetry env is active
-eval $(poetry env activate)
-
 # DuckDB is installed via Poetry dependencies automatically
 poetry install
 ```
@@ -270,7 +278,7 @@ Usage notes:
 ### 4. Process the Data
 
 ```bash
-python crawler/src/data_processor.py
+poetry run python crawler/src/data_processor.py
 ```
 
 This will:
@@ -288,7 +296,7 @@ This will:
 ### 5. Generate Collaborative Filtering Embeddings
 
 ```bash
-python crawler/src/create_embeddings.py
+poetry run python crawler/src/create_embeddings.py
 ```
 
 This creates:
@@ -298,16 +306,18 @@ This creates:
 
 ## Importing Data to Backend
 
-Ensure the Poetry environment is activated:
+Before importing data locally, make sure your local database schema is current:
 
 ```bash
-eval $(poetry env activate)
+cd backend
+poetry run alembic upgrade head
+cd ..
 ```
 
 Then run the import script:
 
 ```bash
-python backend/app/import_data.py
+poetry run python backend/app/import_data.py
 ```
 
 This will:
@@ -319,7 +329,7 @@ This will:
 You can also delete the existing database before import:
 
 ```bash
-python backend/app/import_data.py --delete-existing
+poetry run python backend/app/import_data.py --delete-existing
 ```
 
 ### PAX Convention Data Import
@@ -327,7 +337,7 @@ python backend/app/import_data.py --delete-existing
 Import PAX tabletop games data for special filtering:
 
 ```bash
-python backend/app/import_pax_data.py
+poetry run python backend/app/import_pax_data.py
 ```
 
 This will:
@@ -344,13 +354,13 @@ From the backend directory:
 
 ```bash
 # Using the test runner script
-python run_tests.py test_db_queries
-python run_tests.py create_indexes
-python run_tests.py all
+poetry run python run_tests.py test_db_queries
+poetry run python run_tests.py create_indexes
+poetry run python run_tests.py all
 
 # Or directly
-python tests/test_db_queries.py
-python tests/create_indexes.py
+poetry run python tests/test_db_queries.py
+poetry run python tests/create_indexes.py
 ```
 
 ### Test Files
@@ -398,11 +408,13 @@ For production, consider implementing log rotation:
 
 ### Backend Server
 
-Activate the Poetry environment and start the server:
+Apply migrations, then start the server:
 
 ```bash
-eval $(poetry env activate)
-uvicorn backend.app.main:app --reload
+cd backend
+poetry run alembic upgrade head
+cd ..
+poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0
 ```
 
 **Development Features**:
@@ -432,9 +444,11 @@ The FastAPI backend provides a comprehensive REST API with automatic OpenAPI doc
 
 ### Game Endpoints
 ```
-GET /games                              # List games with filtering and pagination
-GET /games/{game_id}                    # Get detailed game information
-GET /games/{game_id}/recommendations    # Get collaborative filtering recommendations
+GET /api/games/                         # List games with filtering and pagination
+GET /api/games/{game_id}                # Get detailed game information
+GET /api/recommendations/{game_id}      # Get collaborative filtering recommendations
+POST /api/recommendations               # Multi-like/dislike recommendation request
+GET /api/recommendations/status         # Recommendation availability/degraded-mode status
 ```
 
 **Game Filtering Parameters**:
@@ -450,32 +464,28 @@ GET /games/{game_id}/recommendations    # Get collaborative filtering recommenda
 
 ### Filter Options Endpoints
 ```
-GET /mechanics      # List all available game mechanics
-GET /categories     # List all game categories
-GET /designers      # List all game designers
-GET /artists        # List all game artists
-GET /publishers     # List all game publishers
+GET /api/mechanics/             # List all available game mechanics
+GET /api/categories/            # List all game categories
+GET /api/mechanics/by_frequency # Mechanic frequency list
+GET /api/categories/by_frequency # Category frequency list
+GET /api/filter-options/        # Cached filter metadata
 ```
 
 ### Authentication Endpoints
 ```
-POST /auth/register              # Create new user account
-POST /auth/login                 # User login (returns JWT token)
-POST /auth/change-password       # Change user password (authenticated)
-GET /auth/me                     # Get current user information
+POST /api/token                  # User login (returns JWT token)
+GET /api/users/me/               # Get current user information
+PUT /api/users/me/password       # Change user password (authenticated)
 ```
 
 ### User Management (Admin Only)
 ```
-GET /users                       # List all users
-POST /users                      # Create new user
-DELETE /users/{user_id}          # Delete user account
+POST /api/users/                 # Create new user
 ```
 
 ### User Suggestions
 ```
-POST /suggestions                # Submit game suggestions
-GET /suggestions                 # List suggestions (admin only)
+POST /api/suggestions/           # Submit game suggestions
 ```
 
 ### Performance
@@ -530,7 +540,8 @@ The application uses a multi-stage Dockerfile:
 DATABASE_PATH=/data/boardgames.db
 
 # Authentication
-SECRET_KEY=production-secret-key
+SECRET_KEY=
+# Set to a unique 32+ character secret before deploying
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 
@@ -606,13 +617,13 @@ flyctl ssh console
 ### Testing
 ```bash
 # Run comprehensive test suite
-python backend/run_tests.py all
+poetry run python backend/run_tests.py all
 
 # Performance benchmarks
-python backend/run_tests.py test_performance
+poetry run python backend/run_tests.py test_performance
 
 # Database optimization
-python backend/run_tests.py create_indexes
+poetry run python backend/run_tests.py create_indexes
 ```
 
 ### Monitoring
