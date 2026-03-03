@@ -140,19 +140,19 @@ Deployment verification rule:
 - [x] [P0] Document and test Fly rollback command path for failed promotions.
 
 ### Phase 4: Architecture and Tooling Reassessment (3-6 days)
-- [ ] [P1] Document current and expected usage profile:
-- [ ] [P1] concurrent users (avg and peak)
-- [ ] [P1] recommendation request volume
-- [ ] [P1] data ingestion/update frequency
-- [ ] [P1] uptime expectations and tolerated downtime
+- [x] [P1] Document current and expected usage profile:
+- [x] [P1] concurrent users (peak: ~100 short term during convention, ~5000 medium term; mostly reads with a small number of concurrent writes)
+- [x] [P1] recommendation request volume
+- [x] [P1] data ingestion/update frequency
+- [x] [P1] uptime expectations and tolerated downtime
 - [ ] [P1] Define target non-functional requirements:
 - [ ] [P1] response-time targets (p95)
 - [ ] [P1] reliability target
 - [ ] [P1] recovery objectives (RTO/RPO)
-- [ ] [P1] Evaluate DB technology fit (SQLite on Fly volume vs managed Postgres) against requirements.
-- [ ] [P1] Evaluate separate environments for dev/prod:
-- [ ] [P1] same DB technology across envs vs mixed setup
-- [ ] [P1] data isolation strategy
+- [x] [P1] Evaluate DB technology fit (SQLite on Fly volume vs managed Postgres) against requirements.
+- [x] [P1] Evaluate separate environments for dev/prod:
+- [x] [P1] same DB technology across envs vs mixed setup
+- [x] [P1] data isolation strategy
 - [ ] [P1] migration and rollback complexity
 - [ ] [P1] Evaluate backend/runtime fit:
 - [ ] [P1] FastAPI deployment model and worker strategy
@@ -167,7 +167,56 @@ Deployment verification rule:
 - [ ] [P1] Define data contract ownership (backend schema owner and frontend integration responsibilities).
 - [ ] [P2] Record decisions in ADRs with options considered, tradeoffs, and final decision.
 - [ ] [P1] Create a concrete migration plan for any chosen architecture changes (sequencing, cutover, rollback).
-- [ ] [P1] Get explicit go/no-go sign-off before implementing architecture changes.
+- [x] [P1] Get explicit go/no-go sign-off before implementing architecture changes.
+- [x] [P1] Create dedicated planning docs for:
+- [x] [P1] Postgres migration (`docs/postgres_migration_plan.md`)
+- [x] [P1] convention-mode access (`docs/convention_mode_access_plan.md`)
+- [x] [P1] image storage migration (`docs/image_storage_migration_plan.md`)
+- [x] [P1] convention runtime policy (`docs/convention_runtime_policy.md`)
+- [x] [P1] Select the target image-storage provider for Phase 4 planning (Cloudflare R2).
+
+Postgres migration timing:
+- The SQLite -> Postgres migration should occur within Phase 4, not after all phases are complete.
+- Reason: later phases (testing, repository cleanup, security, CI hardening) should build on the intended production database architecture rather than deepen investment in the legacy SQLite deployment model.
+- Implementation should still be sequenced conservatively:
+  1. complete the architecture decision and migration plan in Phase 4
+  2. implement and validate Postgres locally in WSL first
+  3. cut over `dev`
+  4. validate and stabilize
+  5. cut over `prod`
+- If the migration starts in Phase 4 and spans more than one PR, keep all related work grouped under the Phase 4 architecture track until the `prod` cutover is complete.
+
+Phase 4 working decisions:
+- Stay inside Fly infrastructure where reasonably possible.
+- Migrate from SQLite-on-volume to Fly Postgres before convention launch.
+- Use the same database technology in both `dev` and `prod` (Fly Postgres in both environments).
+- Require local Postgres validation before any `dev` cutover.
+- For this development setup, use native Postgres inside WSL for local validation rather than introducing Docker as the first migration step.
+- Keep `dev` and `prod` data fully isolated with separate environment-specific databases.
+- Short-term convention mode should allow read-only access on controlled devices without login, while write operations remain authenticated.
+- Anonymous read-only users on shared/public devices should use session-scoped ephemeral personalization rather than account creation.
+- Monthly and manual data rebuilds happen outside convention windows; rebuild data fully offline first, then cut over to the new DB/artifacts.
+- Move image delivery off direct BoardGameGeek hotlinking to Cloudflare R2 plus CDN.
+- During convention hours, keep production warm (no cold-start behavior during active event usage).
+- The future "librarian picks" / user-curated recommendation-list feature is treated here as an architectural input (because it adds concurrent writes), not as a Phase 4 migration implementation item.
+
+Related Phase 4 planning docs:
+- `docs/postgres_migration_plan.md`
+- `docs/convention_mode_access_plan.md`
+- `docs/image_storage_migration_plan.md`
+- `docs/convention_runtime_policy.md`
+
+Postgres migration sequence (Phase 4):
+- [ ] [P1] Add `DATABASE_URL` support with SQLite fallback so the app can run against either backend during the transition.
+- [ ] [P1] Audit current models, queries, migrations, and scripts for SQLite-specific assumptions before switching environments.
+- [ ] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
+- [ ] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
+- [ ] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
+- [ ] [P1] Provision Fly Postgres for `dev`, migrate schema/data, and cut `dev` over to Postgres.
+- [ ] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
+- [ ] [P1] Provision Fly Postgres for `prod`, migrate schema/data, and cut `prod` over to Postgres.
+- [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
+- [ ] [P1] Record final cutover and rollback decisions in a dedicated migration plan doc (`docs/postgres_migration_plan.md`).
 
 ### Phase 5: Repository Structure and Naming Cleanup (2-5 days)
 - [ ] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
