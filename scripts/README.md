@@ -311,11 +311,11 @@ Status:
 ## Related Documentation
 
 - Main operational runbook:
-  - `docs/deploy_rollback_runbook.md`
+  - `docs/runbooks/deploy_rollback_runbook.md`
 - Environment strategy:
-  - `docs/fly_environment_strategy.md`
+  - `docs/architecture/fly_environment_strategy.md`
 
 ## Operational Notes
 
-- Fly machines may be auto-stopped when idle. If a script fails because no machine is running, use the wake commands in `docs/deploy_rollback_runbook.md`.
+- Fly machines may be auto-stopped when idle. If a script fails because no machine is running, use the wake commands in `docs/runbooks/deploy_rollback_runbook.md`.
 - The `.tmp/` directory is intentionally local-only and should not be committed.

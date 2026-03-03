@@ -26,6 +26,26 @@
 - Do not combine this migration with the image-storage move.
 - Do not remove the SQLite fallback path until Postgres-backed production is stable.
 
+## Current Status
+- `DATABASE_URL` support with SQLite fallback is implemented in shared app/Alembic configuration.
+- Initial Postgres compatibility audit is complete:
+  - no blocking SQLite-only assumptions were found in runtime SQLAlchemy models
+  - current Alembic revisions and the post-import SQL script are expected to translate to Postgres
+  - `backend/tests/create_indexes.py` remains SQLite-specific, but it is test-only and not part of runtime cutover
+- The root Alembic revision now bootstraps an empty database to the post-`d258c28b421e` base schema so the historical migration chain can be replayed on a fresh Postgres instance.
+- Native local Postgres inside WSL is running and validated.
+- `poetry run alembic upgrade head` succeeds on a fresh local Postgres database.
+- The app starts successfully against the fresh local Postgres schema and responds on:
+  - `/api`
+  - `/api/version`
+- The one-time SQLite -> Postgres migration utility now exists at:
+  - `backend/scripts/migrate_sqlite_to_postgres.py`
+- The utility has focused unit coverage for table-ordering, batching, and legacy `pax_games` normalization edge cases.
+- The utility has been run successfully end-to-end against local Postgres:
+  - row-count parity is verified table-by-table during migration
+  - local source-data anomalies in `pax_games.bgg_id` are normalized to `NULL` when they do not map to a valid `games.id`
+- Remaining items in this document are still execution tasks and should remain staged behind local-first validation.
+
 ## Required Sequence
 1. Add `DATABASE_URL` support with SQLite fallback in application config.
 2. Audit code and migrations for SQLite-specific assumptions.
@@ -159,11 +179,8 @@ poetry run python scripts/validate_prod_release.py
 - Prefer a scriptable verification report where possible.
 
 ## Open Implementation Work
-- Add `DATABASE_URL` support with SQLite fallback.
-- Build the one-time SQLite -> Postgres migration utility.
-- Define exact local Postgres setup commands for WSL.
-- Audit Alembic revisions and raw SQL for Postgres compatibility.
-- Add verification scripts or checks for row-count parity after migration.
+- Define exact local Postgres setup commands for WSL in the long-term runbook if they need to be repeatable on a new machine.
+- Add standalone verification scripts or reports if you want table-parity checks outside the migration run itself.
 
 ## Local Development After Migration
 - During the migration, local development may remain dual-mode:
@@ -174,7 +191,21 @@ poetry run python scripts/validate_prod_release.py
 
 ## Exit Criteria
 - Local Postgres validation passes.
+- The SQLite -> Postgres migration utility runs successfully against local Postgres and preserves row counts/IDs.
 - `dev` is running on Fly Postgres and passes all automated/manual validation.
 - `prod` is running on Fly Postgres and passes all automated/manual validation.
 - The Postgres-backed deployment supports the agreed Phase 4 non-functional targets.
 - SQLite fallback is retained until the new production path is stable enough to retire it deliberately.
+
+## Local Data Migration Command
+After bootstrapping the local Postgres schema, run:
+
+```bash
+export DATABASE_URL="postgresql://${POSTGRES_USER}:${LOCAL_POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
+poetry run python backend/scripts/migrate_sqlite_to_postgres.py
+```
+
+This command expects:
+- source SQLite database at the default local app path
+- target Postgres schema already created via `poetry run alembic upgrade head`
+- an empty target Postgres database

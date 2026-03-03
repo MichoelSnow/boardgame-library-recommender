@@ -181,11 +181,11 @@ Deployment verification rule:
 - [x] [P1] Select the target image-storage provider for Phase 4 planning (Cloudflare R2).
 
 ### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
-- [ ] [P1] Implement `DATABASE_URL` support with SQLite fallback.
-- [ ] [P1] Complete the Postgres compatibility audit.
-- [ ] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
-- [ ] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
-- [ ] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
+- [x] [P1] Implement `DATABASE_URL` support with SQLite fallback.
+- [x] [P1] Complete the Postgres compatibility audit.
+- [x] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
+- [x] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
+- [x] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
 - [ ] [P1] Provision Fly Postgres for `dev`, migrate schema/data, and cut `dev` over to Postgres.
 - [ ] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
 - [ ] [P1] Provision Fly Postgres for `prod`, migrate schema/data, and cut `prod` over to Postgres.

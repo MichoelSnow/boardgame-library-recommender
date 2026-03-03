@@ -5,9 +5,9 @@ from sqlalchemy import pool
 
 from alembic import context
 import sys
-import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
+from app.db_config import get_database_url
 from app.models import Base
 
 # this is the Alembic Config object, which provides
@@ -30,24 +30,11 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-def get_database_url():
-    """Get database URL using same logic as application.
-    
-    This ensures Alembic and the application use the same database path
-    in all environments (local, production, etc.)
-    """
-    # Check for DATABASE_PATH environment variable first (production)
-    database_path = os.getenv("DATABASE_PATH")
-    
-    if database_path:
-        # Environment variable is set, use it
-        if database_path.startswith("sqlite:///"):
-            return database_path
-        else:
-            return f"sqlite:///{database_path}"
-    else:
-        # Fall back to alembic.ini configuration (local development)
-        return config.get_main_option("sqlalchemy.url")
+def resolve_database_url():
+    database_url = get_database_url()
+    if database_url:
+        return database_url
+    return config.get_main_option("sqlalchemy.url")
 
 
 def run_migrations_offline() -> None:
@@ -62,7 +49,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = get_database_url()
+    url = resolve_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -83,7 +70,7 @@ def run_migrations_online() -> None:
     """
     # Get configuration and override database URL if environment variable is set
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = get_database_url()
+    configuration["sqlalchemy.url"] = resolve_database_url()
     
     connectable = engine_from_config(
         configuration,

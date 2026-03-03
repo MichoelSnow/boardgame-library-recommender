@@ -112,7 +112,7 @@ def main() -> int:
     logger.info("Core production release validation passed.")
     logger.info(
         "If the release changed frontend behavior, auth flows, or deployment config, "
-        "run the additional manual checks listed in docs/deploy_rollback_runbook.md."
+        "run the additional manual checks listed in docs/runbooks/deploy_rollback_runbook.md."
     )
     return 0
 
