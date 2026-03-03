@@ -139,41 +139,81 @@ Deployment verification rule:
 - [x] [P1] Make the app read its semantic version from one canonical source so release bumps happen in one place.
 - [x] [P0] Document and test Fly rollback command path for failed promotions.
 
-### Phase 4: Architecture and Tooling Reassessment (3-6 days)
+### Phase 4A: Architecture and Tooling Decisions (3-6 days)
 - [x] [P1] Document current and expected usage profile:
 - [x] [P1] concurrent users (peak: ~100 short term during convention, ~5000 medium term; mostly reads with a small number of concurrent writes)
 - [x] [P1] recommendation request volume
 - [x] [P1] data ingestion/update frequency
 - [x] [P1] uptime expectations and tolerated downtime
-- [ ] [P1] Define target non-functional requirements:
-- [ ] [P1] response-time targets (p95)
-- [ ] [P1] reliability target
-- [ ] [P1] recovery objectives (RTO/RPO)
+- [x] [P1] Define target non-functional requirements:
+- [x] [P1] response-time targets (p95)
+- [x] [P1] reliability target
+- [x] [P1] recovery objectives (RTO/RPO)
 - [x] [P1] Evaluate DB technology fit (SQLite on Fly volume vs managed Postgres) against requirements.
 - [x] [P1] Evaluate separate environments for dev/prod:
 - [x] [P1] same DB technology across envs vs mixed setup
 - [x] [P1] data isolation strategy
-- [ ] [P1] migration and rollback complexity
-- [ ] [P1] Evaluate backend/runtime fit:
-- [ ] [P1] FastAPI deployment model and worker strategy
-- [ ] [P1] model artifact loading strategy and storage location
-- [ ] [P1] Evaluate frontend architecture fit:
-- [ ] [P1] API layer organization
-- [ ] [P1] caching/query invalidation strategy
-- [ ] [P1] Evaluate observability and alerting tooling fit:
-- [ ] [P1] log aggregation approach
-- [ ] [P1] email alert channel and escalation workflow
-- [ ] [P2] Define API versioning and deprecation policy (compatibility window + sunset process).
-- [ ] [P1] Define data contract ownership (backend schema owner and frontend integration responsibilities).
-- [ ] [P2] Record decisions in ADRs with options considered, tradeoffs, and final decision.
-- [ ] [P1] Create a concrete migration plan for any chosen architecture changes (sequencing, cutover, rollback).
+- [x] [P1] migration and rollback complexity
+- [x] [P1] Evaluate backend/runtime fit:
+- [x] [P1] FastAPI deployment model and worker strategy
+- [x] [P1] model artifact loading strategy and storage location
+- [x] [P1] Define and require a convention-condition rehearsal/load-test phase before locking worker count and machine sizing.
+- [x] [P1] Evaluate frontend architecture fit:
+- [x] [P1] API layer organization
+- [x] [P1] caching/query invalidation strategy
+- [x] [P1] Evaluate observability and alerting tooling fit:
+- [x] [P1] log aggregation approach
+- [x] [P1] email alert channel and escalation workflow
+- [x] [P2] Define API versioning and deprecation policy (compatibility window + sunset process).
+- [x] [P1] Define data contract ownership (backend schema owner and frontend integration responsibilities).
+- [x] [P2] Record decisions in ADRs with options considered, tradeoffs, and final decision.
+- [x] [P1] Create a concrete migration plan for any chosen architecture changes (sequencing, cutover, rollback).
 - [x] [P1] Get explicit go/no-go sign-off before implementing architecture changes.
 - [x] [P1] Create dedicated planning docs for:
-- [x] [P1] Postgres migration (`docs/postgres_migration_plan.md`)
-- [x] [P1] convention-mode access (`docs/convention_mode_access_plan.md`)
-- [x] [P1] image storage migration (`docs/image_storage_migration_plan.md`)
-- [x] [P1] convention runtime policy (`docs/convention_runtime_policy.md`)
+- [x] [P1] Postgres migration (`docs/architecture/postgres_migration_plan.md`)
+- [x] [P1] convention-mode access (`docs/architecture/convention_mode_access_plan.md`)
+- [x] [P1] image storage migration (`docs/architecture/image_storage_migration_plan.md`)
+- [x] [P1] convention runtime policy (`docs/architecture/convention_runtime_policy.md`)
+- [x] [P1] observability and alerting (`docs/architecture/observability_alerting_plan.md`)
+- [x] [P1] frontend architecture (`docs/architecture/frontend_architecture_plan.md`)
+- [x] [P1] migration cutover strategy (`docs/architecture/migration_cutover_strategy.md`)
+- [x] [P1] data contract ownership (`docs/policies/data_contract_ownership.md`)
 - [x] [P1] Select the target image-storage provider for Phase 4 planning (Cloudflare R2).
+
+### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
+- [ ] [P1] Implement `DATABASE_URL` support with SQLite fallback.
+- [ ] [P1] Complete the Postgres compatibility audit.
+- [ ] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
+- [ ] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
+- [ ] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
+- [ ] [P1] Provision Fly Postgres for `dev`, migrate schema/data, and cut `dev` over to Postgres.
+- [ ] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
+- [ ] [P1] Provision Fly Postgres for `prod`, migrate schema/data, and cut `prod` over to Postgres.
+- [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
+- [ ] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
+- [ ] [P1] Implement the minimum observability stack required before risky cutovers:
+- [ ] [P1] periodic production health-check/alert job
+- [ ] [P1] email alert delivery (Resend preferred, SendGrid fallback)
+- [ ] [P1] critical P0 alert classes
+- [ ] [P1] Implement the convention runtime profile skeleton:
+- [ ] [P1] warm-mode enable/disable path
+- [ ] [P1] initial `Gunicorn + 2 Uvicorn workers` configuration
+- [ ] [P1] explicit `dev` rehearsal configuration path
+
+Overall execution order override:
+- Keep the phase taxonomy for categorization, but execute work in this order:
+  1. Phase 4B Postgres implementation
+  2. Phase 4B minimum observability implementation
+  3. Phase 4B convention runtime profile skeleton
+  4. Phase 5 repository structure cleanup
+  5. Phase 4 frontend architecture foundation implementation
+  6. Phase 4 convention mode implementation
+  7. Phase 4 image migration implementation
+  8. Phase 4 convention rehearsal/load testing in `dev`
+  9. Later hardening phases
+- Phase 4 implementation items intentionally occur before later phase categories because later phases should build on the intended architecture rather than deepen investment in transitional paths.
+- [x] [P2] API versioning policy documented (`docs/policies/api_versioning_policy.md`)
+- [x] [P2] Phase 4 architecture ADR recorded (`docs/adr/0001-phase-4-architecture-foundations.md`)
 
 Postgres migration timing:
 - The SQLite -> Postgres migration should occur within Phase 4, not after all phases are complete.
@@ -186,37 +226,33 @@ Postgres migration timing:
   5. cut over `prod`
 - If the migration starts in Phase 4 and spans more than one PR, keep all related work grouped under the Phase 4 architecture track until the `prod` cutover is complete.
 
-Phase 4 working decisions:
-- Stay inside Fly infrastructure where reasonably possible.
-- Migrate from SQLite-on-volume to Fly Postgres before convention launch.
-- Use the same database technology in both `dev` and `prod` (Fly Postgres in both environments).
-- Require local Postgres validation before any `dev` cutover.
-- For this development setup, use native Postgres inside WSL for local validation rather than introducing Docker as the first migration step.
-- Keep `dev` and `prod` data fully isolated with separate environment-specific databases.
-- Short-term convention mode should allow read-only access on controlled devices without login, while write operations remain authenticated.
-- Anonymous read-only users on shared/public devices should use session-scoped ephemeral personalization rather than account creation.
-- Monthly and manual data rebuilds happen outside convention windows; rebuild data fully offline first, then cut over to the new DB/artifacts.
-- Move image delivery off direct BoardGameGeek hotlinking to Cloudflare R2 plus CDN.
-- During convention hours, keep production warm (no cold-start behavior during active event usage).
-- The future "librarian picks" / user-curated recommendation-list feature is treated here as an architectural input (because it adds concurrent writes), not as a Phase 4 migration implementation item.
+Phase 4 decision summary:
+- Architecture decisions are recorded in:
+  - `docs/adr/0001-phase-4-architecture-foundations.md`
+- Cross-cutting sequencing and rollback rules are recorded in:
+  - `docs/architecture/migration_cutover_strategy.md`
+- Service-level targets are recorded in:
+  - `docs/policies/service_level_targets.md`
+- Rehearsal/load-test requirements are recorded in:
+  - `docs/architecture/convention_runtime_policy.md`
+- Subsystem-specific implementation details live in the relevant planning docs listed below.
+
+Phase 4 non-functional targets:
+- Defined in [Service Level Targets](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Phase 4 planning and implementation docs should reference that file as the canonical source rather than duplicating target values.
 
 Related Phase 4 planning docs:
-- `docs/postgres_migration_plan.md`
-- `docs/convention_mode_access_plan.md`
-- `docs/image_storage_migration_plan.md`
-- `docs/convention_runtime_policy.md`
-
-Postgres migration sequence (Phase 4):
-- [ ] [P1] Add `DATABASE_URL` support with SQLite fallback so the app can run against either backend during the transition.
-- [ ] [P1] Audit current models, queries, migrations, and scripts for SQLite-specific assumptions before switching environments.
-- [ ] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
-- [ ] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
-- [ ] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
-- [ ] [P1] Provision Fly Postgres for `dev`, migrate schema/data, and cut `dev` over to Postgres.
-- [ ] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
-- [ ] [P1] Provision Fly Postgres for `prod`, migrate schema/data, and cut `prod` over to Postgres.
-- [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
-- [ ] [P1] Record final cutover and rollback decisions in a dedicated migration plan doc (`docs/postgres_migration_plan.md`).
+- `docs/policies/service_level_targets.md`
+- `docs/architecture/postgres_migration_plan.md`
+- `docs/architecture/convention_mode_access_plan.md`
+- `docs/architecture/image_storage_migration_plan.md`
+- `docs/architecture/convention_runtime_policy.md`
+- `docs/architecture/observability_alerting_plan.md`
+- `docs/architecture/frontend_architecture_plan.md`
+- `docs/architecture/migration_cutover_strategy.md`
+- `docs/policies/data_contract_ownership.md`
+- `docs/policies/api_versioning_policy.md`
+- `docs/adr/0001-phase-4-architecture-foundations.md`
 
 ### Phase 5: Repository Structure and Naming Cleanup (2-5 days)
 - [ ] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.

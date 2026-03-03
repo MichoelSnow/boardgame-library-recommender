@@ -5,10 +5,21 @@
 - Reduce operational risk by validating locally first, then cutting over `dev`, then `prod`.
 - Keep the relational database migration separate from later image-storage and other infrastructure changes.
 
+## Service-Level Reference
+- Canonical performance, reliability, recovery, and data-loss targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- This migration is only complete when the Postgres-backed deployment can support those targets.
+
+## Cutover Strategy Reference
+- Cross-cutting sequencing and rollback rules are defined in [migration_cutover_strategy.md](/home/msnow/git/pax_tt_recommender/docs/architecture/migration_cutover_strategy.md).
+- This migration must follow the isolated-cutover rule and preserve the SQLite fallback path during stabilization.
+
 ## Scope
 - Migrate application relational data from SQLite to Postgres.
 - Keep recommendation artifacts (`.npz`, `.json`) on the Fly volume during this migration.
 - Keep image-storage migration out of scope for this document.
+- Keep the initial backend runtime strategy separate from the DB cutover:
+  - recommendation artifacts stay volume-backed
+  - convention worker-count tuning is validated by rehearsal before final runtime adjustments
 
 ## Non-Goals
 - Do not migrate recommendation artifacts into Postgres.
@@ -37,6 +48,8 @@
 - Keep `dev` and `prod` data fully isolated.
 - Require local Postgres validation before any Fly cutover.
 - For this environment, use native Postgres inside WSL as the local proving ground.
+- Keep recommendation artifacts on local mounted storage during the first Postgres migration step.
+- Treat convention worker-count and machine-memory tuning as a separate runtime decision validated by rehearsal, not as part of the DB cutover itself.
 
 ## Local Validation (WSL)
 ### Goals
@@ -124,6 +137,7 @@ poetry run python scripts/validate_prod_release.py
   - switch app config back to SQLite
   - redeploy the last known-good SQLite-backed release
 - Only consider DB downgrade paths after they are explicitly tested.
+- Treat this rollback as a service-recovery path, not a zero-loss bidirectional data-reconciliation path.
 
 ## Migration Script Recommendation
 - Build a dedicated one-time migration utility under `backend/scripts/` or `scripts/`.
@@ -162,4 +176,5 @@ poetry run python scripts/validate_prod_release.py
 - Local Postgres validation passes.
 - `dev` is running on Fly Postgres and passes all automated/manual validation.
 - `prod` is running on Fly Postgres and passes all automated/manual validation.
+- The Postgres-backed deployment supports the agreed Phase 4 non-functional targets.
 - SQLite fallback is retained until the new production path is stable enough to retire it deliberately.

@@ -10,6 +10,14 @@
 - Improve reliability during convention usage.
 - Use a cost-efficient object storage provider for image delivery.
 
+## Service-Level Reference
+- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- This migration must support the image-delivery target and remain aligned with the overall convention-hour reliability and recovery targets.
+
+## Cutover Strategy Reference
+- Cross-cutting sequencing and rollback rules are defined in [migration_cutover_strategy.md](/home/msnow/git/pax_tt_recommender/docs/architecture/migration_cutover_strategy.md).
+- This migration should be shipped as its own major cutover, not combined with the Postgres cutover.
+
 ## Non-Goals
 - Do not store images in the relational database.
 - Do not require the provider choice to be finalized before documenting the migration plan.
@@ -101,7 +109,7 @@
 - Most requested images resolve from the new storage path.
 - BoardGameGeek is used only as a controlled cache-fill origin on R2 misses, not as the normal client-facing image source.
 - Missing images fall back to the local placeholder cleanly.
-- Image load latency is meaningfully improved versus direct BGG loading.
+- First meaningful image is visible within the target `1500 ms` budget under representative convention conditions.
 - Broken-image rates are acceptable before final cutover.
 
 ## Seeded Cache Strategy
