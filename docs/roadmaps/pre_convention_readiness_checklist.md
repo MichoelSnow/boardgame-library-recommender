@@ -33,6 +33,7 @@
 - [ ] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
 - [x] [P0] Define and test backup procedure for self-managed Postgres on Fly.
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
+- [ ] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
 - [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
 - [ ] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games

@@ -193,6 +193,7 @@ Deployment verification rule:
 - [ ] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
 - [x] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
 - [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.
+- [ ] [P1] Before the final Postgres `prod` cutover, make production fail fast when `DATABASE_URL` is missing instead of silently falling back to SQLite.
 - [ ] [P1] Implement the minimum observability stack required before risky cutovers:
 - [ ] [P1] periodic production health-check/alert job
 - [ ] [P1] email alert delivery (Resend preferred, SendGrid fallback)

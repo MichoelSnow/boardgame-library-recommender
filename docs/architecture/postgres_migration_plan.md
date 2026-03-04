@@ -44,6 +44,7 @@
 - The utility has been run successfully end-to-end against local Postgres:
   - row-count parity is verified table-by-table during migration
   - local source-data anomalies in `pax_games.bgg_id` are normalized to `NULL` when they do not map to a valid `games.id`
+  - a warning summary is emitted when those `pax_games.bgg_id` anomalies are normalized during migration
 - The self-managed `dev` Postgres Fly app is provisioned and reachable.
 - `poetry run alembic upgrade head` succeeds against `dev` Postgres from the deployed app container.
 - The current `dev` SQLite dataset has been migrated successfully into `dev` Postgres.
@@ -244,6 +245,7 @@ poetry run python scripts/fly_postgres_restore.py --env prod --input /tmp/pax-tt
   - SQLite fallback available
 - After Postgres is stable in production, local development should move to Postgres-first by default.
 - SQLite fallback should be treated as transitional, not permanent technical debt.
+- Before the final `prod` Postgres cutover, production should fail fast if `DATABASE_URL` is missing instead of silently falling back to SQLite.
 
 ## Exit Criteria
 - Local Postgres validation passes.
