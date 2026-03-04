@@ -186,11 +186,13 @@ Deployment verification rule:
 - [x] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
 - [x] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
 - [x] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
-- [ ] [P1] Provision Fly Postgres for `dev`, migrate schema/data, and cut `dev` over to Postgres.
-- [ ] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
-- [ ] [P1] Provision Fly Postgres for `prod`, migrate schema/data, and cut `prod` over to Postgres.
+- [x] [P1] Provision self-managed Postgres on Fly for `dev`, migrate schema/data, and cut `dev` over to Postgres.
+- [x] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
+- [ ] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
 - [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
 - [ ] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
+- [ ] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
+- [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.
 - [ ] [P1] Implement the minimum observability stack required before risky cutovers:
 - [ ] [P1] periodic production health-check/alert job
 - [ ] [P1] email alert delivery (Resend preferred, SendGrid fallback)

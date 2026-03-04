@@ -16,18 +16,20 @@
 ## Decision 1: Database Platform
 ### Options Considered
 - Keep SQLite on a Fly volume
-- Move to Fly Postgres
+- Move to managed Fly Postgres
 - Use mixed DB technology between environments
 
 ### Tradeoffs
 - SQLite is simple and cheap, but weak for concurrent writes and operational scaling.
-- Fly Postgres adds migration complexity and cost, but better supports concurrent writes and future growth.
+- Managed Fly Postgres adds migration complexity and cost, but better supports concurrent writes and future growth.
 - Mixed DB tech between `dev` and `prod` increases drift and debugging complexity.
 
 ### Final Decision
-- Migrate to Fly Postgres before convention launch.
-- Use Fly Postgres in both `dev` and `prod`.
+- Migrate to self-managed Postgres on Fly before convention launch.
+- Use self-managed Postgres on Fly in both `dev` and `prod`.
 - Require local Postgres validation in WSL before `dev` cutover.
+- Managed Fly Postgres is rejected for the current build primarily because its fixed monthly cost is too high for the current budget.
+- Backup, restore, and DB-health monitoring become explicit responsibilities of this choice.
 
 ## Decision 2: Image Delivery
 ### Options Considered

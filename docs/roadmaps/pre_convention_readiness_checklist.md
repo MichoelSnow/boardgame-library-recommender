@@ -24,13 +24,15 @@
 - [ ] [P1] Validate convention-mode endpoint allowlist against the final frontend flows.
 
 ## Data and Storage
-- [ ] [P0] Add `DATABASE_URL` support with SQLite fallback.
-- [ ] [P0] Stand up native local Postgres in WSL and validate local app behavior.
-- [ ] [P0] Build and validate the SQLite -> Postgres migration path locally.
-- [ ] [P0] Provision and cut over `dev` to Fly Postgres.
-- [ ] [P0] Validate `dev` on Postgres.
-- [ ] [P0] Provision and cut over `prod` to Fly Postgres.
+- [x] [P0] Add `DATABASE_URL` support with SQLite fallback.
+- [x] [P0] Stand up native local Postgres in WSL and validate local app behavior.
+- [x] [P0] Build and validate the SQLite -> Postgres migration path locally.
+- [x] [P0] Provision and cut over `dev` to self-managed Postgres on Fly.
+- [x] [P0] Validate `dev` on Postgres.
+- [ ] [P0] Provision and cut over `prod` to self-managed Postgres on Fly.
 - [ ] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
+- [ ] [P0] Define and test backup procedure for self-managed Postgres on Fly.
+- [ ] [P0] Define and test restore procedure for self-managed Postgres on Fly.
 - [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
 - [ ] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games

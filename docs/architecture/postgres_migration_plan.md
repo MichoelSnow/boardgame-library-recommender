@@ -1,7 +1,7 @@
 # Postgres Migration Plan
 
 ## Purpose
-- Define the execution plan for migrating `pax_tt_recommender` from SQLite-on-Fly-volume to Fly Postgres.
+- Define the execution plan for migrating `pax_tt_recommender` from SQLite-on-Fly-volume to self-managed Postgres on Fly.
 - Reduce operational risk by validating locally first, then cutting over `dev`, then `prod`.
 - Keep the relational database migration separate from later image-storage and other infrastructure changes.
 
@@ -44,6 +44,16 @@
 - The utility has been run successfully end-to-end against local Postgres:
   - row-count parity is verified table-by-table during migration
   - local source-data anomalies in `pax_games.bgg_id` are normalized to `NULL` when they do not map to a valid `games.id`
+- The self-managed `dev` Postgres Fly app is provisioned and reachable.
+- `poetry run alembic upgrade head` succeeds against `dev` Postgres from the deployed app container.
+- The current `dev` SQLite dataset has been migrated successfully into `dev` Postgres.
+- The Postgres-backed `dev` environment has passed:
+  - release validation against the deployed branch SHA
+  - Fly health checks
+  - auth smoke test
+  - recommendation artifact validation
+  - recommendation endpoint validation
+  - performance gate validation
 - Remaining items in this document are still execution tasks and should remain staged behind local-first validation.
 
 ## Required Sequence
@@ -52,11 +62,11 @@
 3. Stand up native local Postgres inside WSL.
 4. Run Alembic against local Postgres.
 5. Build and validate the SQLite -> Postgres data migration path locally.
-6. Provision Fly Postgres for `dev`.
+6. Provision self-managed Postgres on Fly for `dev`.
 7. Run Alembic on `dev` Postgres.
 8. Migrate `dev` data and cut `dev` over to Postgres.
 9. Validate and stabilize `dev`.
-10. Provision Fly Postgres for `prod`.
+10. Provision self-managed Postgres on Fly for `prod`.
 11. Run Alembic on `prod` Postgres.
 12. Migrate `prod` data and cut `prod` over to Postgres.
 13. Validate `prod`.
@@ -64,12 +74,15 @@
 
 ## Architecture Decisions
 - Stay inside Fly infrastructure where reasonably possible.
-- Use Fly Postgres for both `dev` and `prod`.
+- Use self-managed Postgres on Fly for both `dev` and `prod`.
 - Keep `dev` and `prod` data fully isolated.
 - Require local Postgres validation before any Fly cutover.
 - For this environment, use native Postgres inside WSL as the local proving ground.
 - Keep recommendation artifacts on local mounted storage during the first Postgres migration step.
 - Treat convention worker-count and machine-memory tuning as a separate runtime decision validated by rehearsal, not as part of the DB cutover itself.
+- Prefer self-managed Postgres on Fly over managed Fly Postgres because the managed service's fixed monthly cost is too high for the current budget.
+- Accept the operational tradeoff of self-management in exchange for materially lower monthly cost.
+- Treat backup, restore, and DB health monitoring as required parts of this migration, not optional follow-up work.
 
 ## Local Validation (WSL)
 ### Goals
@@ -121,7 +134,7 @@ cd ..
 - This dual-mode contract is the intended transition path during the migration.
 
 ## Dev Cutover
-1. Provision Fly Postgres for `dev`.
+1. Provision a self-managed Postgres Fly app for `dev`.
 2. Set `DATABASE_URL` for `pax-tt-app-dev`.
 3. Run:
 ```bash
@@ -136,7 +149,7 @@ poetry run python scripts/validate_dev_deploy.py
 7. Perform targeted manual regression checks for DB-backed behavior.
 
 ## Prod Cutover
-1. Provision Fly Postgres for `prod`.
+1. Provision a self-managed Postgres Fly app for `prod`.
 2. Set `DATABASE_URL` for `pax-tt-app`.
 3. Run:
 ```bash
@@ -158,6 +171,13 @@ poetry run python scripts/validate_prod_release.py
   - redeploy the last known-good SQLite-backed release
 - Only consider DB downgrade paths after they are explicitly tested.
 - Treat this rollback as a service-recovery path, not a zero-loss bidirectional data-reconciliation path.
+
+## Self-Managed Operations Requirements
+- Define and document the self-managed Postgres app/container configuration for both `dev` and `prod`.
+- Define and test a backup procedure before the production cutover.
+- Define and test a restore procedure before convention launch.
+- Add DB-health monitoring and alerting to the observability stack.
+- Treat backup/restore validation as a launch requirement, not an optional hardening task.
 
 ## Migration Script Recommendation
 - Build a dedicated one-time migration utility under `backend/scripts/` or `scripts/`.
@@ -192,9 +212,10 @@ poetry run python scripts/validate_prod_release.py
 ## Exit Criteria
 - Local Postgres validation passes.
 - The SQLite -> Postgres migration utility runs successfully against local Postgres and preserves row counts/IDs.
-- `dev` is running on Fly Postgres and passes all automated/manual validation.
-- `prod` is running on Fly Postgres and passes all automated/manual validation.
+- `dev` is running on self-managed Postgres on Fly and passes all automated/manual validation.
+- `prod` is running on self-managed Postgres on Fly and passes all automated/manual validation.
 - The Postgres-backed deployment supports the agreed Phase 4 non-functional targets.
+- Backup and restore procedures are documented and have been tested successfully.
 - SQLite fallback is retained until the new production path is stable enough to retire it deliberately.
 
 ## Local Data Migration Command

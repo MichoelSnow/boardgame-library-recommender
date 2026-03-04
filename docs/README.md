@@ -62,7 +62,7 @@ These files should be treated as the single source of truth for their topic. Oth
 These docs describe specific Phase 4 architecture decisions and implementation plans. They should inherit targets and launch priorities from the canonical docs above.
 
 - [Postgres Migration Plan](/home/msnow/git/pax_tt_recommender/docs/architecture/postgres_migration_plan.md)
-  - relational DB migration from SQLite to Fly Postgres
+  - relational DB migration from SQLite to self-managed Postgres on Fly
 - [Image Storage Migration Plan](/home/msnow/git/pax_tt_recommender/docs/architecture/image_storage_migration_plan.md)
   - move image delivery to Cloudflare R2 + CDN
 - [Convention Mode Access Plan](/home/msnow/git/pax_tt_recommender/docs/architecture/convention_mode_access_plan.md)
