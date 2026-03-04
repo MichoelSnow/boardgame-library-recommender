@@ -54,6 +54,8 @@
   - recommendation artifact validation
   - recommendation endpoint validation
   - performance gate validation
+- The self-managed Postgres backup procedure has been tested successfully against `dev`.
+- The self-managed Postgres restore procedure has been tested successfully against a disposable `dev` restore database.
 - Remaining items in this document are still execution tasks and should remain staged behind local-first validation.
 
 ## Required Sequence
@@ -178,6 +180,40 @@ poetry run python scripts/validate_prod_release.py
 - Define and test a restore procedure before convention launch.
 - Add DB-health monitoring and alerting to the observability stack.
 - Treat backup/restore validation as a launch requirement, not an optional hardening task.
+
+## Backup Procedure
+- The initial backup method is a logical SQL dump created with:
+  - `pg_dump`
+  - executed over `fly ssh console`
+  - written to a local file on the operator machine
+- The repeatable local command is:
+
+```bash
+poetry run python scripts/fly_postgres_backup.py --env dev
+poetry run python scripts/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-before-cutover.sql
+```
+
+- The backup task is not complete until:
+  - the script runs successfully against the target Fly Postgres app
+  - the resulting `.sql` file is non-empty
+  - the output file is retained long enough for the planned change window
+
+## Restore Procedure
+- The initial restore-validation method is:
+  - recreate a disposable test database on the Fly Postgres app
+  - pipe the local SQL dump into `psql`
+  - verify the restored database contains public tables
+- The repeatable local command is:
+
+```bash
+poetry run python scripts/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-postgres-backup-20260304T012020Z.sql
+poetry run python scripts/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-before-cutover.sql --restore-db pax_tt_recommender_restore_test
+```
+
+- The restore task is not complete until:
+  - the script runs successfully against the target Fly Postgres app
+  - the disposable restore database is created successfully
+  - restore verification confirms the restored database contains public tables
 
 ## Migration Script Recommendation
 - Build a dedicated one-time migration utility under `backend/scripts/` or `scripts/`.
