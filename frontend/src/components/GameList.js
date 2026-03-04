@@ -247,7 +247,7 @@ const GameList = () => {
       const recommendationPayload = {
         liked_games: likedGames.map(g => g.id),
         disliked_games: dislikedGames.map(g => g.id),
-        limit: 200, // Large number for client-side filtering
+        limit: 50, // Backend currently caps recommendation requests at 50
       };
       const allResponse = await axios.post(`${apiBaseUrl}/recommendations`, {
         ...recommendationPayload,

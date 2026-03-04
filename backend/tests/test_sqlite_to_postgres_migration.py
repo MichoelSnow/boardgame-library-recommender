@@ -6,6 +6,7 @@ from backend.scripts.migrate_sqlite_to_postgres import (
     get_table_copy_order,
     migrate_table,
     normalize_row_for_target,
+    reset_postgres_sequences,
 )
 
 
@@ -157,3 +158,36 @@ def test_migrate_table_streams_rows_in_batches():
         (4, "four"),
         (5, "five"),
     ]
+
+
+def test_reset_postgres_sequences_only_targets_integer_primary_keys():
+    metadata = MetaData()
+    with_id = Table(
+        "with_id",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("name", String),
+    )
+    without_integer_id = Table(
+        "without_integer_id",
+        metadata,
+        Column("slug", String, primary_key=True),
+    )
+
+    executed = []
+
+    class FakeConnection:
+        def execute(self, statement):
+            executed.append(str(statement))
+
+    reset_postgres_sequences(
+        ["with_id", "without_integer_id"],
+        FakeConnection(),
+        {
+            "with_id": with_id,
+            "without_integer_id": without_integer_id,
+        },
+    )
+
+    assert len(executed) == 1
+    assert "with_id" in executed[0]

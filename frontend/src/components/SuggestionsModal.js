@@ -43,7 +43,13 @@ const SuggestionsModal = ({ open, onClose }) => {
         onClose();
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to submit suggestion. Please try again.');
+      console.error('Suggestion submission failed:', err);
+      const detail = err.response?.data?.detail;
+      setError(
+        typeof detail === 'string'
+          ? detail
+          : 'Failed to submit suggestion. Please try again.'
+      );
     } finally {
       setLoading(false);
     }

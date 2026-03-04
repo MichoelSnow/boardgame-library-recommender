@@ -6,7 +6,7 @@ const config = {
   },
   // Production
   production: {
-    apiBaseUrl: 'https://pax-tt-app.fly.dev/api',
+    apiBaseUrl: '/api',
     // Use direct BoardGameGeek images until Cloudflare is set up
     imageBaseUrl: null // Setting to null indicates we should use direct BGG URLs
   }

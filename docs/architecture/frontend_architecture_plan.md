@@ -38,6 +38,7 @@
 - Request parameter shaping
 - Shared request helpers and consistent error handling
 - Any lightweight response normalization needed by the UI
+- Production frontend requests should use same-origin API paths (for example `/api`) rather than hardcoded environment hostnames, so `dev` and `prod` frontends always talk to the API on the same deployed host.
 
 ### Non-Goals
 - Do not keep adding raw endpoint construction directly inside unrelated UI components.
