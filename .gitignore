@@ -26,6 +26,7 @@ backend/database/images/*.png
 
 # Logs
 logs/*.log
+logs/*.jsonl
 
 # Jupyter Notebooks
 .ipynb_checkpoints/

@@ -1,36 +1,20 @@
+import logging
+
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.pool import QueuePool
-import logging
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
-import os
+
+from backend.app.db_config import get_database_url, get_engine_kwargs
 
 logger = logging.getLogger(__name__)
 
-# Get the backend directory path
-backend_dir = Path(__file__).parent.parent
-# database_path = backend_dir / "database" / "boardgames.db"
-DATABASE_PATH = os.getenv("DATABASE_PATH", str(Path(__file__).parent.parent / "database" / "boardgames.db"))
-
-# Database URL - use absolute path
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DATABASE_PATH}"
+SQLALCHEMY_DATABASE_URL = get_database_url()
 
 # Create engine with optimized settings
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={
-        "check_same_thread": False,  # Needed for SQLite
-        "timeout": 30.0  # 30 second timeout to prevent hanging
-    },
-    poolclass=QueuePool,
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800,  # Recycle connections after 30 minutes
-    pool_pre_ping=True,  # Enable connection health checks
-    echo=False  # Set to True for SQL query logging
+    **get_engine_kwargs(SQLALCHEMY_DATABASE_URL),
 )
 
 # Create session factory

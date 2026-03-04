@@ -258,6 +258,47 @@ poetry run python scripts/create_smoke_test_user.py --env dev
 poetry run python scripts/create_smoke_test_user.py --env prod
 ```
 
+### `fly_postgres_backup.py`
+
+Purpose:
+- Create a logical SQL backup from the self-managed Fly Postgres app for `dev` or `prod`
+
+When to use:
+- Before risky database changes
+- Before the production Postgres cutover
+- As part of the pre-convention backup workflow
+
+Usage:
+```bash
+poetry run python scripts/fly_postgres_backup.py --env dev
+poetry run python scripts/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-before-cutover.sql
+```
+
+What it does:
+- Runs `pg_dump` over `fly ssh console`
+- Writes the resulting SQL dump to a local file
+- Fails if the resulting backup file is empty
+
+### `fly_postgres_restore.py`
+
+Purpose:
+- Restore a Fly Postgres SQL dump into a disposable test database on the `dev` or `prod` DB app
+
+When to use:
+- To validate the restore procedure before convention launch
+- To prove a generated SQL dump can be loaded successfully
+
+Usage:
+```bash
+poetry run python scripts/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-postgres-backup-20260304T012020Z.sql
+poetry run python scripts/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-before-cutover.sql --restore-db pax_tt_recommender_restore_test
+```
+
+What it does:
+- Drops and recreates a disposable restore database
+- Pipes the local SQL dump into `psql` over `fly ssh console`
+- Verifies the restored database has public tables
+
 Required environment variables:
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
@@ -311,11 +352,11 @@ Status:
 ## Related Documentation
 
 - Main operational runbook:
-  - `docs/deploy_rollback_runbook.md`
+  - `docs/runbooks/deploy_rollback_runbook.md`
 - Environment strategy:
-  - `docs/fly_environment_strategy.md`
+  - `docs/architecture/fly_environment_strategy.md`
 
 ## Operational Notes
 
-- Fly machines may be auto-stopped when idle. If a script fails because no machine is running, use the wake commands in `docs/deploy_rollback_runbook.md`.
+- Fly machines may be auto-stopped when idle. If a script fails because no machine is running, use the wake commands in `docs/runbooks/deploy_rollback_runbook.md`.
 - The `.tmp/` directory is intentionally local-only and should not be committed.
