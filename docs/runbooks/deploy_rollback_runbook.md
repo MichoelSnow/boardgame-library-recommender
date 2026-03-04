@@ -241,3 +241,11 @@ For each production deploy, record:
 
 The standard production validation flow now appends this record automatically to:
 - `logs/deploy_traceability.jsonl`
+
+## Common Inspection Queries
+Use these for quick ad hoc operational checks.
+
+Most recent suggestions in `dev`:
+```bash
+fly ssh console -a pax-tt-db-dev -C "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c \"SELECT s.id, u.username, s.comment, s.timestamp FROM user_suggestions s JOIN users u ON u.id = s.user_id ORDER BY s.timestamp DESC LIMIT 20;\""
+```

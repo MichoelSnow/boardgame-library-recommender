@@ -572,7 +572,17 @@ def create_suggestion(
     db: Session = Depends(get_db), 
     current_user: schemas.User = Depends(security.get_current_active_user)
 ):
+    logger.info(
+        "Creating suggestion for user_id=%s username=%s",
+        current_user.id,
+        current_user.username,
+    )
     db_suggestion = crud.create_user_suggestion(db=db, user_id=current_user.id, suggestion=suggestion)
+    logger.info(
+        "Created suggestion id=%s for user_id=%s",
+        db_suggestion.id,
+        current_user.id,
+    )
     return schemas.UserSuggestionResponse(
         id=db_suggestion.id,
         comment=db_suggestion.comment,

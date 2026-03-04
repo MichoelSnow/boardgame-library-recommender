@@ -43,6 +43,8 @@
 - [ ] [P0] Cut `dev` over to R2-backed image delivery and validate.
 - [ ] [P0] Cut `prod` over to R2-backed image delivery and validate.
 - [ ] [P1] Confirm placeholder behavior is clean for missing images.
+- [ ] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
+- [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
 
 ## Runtime and Scaling
 - [ ] [P0] Implement convention runtime profile/config.

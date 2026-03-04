@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from sqlalchemy import MetaData, create_engine, func, select
+from sqlalchemy import Integer, MetaData, create_engine, func, select, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.sql.schema import Table
 
@@ -170,6 +170,35 @@ def migrate_table(
     return source_count, target_count
 
 
+def reset_postgres_sequences(
+    table_order: Iterable[str],
+    target_connection: Connection,
+    target_tables: dict[str, Table],
+) -> None:
+    for table_name in table_order:
+        table = target_tables[table_name]
+        id_column = table.columns.get("id")
+        if (
+            id_column is None
+            or not id_column.primary_key
+            or not isinstance(id_column.type, Integer)
+        ):
+            continue
+
+        target_connection.execute(
+            text(
+                f"""
+                SELECT setval(
+                    pg_get_serial_sequence('{table_name}', 'id'),
+                    COALESCE((SELECT MAX(id) FROM {table_name}), 1),
+                    (SELECT MAX(id) IS NOT NULL FROM {table_name})
+                )
+                """
+            )
+        )
+        logger.info("Reset Postgres sequence for %s.id", table_name)
+
+
 def migrate_sqlite_to_postgres(
     source_database_url: str,
     target_database_url: str,
@@ -205,6 +234,8 @@ def migrate_sqlite_to_postgres(
                 valid_game_ids=valid_game_ids,
                 anomaly_counts=anomaly_counts,
             )
+
+        reset_postgres_sequences(table_order, target_connection, target_tables)
 
     if anomaly_counts:
         logger.warning(
