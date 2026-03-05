@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pax-tt-recommender"
-version = "0.1.1"
+version = "0.2.0"
 description = "BoardGameGeek data crawler and recommender system"
 authors = ["MichoelSnow <michoelsnow@gmail.com>"]
 readme = "README.md"
