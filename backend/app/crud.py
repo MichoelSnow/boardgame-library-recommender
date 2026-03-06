@@ -1,11 +1,73 @@
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, select
+import threading
+import time
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import exists, func, select
 from sqlalchemy.sql import or_, and_
 from . import models, schemas, security
-from typing import List, Optional
+from typing import Any, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+_TOTAL_CACHE_LOCK = threading.Lock()
+_TOTAL_CACHE_TTL_SECONDS = 120
+_TOTAL_CACHE_MAX_ENTRIES = 128
+_total_count_cache: dict[tuple[Any, ...], tuple[float, int]] = {}
+
+
+def _cache_get_total(cache_key: tuple[Any, ...]) -> Optional[int]:
+    now = time.time()
+    with _TOTAL_CACHE_LOCK:
+        entry = _total_count_cache.get(cache_key)
+        if entry is None:
+            return None
+        expiry, value = entry
+        if expiry < now:
+            _total_count_cache.pop(cache_key, None)
+            return None
+        return value
+
+
+def _cache_set_total(cache_key: tuple[Any, ...], value: int) -> None:
+    now = time.time()
+    with _TOTAL_CACHE_LOCK:
+        if len(_total_count_cache) >= _TOTAL_CACHE_MAX_ENTRIES:
+            # Remove one oldest-expiry entry to cap memory growth.
+            oldest_key = min(_total_count_cache.items(), key=lambda item: item[1][0])[0]
+            _total_count_cache.pop(oldest_key, None)
+        _total_count_cache[cache_key] = (now + _TOTAL_CACHE_TTL_SECONDS, value)
+
+
+def _build_total_cache_key(
+    *,
+    search: Optional[str],
+    players: Optional[int],
+    designer_id: Optional[str],
+    artist_id: Optional[str],
+    recommendations: Optional[str],
+    weight: Optional[str],
+    mechanics: Optional[str],
+    categories: Optional[str],
+    pax_only: Optional[bool],
+) -> tuple[Any, ...]:
+    return (
+        search,
+        players,
+        designer_id,
+        artist_id,
+        recommendations,
+        weight,
+        mechanics,
+        categories,
+        bool(pax_only),
+    )
+
+
+def _approximate_total_from_page(skip: int, limit: int, page_size: int) -> int:
+    # Lower-bound + small lookahead estimate without running a full COUNT(*).
+    if page_size < limit:
+        return skip + page_size
+    return skip + page_size + limit
 
 
 def _get_or_create_named_relation(
@@ -61,7 +123,9 @@ def get_games(
             sort_by = 'rank'
 
         if pax_only:
-            query = query.join(models.PAXGame, models.BoardGame.id == models.PAXGame.bgg_id).distinct()
+            query = query.filter(
+                exists().where(models.PAXGame.bgg_id == models.BoardGame.id)
+            )
 
         # Apply simple filters first
         if search:
@@ -184,13 +248,6 @@ def get_games(
                 logger.warning(f"Error applying players filter: {str(e)}")
                 # Continue without players filter if it fails
 
-        # Get total count before pagination with timeout protection
-        try:
-            total = query.count()
-        except Exception as e:
-            logger.error(f"Error getting total count: {str(e)}")
-            total = 0
-
         # Verify that the sort_by field exists in the model, or handle special cases
         if sort_by.startswith("name_"):
             order_field = "name"
@@ -208,48 +265,51 @@ def get_games(
         else:
             query = query.order_by(rank_field.asc().nullslast())
 
+        # Avoid cartesian row explosion from multi-collection joinedload by using
+        # selectinload for list relationships.
+        query = query.options(
+            selectinload(models.BoardGame.mechanics),
+            selectinload(models.BoardGame.categories),
+            selectinload(models.BoardGame.suggested_players),
+        )
+
         # Apply pagination with timeout protection
         try:
             games = query.offset(skip).limit(limit).all()
         except Exception as e:
             logger.error(f"Error fetching games: {str(e)}")
             games = []
-        
-        # Load relationships efficiently with a single query using joinedload
-        if games:
+
+        cache_key = _build_total_cache_key(
+            search=search,
+            players=players,
+            designer_id=designer_id,
+            artist_id=artist_id,
+            recommendations=recommendations,
+            weight=weight,
+            mechanics=mechanics,
+            categories=categories,
+            pax_only=pax_only,
+        )
+
+        cached_total = _cache_get_total(cache_key)
+        if cached_total is not None:
+            total = cached_total
+        else:
             try:
-                game_ids = [game.id for game in games]
-                
-                # Use a single optimized query to load all relationships at once
-                # This reduces database roundtrips from 4 separate queries to 1
-                games_with_relationships = db.query(models.BoardGame).options(
-                    joinedload(models.BoardGame.mechanics),
-                    joinedload(models.BoardGame.categories),
-                    joinedload(models.BoardGame.suggested_players)
-                ).filter(models.BoardGame.id.in_(game_ids)).all()
-                
-                # Create a mapping for fast lookup
-                games_map = {g.id: g for g in games_with_relationships}
-                
-                # Update the original games list with loaded relationships
-                for i, game in enumerate(games):
-                    if game.id in games_map:
-                        loaded_game = games_map[game.id]
-                        game.mechanics = loaded_game.mechanics
-                        game.categories = loaded_game.categories
-                        game.suggested_players = loaded_game.suggested_players
-                    else:
-                        # Fallback to empty lists if not found
-                        game.mechanics = []
-                        game.categories = []
-                        game.suggested_players = []
+                total = query.order_by(None).count()
+                _cache_set_total(cache_key, total)
             except Exception as e:
-                logger.error(f"Error loading relationships: {str(e)}")
-                # Continue without relationships if loading fails
-                for game in games:
-                    game.mechanics = []
-                    game.categories = []
-                    game.suggested_players = []
+                logger.error(f"Error getting total count: {str(e)}")
+                total = _approximate_total_from_page(skip, limit, len(games))
+                _cache_set_total(cache_key, total)
+
+        # Keep total non-decreasing within a cache window so pagination controls
+        # do not jump backward while users browse pages.
+        observed_floor = skip + len(games)
+        if observed_floor > total:
+            total = observed_floor
+            _cache_set_total(cache_key, total)
         
         return games, total
     except Exception as e:

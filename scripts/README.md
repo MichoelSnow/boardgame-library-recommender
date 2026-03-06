@@ -237,6 +237,164 @@ Default thresholds:
 - `/api/version` <= `1500ms`
 - `/api/recommendations/224517?limit=5` <= `4000ms`
 
+## Load Testing
+
+### `load/k6_rehearsal.js`
+
+Purpose:
+- Run repeatable load tests against the rehearsal profile in `dev`.
+- Exercise a read-heavy endpoint mix that matches expected convention behavior.
+
+When to use:
+- During Phase 4B rehearsal while `dev` is deployed with `fly.dev.rehearsal.toml`.
+- Before adjusting worker count, machine memory, or latency/error budgets.
+
+Prerequisite:
+- Install `k6` locally.
+
+Usage (baseline):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="10" \
+  -e DURATION="2m" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (short-term rehearsal target):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="100" \
+  -e DURATION="15m" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (stress ramp):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="200" \
+  -e DURATION="10m" \
+  -e THINK_TIME_SECONDS="0.1" \
+  scripts/load/k6_rehearsal.js
+```
+
+Endpoint mix per virtual user iteration:
+- `40%` `GET /api`
+- `20%` `GET /api/version`
+- `25%` `POST /api/recommendations` using a random `liked_games` subset:
+  - subset size: random integer from `LIKED_MIN` to `LIKED_MAX` (defaults `1` to `50`)
+  - source IDs: deduplicated random sample from `GAME_IDS` (CSV env var)
+  - include at least 50 IDs in `GAME_IDS` if you want to fully exercise the default `1..50` range
+- `15%` `GET /api/games/?skip=0&limit=20&sort_by=rank&pax_only=true`
+
+Optional load-test env vars:
+- `GAME_IDS` (CSV list of candidate IDs used for random recommendation subsets)
+- `LIKED_MIN` (defaults to `1`)
+- `LIKED_MAX` (defaults to `50`)
+- `RECOMMENDATION_LIMIT` (defaults to `5`)
+- `PAX_ONLY` (`true`/`false`, defaults to `true`)
+- route weights (defaults preserve the mixed profile):
+  - `WEIGHT_API` (default `0.40`)
+  - `WEIGHT_VERSION` (default `0.20`)
+  - `WEIGHT_RECOMMENDATIONS` (default `0.25`)
+  - `WEIGHT_GAMES` (default `0.15`)
+
+Usage (realistic wide-range recommendations):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="1" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="5m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (stress heavier recommendation sets):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="20" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="5m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (recommendations-only isolation):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="1" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  -e WEIGHT_API="0" \
+  -e WEIGHT_VERSION="0" \
+  -e WEIGHT_RECOMMENDATIONS="1" \
+  -e WEIGHT_GAMES="0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (games-only isolation):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  -e WEIGHT_API="0" \
+  -e WEIGHT_VERSION="0" \
+  -e WEIGHT_RECOMMENDATIONS="0" \
+  -e WEIGHT_GAMES="1" \
+  scripts/load/k6_rehearsal.js
+```
+
+Built-in thresholds:
+- global request failure rate `< 2%`
+- global p95 request latency `< 2500ms`
+- recommendation p95 latency `< 4000ms`
+- recommendation failure rate `< 2%`
+- games-list p95 latency `< 2500ms`
+- games-list failure rate `< 2%`
+
+### `benchmark_recommendation_size.py`
+
+Purpose:
+- Isolate how recommendation-request latency changes as liked-game list size grows.
+- Run fixed-size, sequential recommendation calls (`POST /api/recommendations`) to separate payload-cost effects from high-concurrency overload effects.
+
+When to use:
+- During recommendation performance diagnosis.
+- Before/after backend optimization to compare size-impact.
+
+Usage:
+```bash
+poetry run python scripts/benchmark_recommendation_size.py \
+  --env dev \
+  --game-ids "224517,161936,342942,174430,316554,233078,167791,115746,187645,397598,162886,291457,220308,12333,182028,84876,193738,246900,169786,28720,173346,295770,167355,177736,266507,124361,312484,341169,205637,421006,237182,338960,192135,373106,418059,120677,266192,164928,96848,251247,199792,324856,183394,321608,366013,285774,521,284378,175914,247763,256960,3076,253344,295947,184267,102794,314040,383179,185343,170216,31260,251661,161533,255984,365717,231733,182874,221107,414317,205059,126163,2651,390092,244521,216132,266810,35677,125153,164153,276025,124742,371942,200680,209010,240980,284083,55690,380607,28143,332772,230802,157354,322289,201808,366161,159675,72125,191189,93,291453" \
+  --sizes "1,5,10,20,35,50" \
+  --iterations 20 \
+  --limit 5 \
+  --pax-only true
+```
+
+Output:
+- Logs one summary line per liked-game size:
+  - success count
+  - error rate
+  - p50/p95/max latency
+  - HTTP status distribution
+- Prints JSON summary for easier copy/paste into docs.
+
 ### `validate_fly_health_checks.py`
 
 Purpose:
