@@ -324,8 +324,8 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
         logger.error(f"Error fetching game {game_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching game")
 
-@app.get("/api/recommendations/{game_id}", response_model=List[schemas.BoardGameOut])
-@app.get("/api/recommendations/{game_id}/", response_model=List[schemas.BoardGameOut])  # Add endpoint with trailing slash
+@app.get("/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut])
+@app.get("/api/recommendations/{game_id}/", response_model=List[schemas.RecommendationGameOut])  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,
     response: Response,
@@ -506,7 +506,7 @@ class RecommendationRequest(schemas.BaseModel):
     anti_weight: float = schemas.Field(1.0, gt=0)
     pax_only: bool = False
 
-@app.post("/api/recommendations", response_model=List[schemas.BoardGameOut])
+@app.post("/api/recommendations", response_model=List[schemas.RecommendationGameOut])
 async def get_multi_game_recommendations(
     request: RecommendationRequest,
     response: Response,

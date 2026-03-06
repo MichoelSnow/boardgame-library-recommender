@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import threading
+import time
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from . import models
@@ -12,6 +13,20 @@ import json
 import os
 
 logger = logging.getLogger(__name__)
+
+BOARD_GAME_COLUMN_NAMES = tuple(column.name for column in models.BoardGame.__table__.columns)
+BOARD_GAME_SCALAR_COLUMNS = tuple(
+    getattr(models.BoardGame, column_name) for column_name in BOARD_GAME_COLUMN_NAMES
+)
+
+
+def build_recommendation_payload(
+    game_record: dict[str, object], score: float
+) -> dict[str, object]:
+    payload = dict(game_record)
+    payload["recommendation_score"] = score
+    return payload
+
 
 class ModelManager:
     _instance = None
@@ -155,7 +170,7 @@ def get_recommendations(
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
     pax_only: Optional[bool] = False
-) -> List[models.BoardGame]:
+) -> List[dict[str, object]]:
     """
     Get game recommendations using the game embeddings.
     
@@ -168,25 +183,33 @@ def get_recommendations(
         pax_only: If true, only recommend games that are in the PAX games table
         
     Returns:
-        List of recommended BoardGame objects
+        List of recommended game payloads
     """
     try:
+        started_total = time.perf_counter()
+        timing: dict[str, float] = {}
+
+        stage_started = time.perf_counter()
         model_manager = ModelManager.get_instance()
         game_embeddings = model_manager.get_model()
         game_mapping = model_manager._game_mapping
         reverse_game_mapping = model_manager._reverse_game_mapping
+        timing["model_load_ms"] = (time.perf_counter() - stage_started) * 1000
         
         if not liked_games and not disliked_games:
             return []
         
+        stage_started = time.perf_counter()
         liked_indices = [game_mapping[g_id] for g_id in liked_games if g_id in game_mapping] if liked_games else []
         disliked_indices = [game_mapping[dg_id] for dg_id in disliked_games if dg_id in game_mapping] if disliked_games else []
+        timing["mapping_ms"] = (time.perf_counter() - stage_started) * 1000
         
         if not liked_indices and not disliked_indices:
             logger.warning("None of the provided liked/disliked games were found in embeddings.")
             return []
 
         # Compute mean of liked and disliked games
+        stage_started = time.perf_counter()
         pos_vec = game_embeddings[liked_indices].mean(axis=0) if liked_indices else 0
         neg_vec = game_embeddings[disliked_indices].mean(axis=0) if disliked_indices else 0
         
@@ -196,56 +219,100 @@ def get_recommendations(
             return []
 
         query_vec = normalize(np.asarray(query_vec), norm='l2')
+        timing["query_vector_ms"] = (time.perf_counter() - stage_started) * 1000
 
         # Compute cosine similarity between query vector and all game embeddings
+        stage_started = time.perf_counter()
         scores = game_embeddings @ query_vec.T
         scores = np.asarray(scores).ravel()
+        timing["scoring_ms"] = (time.perf_counter() - stage_started) * 1000
 
         # Zero out scores for input items
-        for idx in liked_indices + disliked_indices:
-            scores[idx] = -1
+        stage_started = time.perf_counter()
+        excluded_indices = np.unique(np.asarray(liked_indices + disliked_indices, dtype=int))
+        if excluded_indices.size > 0:
+            scores[excluded_indices] = -1
+        timing["exclude_inputs_ms"] = (time.perf_counter() - stage_started) * 1000
         
-        # Get top N similar games
-        # Fetch more than limit to account for games not in DB
-        top_indices = np.argsort(scores)[-limit*2:][::-1]
+        # Get top N similar games without sorting all scores.
+        # Fetch more than limit to account for games not in DB/filtering losses.
+        stage_started = time.perf_counter()
+        candidate_count = min(max(limit * 4, 50), scores.shape[0])
+        if candidate_count >= scores.shape[0]:
+            top_indices = np.argsort(scores)[::-1]
+        else:
+            partition_start = scores.shape[0] - candidate_count
+            candidate_indices = np.argpartition(scores, partition_start)[partition_start:]
+            top_indices = candidate_indices[np.argsort(scores[candidate_indices])[::-1]]
+        timing["topk_selection_ms"] = (time.perf_counter() - stage_started) * 1000
         
+        stage_started = time.perf_counter()
         recommended_games_with_scores = []
         for idx in top_indices:
             if scores[idx] > 0:
                 recommended_games_with_scores.append(
                     (int(reverse_game_mapping[idx]), scores[idx])
                 )
+        timing["candidate_materialization_ms"] = (time.perf_counter() - stage_started) * 1000
 
         recommended_ids = [game[0] for game in recommended_games_with_scores]
         
+        stage_started = time.perf_counter()
         if pax_only:
             pax_game_ids = {pax.bgg_id for pax in db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()}
             recommended_ids = [rid for rid in recommended_ids if rid in pax_game_ids]
             # Re-filter the scored list to match the id list
             recommended_games_with_scores = [game for game in recommended_games_with_scores if game[0] in recommended_ids]
         
-        # Get full game objects from database
-        games_from_db = db.query(models.BoardGame).filter(
-            models.BoardGame.id.in_(recommended_ids)
-        ).all()
+        # Fetch scalar columns only to avoid relationship loading/serialization overhead.
+        game_map: dict[int, dict[str, object]] = {}
+        for row in (
+            db.query(*BOARD_GAME_SCALAR_COLUMNS)
+            .filter(models.BoardGame.id.in_(recommended_ids))
+            .all()
+        ):
+            row_data = dict(zip(BOARD_GAME_COLUMN_NAMES, row))
+            game_map[row_data["id"]] = row_data
+        timing["db_fetch_ms"] = (time.perf_counter() - stage_started) * 1000
         
-        # Add score to game object and create a lookup
-        game_map = {}
-        for game in games_from_db:
-            game_map[game.id] = game
+        stage_started = time.perf_counter()
         
         # Build the final list, sorted by score
-        result_games = []
+        result_games: list[dict[str, object]] = []
         for game_id, score in recommended_games_with_scores:
             if game_id in game_map:
-                game = game_map[game_id]
-                game.recommendation_score = score
-                result_games.append(game)
+                result_games.append(
+                    build_recommendation_payload(game_map[game_id], float(score))
+                )
             if len(result_games) >= limit:
                 break
         
         # Sort by recommendation score before returning
-        result_games.sort(key=lambda x: x.recommendation_score, reverse=True)
+        result_games.sort(
+            key=lambda item: float(item.get("recommendation_score", 0.0)),
+            reverse=True,
+        )
+        timing["result_assembly_ms"] = (time.perf_counter() - stage_started) * 1000
+        total_ms = (time.perf_counter() - started_total) * 1000
+
+        # Per-stage timing instrumentation for load/performance analysis.
+        logger.info(
+            "Recommendation timing ms total=%.1f model=%.1f map=%.1f query=%.1f score=%.1f "
+            "exclude=%.1f topk=%.1f materialize=%.1f db=%.1f assemble=%.1f liked=%d disliked=%d result=%d",
+            total_ms,
+            timing.get("model_load_ms", 0.0),
+            timing.get("mapping_ms", 0.0),
+            timing.get("query_vector_ms", 0.0),
+            timing.get("scoring_ms", 0.0),
+            timing.get("exclude_inputs_ms", 0.0),
+            timing.get("topk_selection_ms", 0.0),
+            timing.get("candidate_materialization_ms", 0.0),
+            timing.get("db_fetch_ms", 0.0),
+            timing.get("result_assembly_ms", 0.0),
+            len(liked_indices),
+            len(disliked_indices),
+            len(result_games),
+        )
 
         return result_games
         

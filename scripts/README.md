@@ -249,6 +249,12 @@ When to use:
 - During Phase 4B rehearsal while `dev` is deployed with `fly.dev.rehearsal.toml`.
 - Before adjusting worker count, machine memory, or latency/error budgets.
 
+Current validated rehearsal runtime baseline:
+- `APP_SERVER=gunicorn`
+- `GUNICORN_WORKERS=3`
+- `GUNICORN_CMD_ARGS=--timeout 90`
+- `shared-cpu-4x`, `memory=2048`
+
 Prerequisite:
 - Install `k6` locally.
 
@@ -365,6 +371,18 @@ Built-in thresholds:
 - recommendation failure rate `< 2%`
 - games-list p95 latency `< 2500ms`
 - games-list failure rate `< 2%`
+
+Recorded Phase 4B baseline results (2026-03-06):
+- mixed profile, `VUS=10`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=165.81ms`
+  - `games_duration p95=213.29ms`
+  - `recommendation_duration p95=198.45ms`
+- mixed profile, `VUS=30`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=181.29ms`
+  - `games_duration p95=202.76ms`
+  - `recommendation_duration p95=284.80ms`
 
 ### `benchmark_recommendation_size.py`
 

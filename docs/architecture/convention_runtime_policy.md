@@ -22,7 +22,7 @@
 - Do not rely on cold-start behavior during active event usage.
 - Outside convention hours, lower-cost runtime settings can still be considered if appropriate.
 - Maintain a distinct convention runtime configuration so it is easy to switch between convention and non-convention settings.
-- Target `Gunicorn` with `2` Uvicorn workers as the initial convention production runtime profile.
+- Target `Gunicorn` with `3` Uvicorn workers as the current convention production runtime profile baseline.
 
 ## Runtime Profile Skeleton (Phase 4B Target)
 ### Profile Names
@@ -36,7 +36,7 @@
   - warm setting: no always-on requirement (`min_machines_running=0`)
   - intended environments: `dev` and `prod` outside convention hours
 - `convention` profile:
-  - process model: `Gunicorn` + `2` Uvicorn workers
+  - process model: `Gunicorn` + `3` Uvicorn workers
   - warm setting: one always-running machine (`min_machines_running=1`)
   - intended environment: `prod` during convention hours
 - `rehearsal` profile:
@@ -49,7 +49,8 @@
   - `RUNTIME_PROFILE` with values: `standard`, `convention`, `rehearsal`
 - Process-model knobs:
   - `APP_SERVER` (`uvicorn` or `gunicorn`)
-  - `GUNICORN_WORKERS` (initial target: `2` for convention/rehearsal)
+  - `GUNICORN_WORKERS` (current baseline: `3` for convention/rehearsal)
+  - `GUNICORN_CMD_ARGS` (set `--timeout 90` for convention/rehearsal)
 - Convention schedule knobs:
   - `CONVENTION_TIMEZONE` (IANA timezone, for example `America/New_York`, `Europe/Berlin`)
   - `CONVENTION_WARM_START` (local time in `HH:MM`, for example `09:00`)
@@ -78,10 +79,10 @@
 ## Backend Runtime Assumptions
 - The current single-process raw `uvicorn` runtime is acceptable for local development and low-risk staging.
 - Convention production should move to a managed process model:
-  - `Gunicorn` managing `2` Uvicorn workers as the initial target
+  - `Gunicorn` managing `3` Uvicorn workers as the current baseline
 - Recommender artifacts remain on local mounted storage during the first Phase 4 implementation step.
 - Each worker is expected to load its own in-memory copy of the recommendation artifacts.
-- Increasing worker count above `2` requires measured validation of:
+- Increasing worker count above `3` requires measured validation of:
   - per-worker memory usage
   - startup/restart time
   - request latency under load
@@ -135,7 +136,7 @@
   - memory usage with the selected worker count
   - startup/restart behavior with warm-runtime settings enabled
 - Use the rehearsal results to decide whether to:
-  - keep `2` workers
+  - keep `3` workers
   - increase worker count
   - increase machine memory for the convention runtime profile
 - Do not finalize convention worker count or machine sizing without this rehearsal.
@@ -157,7 +158,7 @@
 - Runtime profile selector exists and is documented.
 - `prod` convention enable and disable command paths are documented and repeatable.
 - `dev` rehearsal enable and disable command paths are documented and repeatable.
-- Initial `Gunicorn + 2 Uvicorn workers` profile can be activated without failed health checks.
+- Initial `Gunicorn + 3 Uvicorn workers` profile can be activated without failed health checks.
 - One-machine warm mode can be enabled and disabled intentionally on schedule.
 
 ## Validation Criteria
@@ -165,3 +166,17 @@
 - The main app remains available through the convention window.
 - The runtime policy can be enabled and disabled intentionally without ambiguity.
 - The selected worker count and machine sizing are backed by measured rehearsal data rather than guesswork.
+
+## Phase 4B Rehearsal Evidence (2026-03-06)
+- Environment: `dev` with `fly.dev.rehearsal.toml`, `shared-cpu-4x`, `memory=2048`, `GUNICORN_WORKERS=3`, `GUNICORN_CMD_ARGS=--timeout 90`.
+- Mixed profile (`VUS=10`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`):
+  - `http_req_failed`: `0.00%`
+  - `http_req_duration p95`: `165.81ms`
+  - `games_duration p95`: `213.29ms`
+  - `recommendation_duration p95`: `198.45ms`
+- Mixed profile (`VUS=30`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`):
+  - `http_req_failed`: `0.00%`
+  - `http_req_duration p95`: `181.29ms`
+  - `games_duration p95`: `202.76ms`
+  - `recommendation_duration p95`: `284.80ms`
+- Result: all built-in rehearsal thresholds passed in both runs; this is the current runtime baseline for Phase 4B.

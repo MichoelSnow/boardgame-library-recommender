@@ -150,7 +150,8 @@ Use it as the implementation target for Phase 4B.
 - `convention`:
   - active event profile for `prod`
   - one always-running machine (`min_machines_running=1`)
-  - `Gunicorn` + `2` Uvicorn workers
+  - `Gunicorn` + `3` Uvicorn workers
+  - `GUNICORN_CMD_ARGS="--timeout 90"`
 - `rehearsal`:
   - temporary `dev` profile for load testing
   - mirrors `convention` process model and warm settings
@@ -208,6 +209,18 @@ fly deploy -a pax-tt-app-dev -c fly.dev.rehearsal.toml
 ```bash
 fly deploy -a pax-tt-app-dev -c fly.dev.toml
 ```
+
+### Rehearsal Baseline (Recorded 2026-03-06)
+- `VUS=10`, mixed profile, `3m`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=165.81ms`
+  - `games_duration p95=213.29ms`
+  - `recommendation_duration p95=198.45ms`
+- `VUS=30`, mixed profile, `3m`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=181.29ms`
+  - `games_duration p95=202.76ms`
+  - `recommendation_duration p95=284.80ms`
 
 ### Rollback Rule
 - If health checks fail or latency regresses unexpectedly after a profile switch:

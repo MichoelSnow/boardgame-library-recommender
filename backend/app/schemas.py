@@ -164,6 +164,12 @@ class BoardGameOut(BoardGameBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RecommendationGameOut(BoardGameBase):
+    """Lightweight recommendation payload used by list recommendation endpoints."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class FilterOptions(BaseModel):
     designers: List[str]
     mechanics: List[str]

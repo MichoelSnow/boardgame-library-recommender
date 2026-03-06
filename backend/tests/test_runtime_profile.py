@@ -20,7 +20,7 @@ def test_resolve_runtime_settings_convention_defaults() -> None:
 
     assert settings.runtime_profile == "convention"
     assert settings.app_server == "gunicorn"
-    assert settings.gunicorn_workers == 2
+    assert settings.gunicorn_workers == 3
 
 
 def test_resolve_runtime_settings_override_server_and_workers() -> None:

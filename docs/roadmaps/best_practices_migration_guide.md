@@ -202,7 +202,7 @@ Deployment verification rule:
 - [x] [P1] define runtime profile contract (`standard`, `convention`, `rehearsal`) and startup selector
 - [x] [P1] add Fly config variants for profile-driven runtime settings
 - [x] [P1] warm-mode enable/disable path
-- [x] [P1] initial `Gunicorn + 2 Uvicorn workers` configuration
+- [x] [P1] initial `Gunicorn + 3 Uvicorn workers` configuration (updated after rehearsal validation)
 - [x] [P1] explicit `dev` rehearsal configuration path
 - [x] [P1] add runbook commands for profile switch + verification + rollback
 - [ ] [P1] record convention profile switch events in deploy traceability notes

@@ -61,7 +61,7 @@
 - [ ] [P0] Add initial production convention runtime target:
   - one always-running machine
   - `Gunicorn` + `2` Uvicorn workers
-- [ ] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
+- [x] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
 ## Observability and Alerting
@@ -78,17 +78,17 @@
 - [ ] [P0] Test the full production alert path before convention launch.
 
 ## Rehearsal and Validation
-- [ ] [P0] Run a convention-condition rehearsal in `dev`.
+- [x] [P0] Run a convention-condition rehearsal in `dev`.
 - [ ] [P0] Measure and record:
   - p95 latency for catalog endpoints
   - p95 latency for recommendation endpoints
   - per-worker memory usage
   - startup/restart time
-- [ ] [P0] Use rehearsal results to confirm or adjust:
+- [x] [P0] Use rehearsal results to confirm or adjust:
   - worker count
   - machine memory
   - convention runtime profile
-- [ ] [P0] Verify service-level targets are met under rehearsal conditions.
+- [x] [P0] Verify service-level targets are met under rehearsal conditions.
 - [ ] [P0] Run rollback drill for the current production deployment model.
 - [ ] [P1] Run a full pre-convention validation pass using the deploy/rollback runbook.
 

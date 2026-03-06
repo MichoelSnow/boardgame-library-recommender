@@ -50,7 +50,7 @@ def resolve_runtime_settings(env: dict[str, str] | None = None) -> RuntimeSettin
             f"Valid values: {sorted(VALID_APP_SERVERS)}."
         )
 
-    default_workers = "2" if runtime_profile in {"convention", "rehearsal"} else "1"
+    default_workers = "3" if runtime_profile in {"convention", "rehearsal"} else "1"
     gunicorn_workers = _parse_positive_int(
         environment.get("GUNICORN_WORKERS", default_workers).strip(),
         "GUNICORN_WORKERS",
