@@ -24,6 +24,33 @@ Notes:
 - This script reads the current checked-out commit SHA with `git rev-parse HEAD`
 - It injects build metadata so `/api/version` can verify the deployed release
 
+### `fly_stack.sh`
+
+Purpose:
+- Start/stop app+DB stacks safely with dependency-aware ordering.
+- `up`: starts DB machine first, then app machine.
+- `down`: stops app machine first, then DB machine.
+- `status`: shows both machine states.
+
+When to use:
+- Before dev/prod validation when machines may be auto-stopped.
+- For cost-control shutdown outside active test windows.
+
+Usage:
+```bash
+scripts/fly_stack.sh dev up
+scripts/fly_stack.sh dev down
+scripts/fly_stack.sh dev status
+
+scripts/fly_stack.sh prod up
+scripts/fly_stack.sh prod down
+scripts/fly_stack.sh prod status
+```
+
+Notes:
+- Fly does not support native cross-app start dependencies.
+- If a machine does not exist (for example after `fly scale count 0`), deploy that app to recreate it first.
+
 ## Deployment Validation
 
 ### `validate_dev_deploy.py`

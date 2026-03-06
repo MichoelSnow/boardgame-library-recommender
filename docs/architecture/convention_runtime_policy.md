@@ -14,9 +14,8 @@
 - This runtime policy exists to keep production inside those targets during convention hours.
 
 ## Convention Hours
-- Target active window:
-  - 9:00 AM to 12:00 AM
-- During this window, production should remain warm.
+- Convention warm window is event-specific and config-driven.
+- During the configured event window, production should remain warm.
 
 ## Runtime Policy
 - During convention hours, target one always-running production machine.
@@ -24,6 +23,47 @@
 - Outside convention hours, lower-cost runtime settings can still be considered if appropriate.
 - Maintain a distinct convention runtime configuration so it is easy to switch between convention and non-convention settings.
 - Target `Gunicorn` with `2` Uvicorn workers as the initial convention production runtime profile.
+
+## Runtime Profile Skeleton (Phase 4B Target)
+### Profile Names
+- `standard`: default non-convention profile.
+- `convention`: active convention-hours profile.
+- `rehearsal`: dev-only temporary profile that mirrors convention runtime settings during testing windows.
+
+### Profile Contract
+- `standard` profile:
+  - process model: current baseline (`uvicorn`)
+  - warm setting: no always-on requirement (`min_machines_running=0`)
+  - intended environments: `dev` and `prod` outside convention hours
+- `convention` profile:
+  - process model: `Gunicorn` + `2` Uvicorn workers
+  - warm setting: one always-running machine (`min_machines_running=1`)
+  - intended environment: `prod` during convention hours
+- `rehearsal` profile:
+  - process model: same as `convention`
+  - warm setting: one always-running machine for test windows only
+  - intended environment: `dev` only, explicitly enabled and later disabled
+
+### Required Configuration Surface
+- Runtime selector:
+  - `RUNTIME_PROFILE` with values: `standard`, `convention`, `rehearsal`
+- Process-model knobs:
+  - `APP_SERVER` (`uvicorn` or `gunicorn`)
+  - `GUNICORN_WORKERS` (initial target: `2` for convention/rehearsal)
+- Convention schedule knobs:
+  - `CONVENTION_TIMEZONE` (IANA timezone, for example `America/New_York`, `Europe/Berlin`)
+  - `CONVENTION_WARM_START` (local time in `HH:MM`, for example `09:00`)
+  - `CONVENTION_WARM_END` (local time in `HH:MM`, for example `00:00`)
+- Optional safety knob:
+  - `CONVENTION_PROFILE_LOCK=true` to prevent accidental profile drift during active hours
+
+### Fly Config Separation
+- Keep separate Fly config variants to avoid ad hoc manual edits during event operations:
+  - `fly.toml` for standard production
+  - `fly.convention.toml` for convention production
+  - `fly.dev.toml` for standard dev
+  - `fly.dev.rehearsal.toml` for dev rehearsal windows
+- Each profile config should be source controlled and reviewed like code.
 
 ## Short-Term Operational Model
 - Use one always-running machine as the baseline convention setting.
@@ -53,17 +93,24 @@
   - applied by a manual or scripted operational command
   - not by an implicit or hidden change
 - The convention runtime profile should support scheduled daily enablement during the convention.
+- Activation should include both:
+  - runtime profile switch (`standard` -> `convention`)
+  - warm setting switch (`min_machines_running=0` -> `1`)
 
 ## Deactivation Model
 - After convention hours or after the event, the runtime policy may be reverted to lower-cost settings if desired.
 - This should also be an explicit operational step.
 - The convention runtime profile should also support scheduled daily disablement after convention hours.
+- Deactivation should include both:
+  - runtime profile switch (`convention` -> `standard`)
+  - warm setting switch (`min_machines_running=1` -> `0`)
 
 ## Scheduling Policy
 - Target daily convention runtime schedule:
-  - enable warm mode before `9:00 AM`
-  - disable warm mode after `12:00 AM`
+  - enable warm mode at `CONVENTION_WARM_START`
+  - disable warm mode at `CONVENTION_WARM_END`
 - Even if the first version is applied manually, the policy should be documented as a schedule-driven runtime change.
+- Schedule interpretation must use `CONVENTION_TIMEZONE` (event-local timezone), not server-local timezone.
 
 ## Related Operational Concerns
 - Health checks must remain enabled and passing.
@@ -94,13 +141,24 @@
 - Do not finalize convention worker count or machine sizing without this rehearsal.
 
 ## Implementation Sequence
-1. Define the exact Fly runtime changes needed to keep one machine warm.
-2. Package those changes as a distinct convention runtime config/profile, including the initial `Gunicorn + 2 Uvicorn workers` target.
-3. Add enable/disable steps to the deploy/operations runbook.
-4. Validate the warm-runtime settings in `dev` only when explicit rehearsal or load testing is needed.
-5. Run a convention-condition rehearsal to measure latency and memory before locking final worker count and machine sizing.
-6. Apply the warm-runtime policy to `prod` on the convention schedule.
-7. Revert deliberately after the convention or outside the active daily window when appropriate.
+1. Implement runtime profile selector in startup path (`RUNTIME_PROFILE` -> process command + worker count).
+2. Add Fly config variants for `standard`, `convention`, and `rehearsal`.
+3. Add explicit enable/disable runbook commands for:
+  - `prod` convention profile
+  - `dev` rehearsal profile
+4. Validate profile switching without data/config regressions.
+5. Validate warm-runtime settings in `dev` during explicit rehearsal/load-test windows.
+6. Run a convention-condition rehearsal to measure latency and memory before locking final worker count and machine sizing.
+7. Apply `convention` profile to `prod` on the convention schedule.
+8. Revert `prod` to `standard` profile outside active hours when appropriate.
+9. Record each profile switch event in deploy traceability notes.
+
+## Minimum Acceptance Criteria For Phase 4B Runtime Skeleton
+- Runtime profile selector exists and is documented.
+- `prod` convention enable and disable command paths are documented and repeatable.
+- `dev` rehearsal enable and disable command paths are documented and repeatable.
+- Initial `Gunicorn + 2 Uvicorn workers` profile can be activated without failed health checks.
+- One-machine warm mode can be enabled and disabled intentionally on schedule.
 
 ## Validation Criteria
 - The app does not cold-start during active convention usage.

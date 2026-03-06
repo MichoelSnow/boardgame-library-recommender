@@ -11,7 +11,13 @@ import httpx
 from sqlalchemy.orm import Session
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
-from .database import engine, SessionLocal, CORSAwareStaticFiles
+from .database import engine, SessionLocal, CORSAwareStaticFiles, SQLALCHEMY_DATABASE_URL
+from .db_keepalive import (
+    resolve_keepalive_interval_seconds,
+    run_db_keepalive_loop,
+    should_enable_db_keepalive,
+    stop_keepalive_task,
+)
 import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -196,6 +202,8 @@ def set_cached_data(key: str, data, ttl_seconds: int = 300):
 
 # Thread pool for database operations
 db_executor = ThreadPoolExecutor(max_workers=4)
+_db_keepalive_task: asyncio.Task | None = None
+_db_keepalive_stop_event: asyncio.Event | None = None
 
 async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
     """Run a function with a timeout to prevent hanging."""
@@ -449,6 +457,7 @@ async def get_pax_game_ids(db: Session = Depends(get_db)):
 @app.on_event("startup")
 async def startup_event():
     """Load the recommender model on startup."""
+    global _db_keepalive_task, _db_keepalive_stop_event
     logger.info("Loading recommender model...")
     try:
         recommender.ModelManager.get_instance().load_model()
@@ -465,6 +474,30 @@ async def startup_event():
             exc,
             exc_info=True,
         )
+    if should_enable_db_keepalive(SQLALCHEMY_DATABASE_URL):
+        interval_seconds = resolve_keepalive_interval_seconds()
+        _db_keepalive_stop_event = asyncio.Event()
+        _db_keepalive_task = asyncio.create_task(
+            run_db_keepalive_loop(
+                engine=engine,
+                interval_seconds=interval_seconds,
+                stop_event=_db_keepalive_stop_event,
+            )
+        )
+        logger.info(
+            "DB keepalive enabled (interval=%ss).",
+            interval_seconds,
+        )
+    else:
+        logger.info("DB keepalive disabled for current database/runtime configuration.")
+
+
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    global _db_keepalive_task, _db_keepalive_stop_event
+    await stop_keepalive_task(_db_keepalive_task, _db_keepalive_stop_event)
+    _db_keepalive_task = None
+    _db_keepalive_stop_event = None
 
 class RecommendationRequest(schemas.BaseModel):
     liked_games: Optional[List[int]] = None

@@ -1,16 +1,14 @@
-# fly.toml app configuration file generated for pax-tt-app on 2025-07-05T22:37:45-04:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.convention.toml app configuration file for pax-tt-app convention profile
 
 app = 'pax-tt-app'
 primary_region = 'iad'
 
 [env]
   DATABASE_PATH = "/data/boardgames.db"
-  RUNTIME_PROFILE = "standard"
-  APP_SERVER = "uvicorn"
-  CONVENTION_MODE = "false"
+  RUNTIME_PROFILE = "convention"
+  APP_SERVER = "gunicorn"
+  GUNICORN_WORKERS = "2"
+  CONVENTION_MODE = "true"
   DB_KEEPALIVE_ENABLED = "true"
   DB_KEEPALIVE_INTERVAL_SECONDS = "60"
 
@@ -21,7 +19,7 @@ primary_region = 'iad'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [[http_service.checks]]

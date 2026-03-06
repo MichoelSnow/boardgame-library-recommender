@@ -16,11 +16,16 @@
 
 ## Access and Auth
 - [ ] [P0] Implement convention mode with explicit `CONVENTION_MODE` toggle.
-- [ ] [P0] Implement anonymous read-only access for allowed convention endpoints.
+- [ ] [P0] Implement kiosk guest auto-login flow for approved devices via `POST /api/convention/guest-token`.
+- [ ] [P0] Add required convention guest config:
+  - `CONVENTION_GUEST_ENABLED`
+  - `CONVENTION_KIOSK_KEY`
+  - optional `CONVENTION_KIOSK_IP_ALLOWLIST`
+- [ ] [P0] Implement guest read-only access allowlist for convention endpoints.
 - [ ] [P0] Keep write endpoints authenticated during convention mode.
-- [ ] [P0] Implement shared-device anonymous session state using `sessionStorage`.
+- [ ] [P0] Implement shared-device guest session state using `sessionStorage`.
 - [ ] [P0] Add explicit `Reset Session` control for shared devices.
-- [ ] [P0] Implement 3-minute inactivity auto-clear for anonymous session state.
+- [ ] [P0] Implement 3-minute inactivity auto-clear for guest session state.
 - [ ] [P1] Validate convention-mode endpoint allowlist against the final frontend flows.
 
 ## Data and Storage
@@ -29,8 +34,8 @@
 - [x] [P0] Build and validate the SQLite -> Postgres migration path locally.
 - [x] [P0] Provision and cut over `dev` to self-managed Postgres on Fly.
 - [x] [P0] Validate `dev` on Postgres.
-- [ ] [P0] Provision and cut over `prod` to self-managed Postgres on Fly.
-- [ ] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
+- [x] [P0] Provision and cut over `prod` to self-managed Postgres on Fly.
+- [x] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
 - [x] [P0] Define and test backup procedure for self-managed Postgres on Fly.
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
 - [ ] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
@@ -47,7 +52,11 @@
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
 
 ## Runtime and Scaling
-- [ ] [P0] Implement convention runtime profile/config.
+- [x] [P0] Implement convention runtime profile/config.
+- [ ] [P0] Add per-event convention schedule config:
+  - `CONVENTION_TIMEZONE`
+  - `CONVENTION_WARM_START`
+  - `CONVENTION_WARM_END`
 - [ ] [P0] Add scheduled convention-hours warm-mode enable/disable procedure.
 - [ ] [P0] Add initial production convention runtime target:
   - one always-running machine

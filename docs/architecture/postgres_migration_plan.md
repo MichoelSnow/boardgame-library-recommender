@@ -57,6 +57,11 @@
   - performance gate validation
 - The self-managed Postgres backup procedure has been tested successfully against `dev`.
 - The self-managed Postgres restore procedure has been tested successfully against a disposable `dev` restore database.
+- The self-managed `prod` Postgres Fly app is provisioned and reachable.
+- `poetry run alembic upgrade head` and the one-time SQLite -> Postgres migration path have been executed for `prod`.
+- `pax-tt-app` is cut over to `pax-tt-db-prod` via `DATABASE_URL`.
+- Production release validation passed on the cutover release (release `v40`), with health checks, auth flow, recommendation checks, performance gate, and rollback target confirmation.
+- SQLite pre-cutover backup was retained through production validation and can be removed after post-cutover stabilization window per runbook.
 - Remaining items in this document are still execution tasks and should remain staged behind local-first validation.
 
 ## Required Sequence
@@ -135,36 +140,77 @@ cd ..
   1. if `DATABASE_URL` is set, use it directly
   2. otherwise fall back to SQLite via `DATABASE_PATH`
 - This dual-mode contract is the intended transition path during the migration.
+- For Fly self-managed Postgres with DB autostop/autostart enabled, use the Flycast hostname in `DATABASE_URL`:
+  - `postgresql://<user>:<password>@<db-app>.flycast:5432/<db>`
+- Avoid relying on `<db-app>.internal` for this mode because name resolution/startup can fail when the DB machine is stopped.
+- Flycast requires a private IP allocation on the DB app before hostname resolution works:
+  - `fly ips allocate-v6 --private -a <db-app>`
+- Keep DB apps private-only and verify no public IPs are attached:
+  - `fly ips list -a <db-app>`
 
 ## Dev Cutover
 1. Provision a self-managed Postgres Fly app for `dev`.
-2. Set `DATABASE_URL` for `pax-tt-app-dev`.
-3. Run:
+2. Allocate Flycast private IP for `pax-tt-db-dev` if missing:
+```bash
+fly ips list -a pax-tt-db-dev
+fly ips allocate-v6 --private -a pax-tt-db-dev
+```
+3. Verify DB networking posture is private-only:
+```bash
+fly ips list -a pax-tt-db-dev
+```
+4. Set `DATABASE_URL` for `pax-tt-app-dev` (Flycast host recommended for autostop mode).
+5. Run:
 ```bash
 fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
-4. Load migrated data into `dev` Postgres.
-5. Deploy/cut the `dev` app over to Postgres.
-6. Run the standard dev validation flow:
+6. Load migrated data into `dev` Postgres.
+7. Deploy/cut the `dev` app over to Postgres.
+8. Run the standard dev validation flow:
 ```bash
 poetry run python scripts/validate_dev_deploy.py
 ```
-7. Perform targeted manual regression checks for DB-backed behavior.
+9. Perform targeted manual regression checks for DB-backed behavior.
 
 ## Prod Cutover
 1. Provision a self-managed Postgres Fly app for `prod`.
-2. Set `DATABASE_URL` for `pax-tt-app`.
-3. Run:
+2. Allocate Flycast private IP for `pax-tt-db-prod` if missing:
+```bash
+fly ips list -a pax-tt-db-prod
+fly ips allocate-v6 --private -a pax-tt-db-prod
+```
+3. Verify DB networking posture is private-only:
+```bash
+fly ips list -a pax-tt-db-prod
+```
+4. Set `DATABASE_URL` for `pax-tt-app` (Flycast host recommended for autostop mode).
+5. Run:
 ```bash
 fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
-4. Load migrated data into `prod` Postgres.
-5. Deploy/cut the `prod` app over to Postgres.
-6. Run the standard prod validation flow:
+6. Load migrated data into `prod` Postgres.
+7. Deploy/cut the `prod` app over to Postgres.
+8. Run the standard prod validation flow:
 ```bash
 poetry run python scripts/validate_prod_release.py
 ```
-7. Keep the legacy SQLite DB intact until the Postgres-backed release is proven stable.
+9. Keep the legacy SQLite DB intact until the Postgres-backed release is proven stable.
+
+## Existing DB App + New Fly Config Adoption
+When a DB app already exists and you are moving to `fly.db.dev.toml` or `fly.db.prod.toml`, avoid accidental duplicate machine/volume resources.
+
+1. Inspect current resources:
+```bash
+fly machines list -a <db-app>
+fly volumes list -a <db-app>
+```
+2. Keep one intended data volume and remove unintended duplicates before cutover.
+3. For deterministic re-attachment to an existing volume (only during no-traffic windows):
+   - stop dependent app stack first
+   - destroy old DB machine (volume remains)
+   - ensure only intended volume remains
+   - deploy with the DB Fly config
+4. Re-verify one DB machine + intended volume + private Flycast IP before reconnecting app traffic.
 
 ## Rollback Strategy
 - Initial rollback should be configuration rollback back to the preserved SQLite-backed deployment path.

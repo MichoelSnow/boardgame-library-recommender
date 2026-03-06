@@ -9,7 +9,7 @@ CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-from fly_postgres_common import build_ssh_console_command
+from fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
 
 LOGGER = logging.getLogger(__name__)
 

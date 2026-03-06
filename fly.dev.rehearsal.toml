@@ -1,15 +1,13 @@
-# fly.toml app configuration file generated for pax-tt-app on 2025-07-05T22:37:45-04:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.dev.rehearsal.toml app configuration file for pax-tt-app-dev rehearsal profile
 
-app = 'pax-tt-app'
+app = 'pax-tt-app-dev'
 primary_region = 'iad'
 
 [env]
   DATABASE_PATH = "/data/boardgames.db"
-  RUNTIME_PROFILE = "standard"
-  APP_SERVER = "uvicorn"
+  RUNTIME_PROFILE = "rehearsal"
+  APP_SERVER = "gunicorn"
+  GUNICORN_WORKERS = "2"
   CONVENTION_MODE = "false"
   DB_KEEPALIVE_ENABLED = "true"
   DB_KEEPALIVE_INTERVAL_SECONDS = "60"
@@ -21,7 +19,7 @@ primary_region = 'iad'
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [[http_service.checks]]
@@ -33,9 +31,10 @@ primary_region = 'iad'
 
 [[vm]]
   size = 'shared-cpu-4x'
+  memory = 2048
 
 [mounts]
-  source = "boardgames_data"
+  source = "boardgames_data_dev"
   destination = "/data"
 
 [[restart]]

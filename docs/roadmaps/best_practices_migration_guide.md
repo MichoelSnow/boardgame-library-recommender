@@ -188,9 +188,9 @@ Deployment verification rule:
 - [x] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
 - [x] [P1] Provision self-managed Postgres on Fly for `dev`, migrate schema/data, and cut `dev` over to Postgres.
 - [x] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
-- [ ] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
-- [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
-- [ ] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
+- [x] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
+- [x] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
+- [x] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
 - [x] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
 - [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.
 - [ ] [P1] Before the final Postgres `prod` cutover, make production fail fast when `DATABASE_URL` is missing instead of silently falling back to SQLite.
@@ -198,10 +198,14 @@ Deployment verification rule:
 - [ ] [P1] periodic production health-check/alert job
 - [ ] [P1] email alert delivery (Resend preferred, SendGrid fallback)
 - [ ] [P1] critical P0 alert classes
-- [ ] [P1] Implement the convention runtime profile skeleton:
-- [ ] [P1] warm-mode enable/disable path
-- [ ] [P1] initial `Gunicorn + 2 Uvicorn workers` configuration
-- [ ] [P1] explicit `dev` rehearsal configuration path
+- [x] [P1] Implement the convention runtime profile skeleton:
+- [x] [P1] define runtime profile contract (`standard`, `convention`, `rehearsal`) and startup selector
+- [x] [P1] add Fly config variants for profile-driven runtime settings
+- [x] [P1] warm-mode enable/disable path
+- [x] [P1] initial `Gunicorn + 2 Uvicorn workers` configuration
+- [x] [P1] explicit `dev` rehearsal configuration path
+- [x] [P1] add runbook commands for profile switch + verification + rollback
+- [ ] [P1] record convention profile switch events in deploy traceability notes
 
 Overall execution order override:
 - Keep the phase taxonomy for categorization, but execute work in this order:
