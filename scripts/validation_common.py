@@ -93,6 +93,16 @@ RETRYABLE_EXCEPTIONS = (
 )
 
 
+def _build_retry_condition():
+    retry_on_exception_type = retry_if_exception_type(RETRYABLE_EXCEPTIONS)
+    retry_on_retryable_http = retry_if_exception(_is_retryable_http_error)
+    if retry_on_exception_type is None:
+        return retry_on_retryable_http
+    if retry_on_retryable_http is None:
+        return retry_on_exception_type
+    return retry_on_exception_type | retry_on_retryable_http
+
+
 def get_base_url(environment: str) -> str:
     return APP_CONFIG[environment]["base_url"]
 
@@ -141,10 +151,7 @@ def request_once(
 
 
 @retry(
-    retry=(
-        retry_if_exception_type(RETRYABLE_EXCEPTIONS)
-        | retry_if_exception(_is_retryable_http_error)
-    ),
+    retry=_build_retry_condition(),
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=0.5, min=0.5, max=4),
 )
