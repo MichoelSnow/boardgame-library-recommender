@@ -58,9 +58,9 @@
   - `CONVENTION_WARM_START`
   - `CONVENTION_WARM_END`
 - [ ] [P0] Add scheduled convention-hours warm-mode enable/disable procedure.
-- [ ] [P0] Add initial production convention runtime target:
+- [x] [P0] Add initial production convention runtime target:
   - one always-running machine
-  - `Gunicorn` + `2` Uvicorn workers
+  - `Gunicorn` + `3` Uvicorn workers
 - [x] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
@@ -76,6 +76,10 @@
 - [ ] [P1] Add alert dedupe/cooldown controls.
 - [ ] [P1] Add recovery notifications for major alert classes.
 - [ ] [P0] Test the full production alert path before convention launch.
+  - Static smoke check:
+    - `poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime`
+  - Runtime dry-run check:
+    - `poetry run python scripts/validate_prod_alert_path.py --env prod`
 
 ## Rehearsal and Validation
 - [x] [P0] Run a convention-condition rehearsal in `dev`.
@@ -102,7 +106,7 @@
 - [ ] [P0] Create a pre-opening checklist for each convention day.
 - [ ] [P0] Create an active-hours monitoring checklist.
 - [ ] [P0] Create a post-closing revert-to-normal checklist.
-- [ ] [P0] Add manual workflow toggle step for production health alerts:
+- [x] [P0] Add manual workflow toggle step for production health alerts:
   - Pre-opening: enable scheduled checks
     - `gh workflow enable prod-health-alerts.yml`
     - GitHub UI:

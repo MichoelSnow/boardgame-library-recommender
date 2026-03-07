@@ -205,7 +205,7 @@ Deployment verification rule:
 - [x] [P1] initial `Gunicorn + 3 Uvicorn workers` configuration (updated after rehearsal validation)
 - [x] [P1] explicit `dev` rehearsal configuration path
 - [x] [P1] add runbook commands for profile switch + verification + rollback
-- [ ] [P1] record convention profile switch events in deploy traceability notes
+- [x] [P1] record convention profile switch events in deploy traceability notes
 
 Overall execution order override:
 - Keep the phase taxonomy for categorization, but execute work in this order:

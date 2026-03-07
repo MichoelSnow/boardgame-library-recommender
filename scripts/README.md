@@ -146,6 +146,27 @@ Email delivery:
   - `ALERT_EMAIL_FROM`
 - If provider env vars are not configured, the script still exits non-zero on P0 failures so GitHub Actions failure notifications can serve as the alert channel.
 
+### `validate_prod_alert_path.py`
+
+Purpose:
+- Smoke-validate the production alert path wiring before convention windows.
+
+When to use:
+- After changing alert workflow or alert script logic.
+- Before enabling scheduled convention monitoring.
+
+Usage:
+```bash
+poetry run python scripts/validate_prod_alert_path.py --env prod
+poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime
+```
+
+What it validates:
+- workflow file exists and contains the expected 20-minute schedule
+- workflow runs `scripts/run_prod_health_alerts.py --env prod`
+- alert script includes convention-mode gating
+- optional dry-run execution returns expected status semantics
+
 ### `validate_fly_release.py`
 
 Purpose:
@@ -475,6 +496,12 @@ When to use:
 Usage:
 ```bash
 poetry run python scripts/record_deploy_traceability.py --env prod --expected-sha-path .tmp/validated_dev_sha.txt --marker prod-promotion
+```
+
+Convention profile switch markers:
+```bash
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-enable
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-disable
 ```
 
 Output:

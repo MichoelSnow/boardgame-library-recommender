@@ -21,10 +21,6 @@ primary_region = "iad"
     handlers = []
     port = 5432
 
-  [[services.tcp_checks]]
-    interval = "15s"
-    timeout = "2s"
-
 [[vm]]
   size = "shared-cpu-1x"
   memory = 1024

@@ -138,10 +138,11 @@ Runtime settings (configured in Fly app profiles):
 Notes:
 - Keepalive does not generate inbound app traffic and does not prevent app autostop.
 - Keepalive is only enabled for Postgres-backed runtime.
+- DB Fly configs intentionally omit per-DB `tcp_checks` so idle DB machines can autostop reliably under low/no traffic.
+- DB health coverage is provided by app-level checks and periodic production alerting (`scripts/run_prod_health_alerts.py`).
 
-## Convention Runtime Profile (Phase 4B Skeleton)
-This section defines the intended operational flow for convention runtime profile switching.
-Use it as the implementation target for Phase 4B.
+## Convention Runtime Profile
+This section defines the operational flow for convention runtime profile switching.
 
 ### Target Profiles
 - `standard`:
@@ -188,15 +189,23 @@ fly status -a pax-tt-app
 fly checks list -a pax-tt-app
 curl -fsS https://pax-tt-app.fly.dev/api
 ```
-3. Disable convention profile (return to standard):
+3. Record convention profile enable event in deploy traceability:
+```bash
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-enable
+```
+4. Disable convention profile (return to standard):
 ```bash
 fly deploy -a pax-tt-app -c fly.toml
 ```
-4. Verify standard profile:
+5. Verify standard profile:
 ```bash
 fly status -a pax-tt-app
 fly checks list -a pax-tt-app
 curl -fsS https://pax-tt-app.fly.dev/api
+```
+6. Record convention profile disable event in deploy traceability:
+```bash
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-disable
 ```
 
 ### Planned Enable/Disable Flow (Dev Rehearsal)
@@ -346,6 +355,10 @@ poetry run python scripts/validate_prod_release.py
   - `ALERT_EMAIL_FROM`
   - `RESEND_API_KEY` (preferred)
   - `SENDGRID_API_KEY` (fallback)
+- Smoke-validate alert path wiring before enabling schedule:
+```bash
+poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime
+```
 
 ## Local Emergency Fallback Deploy
 Use this only if the GitHub Actions workflow is unavailable and you need to deploy manually.
