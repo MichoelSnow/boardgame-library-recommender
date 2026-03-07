@@ -3,6 +3,10 @@ from pathlib import Path
 from typing import Any
 
 
+def is_production_environment() -> bool:
+    return os.getenv("NODE_ENV", "").strip().lower() == "production"
+
+
 def get_default_sqlite_path() -> str:
     return str(Path(__file__).parent.parent / "database" / "boardgames.db")
 
@@ -11,6 +15,12 @@ def get_database_url() -> str:
     database_url = os.getenv("DATABASE_URL")
     if database_url:
         return database_url
+
+    if is_production_environment():
+        raise RuntimeError(
+            "DATABASE_URL must be set when NODE_ENV=production. "
+            "Refusing to fall back to SQLite in production."
+        )
 
     database_path = os.getenv("DATABASE_PATH", get_default_sqlite_path())
     if database_path.startswith("sqlite:///"):

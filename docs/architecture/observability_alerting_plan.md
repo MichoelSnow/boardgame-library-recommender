@@ -48,6 +48,16 @@
   - SendGrid
 - Raw SMTP is not the preferred first implementation.
 
+Implementation status:
+- Implemented:
+  - `.github/workflows/prod-health-alerts.yml` (runs every 20 minutes + manual trigger)
+  - `scripts/run_prod_health_alerts.py` (P0 health checks + email delivery)
+- Runtime gating:
+  - checks are skipped unless `CONVENTION_MODE=true` (read from `/api/version`)
+- Provider behavior:
+  - Resend is attempted first when `RESEND_API_KEY` is set
+  - SendGrid is used as fallback when Resend fails or is not configured and `SENDGRID_API_KEY` is set
+
 ## Required Alert Classes
 ### P0 Alerts
 - App unreachable / health failure
@@ -112,3 +122,11 @@ fly logs -a pax-tt-app
 - Email alerts are delivered for all required P0 alert classes.
 - Alerting behavior includes dedupe/cooldown controls.
 - The alert path is tested before convention launch.
+
+## Runtime Configuration
+- No required secrets for baseline operation (GitHub failure notifications).
+- Optional secrets for provider-based email delivery:
+  - `ALERT_EMAIL_TO` (comma-separated recipient emails)
+  - `ALERT_EMAIL_FROM` (verified sender address)
+  - `RESEND_API_KEY` (preferred provider)
+  - `SENDGRID_API_KEY` (fallback provider)

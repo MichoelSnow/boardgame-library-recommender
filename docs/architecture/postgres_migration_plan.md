@@ -28,6 +28,7 @@
 
 ## Current Status
 - `DATABASE_URL` support with SQLite fallback is implemented in shared app/Alembic configuration.
+- Production now fails fast if `NODE_ENV=production` and `DATABASE_URL` is missing (no silent SQLite fallback in production).
 - Initial Postgres compatibility audit is complete:
   - no blocking SQLite-only assumptions were found in runtime SQLAlchemy models
   - current Alembic revisions and the post-import SQL script are expected to translate to Postgres
@@ -138,7 +139,9 @@ cd ..
 ## Configuration Contract
 - Application database configuration should use the following precedence:
   1. if `DATABASE_URL` is set, use it directly
-  2. otherwise fall back to SQLite via `DATABASE_PATH`
+  2. otherwise:
+    - if `NODE_ENV=production`, fail fast with startup error
+    - for non-production, fall back to SQLite via `DATABASE_PATH`
 - This dual-mode contract is the intended transition path during the migration.
 - For Fly self-managed Postgres with DB autostop/autostart enabled, use the Flycast hostname in `DATABASE_URL`:
   - `postgresql://<user>:<password>@<db-app>.flycast:5432/<db>`

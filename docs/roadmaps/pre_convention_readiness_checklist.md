@@ -38,7 +38,7 @@
 - [x] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
 - [x] [P0] Define and test backup procedure for self-managed Postgres on Fly.
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
-- [ ] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
+- [x] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
 - [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
 - [ ] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games
@@ -65,12 +65,12 @@
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
 ## Observability and Alerting
-- [ ] [P0] Implement periodic production health-check/alert job.
-- [ ] [P0] Integrate Resend for production email alerts.
-- [ ] [P1] Add SendGrid fallback plan/config if Resend is not viable.
-- [ ] [P0] Alert on app unreachable / health failure.
-- [ ] [P0] Alert on recommendation degraded mode.
-- [ ] [P0] Alert on database connectivity failure.
+- [x] [P0] Implement periodic production health-check/alert job.
+- [x] [P0] Integrate Resend for production email alerts.
+- [x] [P1] Add SendGrid fallback plan/config if Resend is not viable.
+- [x] [P0] Alert on app unreachable / health failure.
+- [x] [P0] Alert on recommendation degraded mode.
+- [x] [P0] Alert on database connectivity failure.
 - [ ] [P1] Alert on sustained latency breach.
 - [ ] [P1] Alert on auth anomaly threshold.
 - [ ] [P1] Add alert dedupe/cooldown controls.
@@ -102,6 +102,21 @@
 - [ ] [P0] Create a pre-opening checklist for each convention day.
 - [ ] [P0] Create an active-hours monitoring checklist.
 - [ ] [P0] Create a post-closing revert-to-normal checklist.
+- [ ] [P0] Add manual workflow toggle step for production health alerts:
+  - Pre-opening: enable scheduled checks
+    - `gh workflow enable prod-health-alerts.yml`
+    - GitHub UI:
+      1. Open repository `Actions`
+      2. Select workflow `Prod Health Alerts`
+      3. Click `...` (top-right)
+      4. Click `Enable workflow`
+  - Post-closing: disable scheduled checks
+    - `gh workflow disable prod-health-alerts.yml`
+    - GitHub UI:
+      1. Open repository `Actions`
+      2. Select workflow `Prod Health Alerts`
+      3. Click `...` (top-right)
+      4. Click `Disable workflow`
 - [ ] [P1] Document exact owner actions for:
   - app down
   - degraded recommendations

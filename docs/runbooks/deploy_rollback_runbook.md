@@ -330,6 +330,23 @@ poetry run python scripts/validate_prod_release.py
 - if deployment/config changed: review `fly logs -a pax-tt-app` and confirm startup logs show the app loaded a matched embeddings/mapping pair successfully
 15. If any production validation step fails, stop and either fix forward immediately or run the rollback steps below.
 
+## Periodic Prod Alerting
+- Scheduled production P0 health alerting is implemented via:
+  - `.github/workflows/prod-health-alerts.yml`
+  - `scripts/run_prod_health_alerts.py`
+- Workflow cadence:
+  - every 20 minutes
+  - plus manual trigger (`workflow_dispatch`)
+- Convention-mode gate:
+  - workflow exits cleanly when `CONVENTION_MODE` is not active
+- Default notification path:
+  - GitHub Actions failure notifications (no extra services required)
+- Optional email provider secrets (only if you want provider-based alert emails):
+  - `ALERT_EMAIL_TO`
+  - `ALERT_EMAIL_FROM`
+  - `RESEND_API_KEY` (preferred)
+  - `SENDGRID_API_KEY` (fallback)
+
 ## Local Emergency Fallback Deploy
 Use this only if the GitHub Actions workflow is unavailable and you need to deploy manually.
 

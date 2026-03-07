@@ -231,7 +231,8 @@ async def api_version():
         "app_version": app.version,
         "git_sha": os.getenv("APP_GIT_SHA", "unknown"),
         "build_timestamp": os.getenv("APP_BUILD_TIMESTAMP", "unknown"),
-        "environment": os.getenv("NODE_ENV", "development")
+        "environment": os.getenv("NODE_ENV", "development"),
+        "convention_mode": os.getenv("CONVENTION_MODE", "false").strip().lower() == "true",
     }
 
 # Move the root endpoint to /api and keep this as a fallback for API requests
