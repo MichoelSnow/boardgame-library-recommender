@@ -16,11 +16,16 @@
 
 ## Access and Auth
 - [ ] [P0] Implement convention mode with explicit `CONVENTION_MODE` toggle.
-- [ ] [P0] Implement anonymous read-only access for allowed convention endpoints.
+- [ ] [P0] Implement kiosk guest auto-login flow for approved devices via `POST /api/convention/guest-token`.
+- [ ] [P0] Add required convention guest config:
+  - `CONVENTION_GUEST_ENABLED`
+  - `CONVENTION_KIOSK_KEY`
+  - optional `CONVENTION_KIOSK_IP_ALLOWLIST`
+- [ ] [P0] Implement guest read-only access allowlist for convention endpoints.
 - [ ] [P0] Keep write endpoints authenticated during convention mode.
-- [ ] [P0] Implement shared-device anonymous session state using `sessionStorage`.
+- [ ] [P0] Implement shared-device guest session state using `sessionStorage`.
 - [ ] [P0] Add explicit `Reset Session` control for shared devices.
-- [ ] [P0] Implement 3-minute inactivity auto-clear for anonymous session state.
+- [ ] [P0] Implement 3-minute inactivity auto-clear for guest session state.
 - [ ] [P1] Validate convention-mode endpoint allowlist against the final frontend flows.
 
 ## Data and Storage
@@ -29,11 +34,11 @@
 - [x] [P0] Build and validate the SQLite -> Postgres migration path locally.
 - [x] [P0] Provision and cut over `dev` to self-managed Postgres on Fly.
 - [x] [P0] Validate `dev` on Postgres.
-- [ ] [P0] Provision and cut over `prod` to self-managed Postgres on Fly.
-- [ ] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
+- [x] [P0] Provision and cut over `prod` to self-managed Postgres on Fly.
+- [x] [P0] Validate `prod` on Postgres and retain SQLite rollback path during stabilization.
 - [x] [P0] Define and test backup procedure for self-managed Postgres on Fly.
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
-- [ ] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
+- [x] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
 - [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
 - [ ] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games
@@ -47,39 +52,46 @@
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
 
 ## Runtime and Scaling
-- [ ] [P0] Implement convention runtime profile/config.
+- [x] [P0] Implement convention runtime profile/config.
+- [ ] [P0] Add per-event convention schedule config:
+  - `CONVENTION_TIMEZONE`
+  - `CONVENTION_WARM_START`
+  - `CONVENTION_WARM_END`
 - [ ] [P0] Add scheduled convention-hours warm-mode enable/disable procedure.
-- [ ] [P0] Add initial production convention runtime target:
+- [x] [P0] Add initial production convention runtime target:
   - one always-running machine
-  - `Gunicorn` + `2` Uvicorn workers
-- [ ] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
+  - `Gunicorn` + `3` Uvicorn workers
+- [x] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
 ## Observability and Alerting
-- [ ] [P0] Implement periodic production health-check/alert job.
-- [ ] [P0] Integrate Resend for production email alerts.
-- [ ] [P1] Add SendGrid fallback plan/config if Resend is not viable.
-- [ ] [P0] Alert on app unreachable / health failure.
-- [ ] [P0] Alert on recommendation degraded mode.
-- [ ] [P0] Alert on database connectivity failure.
+- [x] [P0] Implement periodic production health-check/alert job.
+- [x] [P0] Use GitHub Actions failure notifications as the production alert channel.
+- [x] [P0] Alert on app unreachable / health failure.
+- [x] [P0] Alert on recommendation degraded mode.
+- [x] [P0] Alert on database connectivity failure.
 - [ ] [P1] Alert on sustained latency breach.
 - [ ] [P1] Alert on auth anomaly threshold.
 - [ ] [P1] Add alert dedupe/cooldown controls.
 - [ ] [P1] Add recovery notifications for major alert classes.
 - [ ] [P0] Test the full production alert path before convention launch.
+  - Static smoke check:
+    - `poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime`
+  - Runtime dry-run check:
+    - `poetry run python scripts/validate_prod_alert_path.py --env prod`
 
 ## Rehearsal and Validation
-- [ ] [P0] Run a convention-condition rehearsal in `dev`.
+- [x] [P0] Run a convention-condition rehearsal in `dev`.
 - [ ] [P0] Measure and record:
   - p95 latency for catalog endpoints
   - p95 latency for recommendation endpoints
   - per-worker memory usage
   - startup/restart time
-- [ ] [P0] Use rehearsal results to confirm or adjust:
+- [x] [P0] Use rehearsal results to confirm or adjust:
   - worker count
   - machine memory
   - convention runtime profile
-- [ ] [P0] Verify service-level targets are met under rehearsal conditions.
+- [x] [P0] Verify service-level targets are met under rehearsal conditions.
 - [ ] [P0] Run rollback drill for the current production deployment model.
 - [ ] [P1] Run a full pre-convention validation pass using the deploy/rollback runbook.
 
@@ -93,6 +105,21 @@
 - [ ] [P0] Create a pre-opening checklist for each convention day.
 - [ ] [P0] Create an active-hours monitoring checklist.
 - [ ] [P0] Create a post-closing revert-to-normal checklist.
+- [x] [P0] Add manual workflow toggle step for production health alerts:
+  - Pre-opening: enable scheduled checks
+    - `gh workflow enable prod-health-alerts.yml`
+    - GitHub UI:
+      1. Open repository `Actions`
+      2. Select workflow `Prod Health Alerts`
+      3. Click `...` (top-right)
+      4. Click `Enable workflow`
+  - Post-closing: disable scheduled checks
+    - `gh workflow disable prod-health-alerts.yml`
+    - GitHub UI:
+      1. Open repository `Actions`
+      2. Select workflow `Prod Health Alerts`
+      3. Click `...` (top-right)
+      4. Click `Disable workflow`
 - [ ] [P1] Document exact owner actions for:
   - app down
   - degraded recommendations

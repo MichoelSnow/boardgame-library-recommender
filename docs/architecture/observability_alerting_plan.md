@@ -20,12 +20,10 @@
 ## V1 Decisions
 - Do not introduce dedicated centralized log aggregation in the initial convention build.
 - Use Fly logs as the operational log source for investigation and debugging.
-- Add production email alerting before convention launch.
 - Use a periodic health-check/alert job to detect critical failures proactively.
 - Preferred V1 implementation:
   - GitHub Actions scheduled workflow as the periodic check runner
-  - Resend as the preferred email delivery provider
-  - SendGrid as the fallback email provider if needed
+  - GitHub Actions failure notifications as the default alert channel
 
 ## Logging Source
 - Primary operational log source:
@@ -34,19 +32,23 @@
 
 ## Alert Channel
 - Required production alert channel:
-  - email
+  - GitHub Actions failure notifications
 - Primary recipient:
   - you
 - Additional recipients may be added later, but are not required for the first implementation.
 
-## Preferred Provider Setup
+## Delivery Setup
 - Periodic check runner:
   - GitHub Actions scheduled workflow
-- Preferred email provider:
-  - Resend
-- Fallback email provider:
-  - SendGrid
-- Raw SMTP is not the preferred first implementation.
+- Alert delivery:
+  - GitHub's built-in workflow-failure notification path
+
+Implementation status:
+- Implemented:
+  - `.github/workflows/prod-health-alerts.yml` (runs every 20 minutes + manual trigger)
+  - `scripts/run_prod_health_alerts.py` (P0 health checks + failure signaling)
+- Runtime gating:
+  - checks are skipped unless `CONVENTION_MODE=true` (read from `/api/version`)
 
 ## Required Alert Classes
 ### P0 Alerts
@@ -75,7 +77,7 @@
   - response time
   - recommendation availability state
   - optionally a canonical recommendation smoke-check path
-- The job should trigger email alerts when thresholds or unhealthy states are met.
+- The job should fail the workflow when thresholds or unhealthy states are met.
 - GitHub Actions is the preferred first scheduler because:
   - it is already part of the repo's operational workflow
   - it avoids introducing another always-on service
@@ -90,16 +92,17 @@
 
 ## Operational Workflow
 1. Health-check/alert job detects an unhealthy condition.
-2. Email alert is sent with:
+2. Workflow run fails and GitHub notifications are sent according to repository/user notification settings.
+3. The failed run includes:
 - environment
 - failure type
 - current release SHA when available
 - brief reason/context
-3. Investigate using:
+4. Investigate using:
 ```bash
 fly logs -a pax-tt-app
 ```
-4. Follow the deploy/rollback runbook if remediation is required.
+5. Follow the deploy/rollback runbook if remediation is required.
 
 ## Deferred for Later
 - Dedicated centralized log aggregation
@@ -109,6 +112,9 @@ fly logs -a pax-tt-app
 
 ## Exit Criteria
 - Production has a periodic health-check/alert path.
-- Email alerts are delivered for all required P0 alert classes.
+- GitHub failure notifications are generated for all required P0 alert classes.
 - Alerting behavior includes dedupe/cooldown controls.
 - The alert path is tested before convention launch.
+
+## Runtime Configuration
+- No required secrets for baseline operation (GitHub failure notifications).

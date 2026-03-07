@@ -9,12 +9,13 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 VALIDATED_SHA_PATH = ".tmp/validated_dev_sha.txt"
+POETRY_PYTHON = ["poetry", "run", "python"]
 
 VALIDATION_STEPS = [
     (
         "Release metadata and SHA",
         [
-            "python",
+            *POETRY_PYTHON,
             "scripts/validate_fly_release.py",
             "--env",
             "dev",
@@ -26,23 +27,23 @@ VALIDATION_STEPS = [
     ),
     (
         "Fly health checks",
-        ["python", "scripts/validate_fly_health_checks.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate_fly_health_checks.py", "--env", "dev"],
     ),
     (
         "Auth flow smoke test",
-        ["python", "scripts/validate_auth_flow.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate_auth_flow.py", "--env", "dev"],
     ),
     (
         "Recommendation artifact files",
-        ["python", "scripts/validate_recommendation_artifacts.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate_recommendation_artifacts.py", "--env", "dev"],
     ),
     (
         "Recommendation endpoint smoke test",
-        ["python", "scripts/validate_recommendation_endpoint.py", "--env", "dev", "--game-id", "224517"],
+        [*POETRY_PYTHON, "scripts/validate_recommendation_endpoint.py", "--env", "dev", "--game-id", "224517"],
     ),
     (
         "Performance gate",
-        ["python", "scripts/validate_performance_gate.py", "--env", "dev", "--game-id", "224517"],
+        [*POETRY_PYTHON, "scripts/validate_performance_gate.py", "--env", "dev", "--game-id", "224517"],
     ),
 ]
 

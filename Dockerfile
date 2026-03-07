@@ -45,38 +45,8 @@ COPY --from=frontend-builder /app/frontend/build/ /app/frontend/build/
 # Create empty __init__.py file for Python package structure
 RUN touch /app/backend/__init__.py
 
-# Create start.sh script
-COPY <<EOF /app/start.sh
-#!/bin/bash
-echo "Checking for required database files..."
-
-# Create required directories
-# No need to create images directory
-
-# Check for database file
-if [ ! -f /data/boardgames.db ]; then
-  echo "Warning: Database file not found in /data/. Creating new SQLite database."
-  # Create a properly initialized SQLite database
-  sqlite3 /data/boardgames.db "VACUUM;"
-  chmod 666 /data/boardgames.db
-fi
-
-# Check for embedding files
-EMBEDDING_FILES=\$(ls /data/game_embeddings_*.npz 2>/dev/null | wc -l)
-MAPPING_FILES=\$(ls /data/reverse_mappings_*.json 2>/dev/null | wc -l)
-
-if [ "\$EMBEDDING_FILES" -eq "0" ] || [ "\$MAPPING_FILES" -eq "0" ]; then
-  echo "Warning: Recommendation embeddings are missing or incomplete in /data."
-  echo "The app will still start, but recommendation endpoints will return empty results until embeddings are restored."
-fi
-
-echo "Starting application..."
-
-# Start the application
-exec uvicorn backend.app.main:app --host 0.0.0.0 --port 8080
-EOF
-
-RUN chmod +x /app/start.sh
+RUN cp /app/backend/scripts/start.sh /app/start.sh && \
+    chmod +x /app/start.sh /app/backend/scripts/start.sh
 
 # Set environment variables
 ENV PYTHONPATH=/app

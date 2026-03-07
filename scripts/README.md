@@ -24,6 +24,33 @@ Notes:
 - This script reads the current checked-out commit SHA with `git rev-parse HEAD`
 - It injects build metadata so `/api/version` can verify the deployed release
 
+### `fly_stack.sh`
+
+Purpose:
+- Start/stop app+DB stacks safely with dependency-aware ordering.
+- `up`: starts DB machine first, then app machine.
+- `down`: stops app machine first, then DB machine.
+- `status`: shows both machine states.
+
+When to use:
+- Before dev/prod validation when machines may be auto-stopped.
+- For cost-control shutdown outside active test windows.
+
+Usage:
+```bash
+scripts/fly_stack.sh dev up
+scripts/fly_stack.sh dev down
+scripts/fly_stack.sh dev status
+
+scripts/fly_stack.sh prod up
+scripts/fly_stack.sh prod down
+scripts/fly_stack.sh prod status
+```
+
+Notes:
+- Fly does not support native cross-app start dependencies.
+- If a machine does not exist (for example after `fly scale count 0`), deploy that app to recreate it first.
+
 ## Deployment Validation
 
 ### `validate_dev_deploy.py`
@@ -83,6 +110,59 @@ What it validates:
 - latency thresholds pass for `/api`, `/api/version`, and `/api/recommendations/224517`
 - appends a production traceability record to `logs/deploy_traceability.jsonl`
 - resolves and prints the exact rollback command for the current production release set
+
+### `run_prod_health_alerts.py`
+
+Purpose:
+- Run periodic production P0 health checks and fail the workflow on unhealthy conditions.
+
+When to use:
+- Via scheduled GitHub Actions workflow (`.github/workflows/prod-health-alerts.yml`).
+- Manually for dry-run verification before convention windows.
+
+Usage:
+```bash
+poetry run python scripts/run_prod_health_alerts.py --env prod
+poetry run python scripts/run_prod_health_alerts.py --env prod --dry-run
+```
+
+What it checks:
+- App reachable and healthy (`GET /api`).
+- Database-backed query path works (`GET /api/games/?limit=1...`).
+- Recommendation subsystem availability (`GET /api/recommendations/status`).
+- Convention mode gate:
+  - exits without alerting unless `/api/version` reports `convention_mode=true`.
+
+Alert classes (P0):
+- `app_unreachable`
+- `db_connectivity_failure`
+- `recommendation_degraded`
+
+Notification model:
+- The script exits non-zero on P0 failures.
+- GitHub Actions failure notifications are the alert delivery channel.
+- No provider-specific email secrets are required.
+
+### `validate_prod_alert_path.py`
+
+Purpose:
+- Smoke-validate the production alert path wiring before convention windows.
+
+When to use:
+- After changing alert workflow or alert script logic.
+- Before enabling scheduled convention monitoring.
+
+Usage:
+```bash
+poetry run python scripts/validate_prod_alert_path.py --env prod
+poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime
+```
+
+What it validates:
+- workflow file exists and contains the expected 20-minute schedule
+- workflow runs `scripts/run_prod_health_alerts.py --env prod`
+- alert script includes convention-mode gating
+- optional dry-run execution returns expected status semantics
 
 ### `validate_fly_release.py`
 
@@ -210,6 +290,182 @@ Default thresholds:
 - `/api/version` <= `1500ms`
 - `/api/recommendations/224517?limit=5` <= `4000ms`
 
+## Load Testing
+
+### `load/k6_rehearsal.js`
+
+Purpose:
+- Run repeatable load tests against the rehearsal profile in `dev`.
+- Exercise a read-heavy endpoint mix that matches expected convention behavior.
+
+When to use:
+- During Phase 4B rehearsal while `dev` is deployed with `fly.dev.rehearsal.toml`.
+- Before adjusting worker count, machine memory, or latency/error budgets.
+
+Current validated rehearsal runtime baseline:
+- `APP_SERVER=gunicorn`
+- `GUNICORN_WORKERS=3`
+- `GUNICORN_CMD_ARGS=--timeout 90`
+- `shared-cpu-4x`, `memory=2048`
+
+Prerequisite:
+- Install `k6` locally.
+
+Usage (baseline):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="10" \
+  -e DURATION="2m" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (short-term rehearsal target):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="100" \
+  -e DURATION="15m" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (stress ramp):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="200" \
+  -e DURATION="10m" \
+  -e THINK_TIME_SECONDS="0.1" \
+  scripts/load/k6_rehearsal.js
+```
+
+Endpoint mix per virtual user iteration:
+- `40%` `GET /api`
+- `20%` `GET /api/version`
+- `25%` `POST /api/recommendations` using a random `liked_games` subset:
+  - subset size: random integer from `LIKED_MIN` to `LIKED_MAX` (defaults `1` to `50`)
+  - source IDs: deduplicated random sample from `GAME_IDS` (CSV env var)
+  - include at least 50 IDs in `GAME_IDS` if you want to fully exercise the default `1..50` range
+- `15%` `GET /api/games/?skip=0&limit=20&sort_by=rank&pax_only=true`
+
+Optional load-test env vars:
+- `GAME_IDS` (CSV list of candidate IDs used for random recommendation subsets)
+- `LIKED_MIN` (defaults to `1`)
+- `LIKED_MAX` (defaults to `50`)
+- `RECOMMENDATION_LIMIT` (defaults to `5`)
+- `PAX_ONLY` (`true`/`false`, defaults to `true`)
+- route weights (defaults preserve the mixed profile):
+  - `WEIGHT_API` (default `0.40`)
+  - `WEIGHT_VERSION` (default `0.20`)
+  - `WEIGHT_RECOMMENDATIONS` (default `0.25`)
+  - `WEIGHT_GAMES` (default `0.15`)
+
+Usage (realistic wide-range recommendations):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="1" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="5m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (stress heavier recommendation sets):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="20" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="5m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (recommendations-only isolation):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<comma-separated IDs; include >=50 for full range>" \
+  -e LIKED_MIN="1" \
+  -e LIKED_MAX="50" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  -e WEIGHT_API="0" \
+  -e WEIGHT_VERSION="0" \
+  -e WEIGHT_RECOMMENDATIONS="1" \
+  -e WEIGHT_GAMES="0" \
+  scripts/load/k6_rehearsal.js
+```
+
+Usage (games-only isolation):
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  -e WEIGHT_API="0" \
+  -e WEIGHT_VERSION="0" \
+  -e WEIGHT_RECOMMENDATIONS="0" \
+  -e WEIGHT_GAMES="1" \
+  scripts/load/k6_rehearsal.js
+```
+
+Built-in thresholds:
+- global request failure rate `< 2%`
+- global p95 request latency `< 2500ms`
+- recommendation p95 latency `< 4000ms`
+- recommendation failure rate `< 2%`
+- games-list p95 latency `< 2500ms`
+- games-list failure rate `< 2%`
+
+Recorded Phase 4B baseline results (2026-03-06):
+- mixed profile, `VUS=10`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=165.81ms`
+  - `games_duration p95=213.29ms`
+  - `recommendation_duration p95=198.45ms`
+- mixed profile, `VUS=30`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`:
+  - `http_req_failed=0.00%`
+  - `http_req_duration p95=181.29ms`
+  - `games_duration p95=202.76ms`
+  - `recommendation_duration p95=284.80ms`
+
+### `benchmark_recommendation_size.py`
+
+Purpose:
+- Isolate how recommendation-request latency changes as liked-game list size grows.
+- Run fixed-size, sequential recommendation calls (`POST /api/recommendations`) to separate payload-cost effects from high-concurrency overload effects.
+
+When to use:
+- During recommendation performance diagnosis.
+- Before/after backend optimization to compare size-impact.
+
+Usage:
+```bash
+poetry run python scripts/benchmark_recommendation_size.py \
+  --env dev \
+  --game-ids "224517,161936,342942,174430,316554,233078,167791,115746,187645,397598,162886,291457,220308,12333,182028,84876,193738,246900,169786,28720,173346,295770,167355,177736,266507,124361,312484,341169,205637,421006,237182,338960,192135,373106,418059,120677,266192,164928,96848,251247,199792,324856,183394,321608,366013,285774,521,284378,175914,247763,256960,3076,253344,295947,184267,102794,314040,383179,185343,170216,31260,251661,161533,255984,365717,231733,182874,221107,414317,205059,126163,2651,390092,244521,216132,266810,35677,125153,164153,276025,124742,371942,200680,209010,240980,284083,55690,380607,28143,332772,230802,157354,322289,201808,366161,159675,72125,191189,93,291453" \
+  --sizes "1,5,10,20,35,50" \
+  --iterations 20 \
+  --limit 5 \
+  --pax-only true
+```
+
+Output:
+- Logs one summary line per liked-game size:
+  - success count
+  - error rate
+  - p50/p95/max latency
+  - HTTP status distribution
+- Prints JSON summary for easier copy/paste into docs.
+
 ### `validate_fly_health_checks.py`
 
 Purpose:
@@ -237,6 +493,12 @@ When to use:
 Usage:
 ```bash
 poetry run python scripts/record_deploy_traceability.py --env prod --expected-sha-path .tmp/validated_dev_sha.txt --marker prod-promotion
+```
+
+Convention profile switch markers:
+```bash
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-enable
+poetry run python scripts/record_deploy_traceability.py --env prod --marker convention-profile-disable
 ```
 
 Output:

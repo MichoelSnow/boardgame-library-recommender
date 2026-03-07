@@ -98,10 +98,16 @@
 ### Final Decision
 - Use Fly logs as the initial operational log source.
 - Do not add dedicated centralized log aggregation in the first convention build.
-- Add email alerting before convention launch using:
+- Add proactive alerting before convention launch using:
   - GitHub Actions scheduled workflow as the check runner
-  - Resend as the preferred provider
-  - SendGrid as the fallback provider
+  - GitHub Actions failure notifications as the default delivery path
+
+### Decision Update (2026-03-07)
+- Provider-specific outbound alert delivery is no longer part of the baseline decision.
+- Rationale:
+  - avoid additional service setup and recurring cost
+  - keep alerting operationally simple for a single-developer workflow
+  - rely on GitHub-native notifications from failed scheduled health checks
 
 ## Decision 6: Frontend Architecture
 ### Options Considered

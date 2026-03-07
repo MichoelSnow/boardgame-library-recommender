@@ -163,7 +163,7 @@ Deployment verification rule:
 - [x] [P1] caching/query invalidation strategy
 - [x] [P1] Evaluate observability and alerting tooling fit:
 - [x] [P1] log aggregation approach
-- [x] [P1] email alert channel and escalation workflow
+- [x] [P1] alert channel and escalation workflow
 - [x] [P2] Define API versioning and deprecation policy (compatibility window + sunset process).
 - [x] [P1] Define data contract ownership (backend schema owner and frontend integration responsibilities).
 - [x] [P2] Record decisions in ADRs with options considered, tradeoffs, and final decision.
@@ -188,20 +188,24 @@ Deployment verification rule:
 - [x] [P1] Build and test a one-time SQLite -> Postgres migration path locally, preserving IDs and relationship integrity.
 - [x] [P1] Provision self-managed Postgres on Fly for `dev`, migrate schema/data, and cut `dev` over to Postgres.
 - [x] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
-- [ ] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
-- [ ] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
-- [ ] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
+- [x] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
+- [x] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
+- [x] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
 - [x] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
 - [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.
-- [ ] [P1] Before the final Postgres `prod` cutover, make production fail fast when `DATABASE_URL` is missing instead of silently falling back to SQLite.
-- [ ] [P1] Implement the minimum observability stack required before risky cutovers:
-- [ ] [P1] periodic production health-check/alert job
-- [ ] [P1] email alert delivery (Resend preferred, SendGrid fallback)
-- [ ] [P1] critical P0 alert classes
-- [ ] [P1] Implement the convention runtime profile skeleton:
-- [ ] [P1] warm-mode enable/disable path
-- [ ] [P1] initial `Gunicorn + 2 Uvicorn workers` configuration
-- [ ] [P1] explicit `dev` rehearsal configuration path
+- [x] [P1] Before the final Postgres `prod` cutover, make production fail fast when `DATABASE_URL` is missing instead of silently falling back to SQLite.
+- [x] [P1] Implement the minimum observability stack required before risky cutovers:
+- [x] [P1] periodic production health-check/alert job
+- [x] [P1] GitHub Actions failure notification delivery
+- [x] [P1] critical P0 alert classes
+- [x] [P1] Implement the convention runtime profile skeleton:
+- [x] [P1] define runtime profile contract (`standard`, `convention`, `rehearsal`) and startup selector
+- [x] [P1] add Fly config variants for profile-driven runtime settings
+- [x] [P1] warm-mode enable/disable path
+- [x] [P1] initial `Gunicorn + 3 Uvicorn workers` configuration (updated after rehearsal validation)
+- [x] [P1] explicit `dev` rehearsal configuration path
+- [x] [P1] add runbook commands for profile switch + verification + rollback
+- [x] [P1] record convention profile switch events in deploy traceability notes
 
 Overall execution order override:
 - Keep the phase taxonomy for categorization, but execute work in this order:
@@ -316,7 +320,7 @@ Related Phase 4 planning docs:
 - [ ] [P1] Add npm dependency audit policy to CI.
 - [ ] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
 - [ ] [P1] Review and scrub logs for sensitive data exposure.
-- [ ] [P1] Define outbound email alert channel for production incidents.
+- [ ] [P1] Define outbound alert escalation channel for production incidents.
 - [ ] [P1] Define alert recipients and escalation path.
 - [ ] [P1] Document how to run security scans locally and in CI.
 - [ ] [P0] Implement endpoint rate limiting policy (auth endpoints, recommendation endpoints, and general API).
@@ -378,7 +382,7 @@ Related Phase 4 planning docs:
 - [ ] [P1] Define and document auth failure alert threshold.
 - [ ] [P1] Document incident triage steps in runbook.
 - [ ] [P0] Add production alert for missing/corrupt embeddings.
-- [ ] [P0] Ensure alert sends email and includes environment, release SHA, and failure reason.
+- [ ] [P0] Ensure alert notifications include environment, release SHA, and failure reason.
 - [ ] [P1] Add periodic embedding health check and alert on transition to degraded mode.
 - [ ] [P1] Validate alert noise controls (dedupe/rate limit) to avoid spam.
 - [ ] [P1] Add incident postmortem template and follow-up tracking process.
@@ -392,6 +396,7 @@ Related Phase 4 planning docs:
 - [ ] [P1] Centralize frontend API calls in a dedicated service layer.
 - [ ] [P1] Profile and optimize hot queries and N+1 patterns.
 - [ ] [P1] Revisit cache strategy and invalidation rules.
+- [ ] [P3] Optional optimization: replace O(N) total-count cache eviction scan with `OrderedDict` LRU-style eviction (avoid full-cache clear).
 - [ ] [P2] Add lightweight ADRs for major architecture decisions.
 - [ ] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs.
 - [ ] [P1] Define timeout/retry policy for external calls and long-running jobs.
@@ -433,7 +438,7 @@ Related Phase 4 planning docs:
 - [ ] [P1] Known schema/contract mismatches are resolved.
 - [x] [P1] Dev and prod environments are separated and documented.
 - [ ] [P1] Promotion to prod requires passing pre-prod validation checklist.
-- [ ] [P1] Production supports degraded recommendation mode with email alerts for embedding failures.
+- [ ] [P1] Production supports degraded recommendation mode with actionable alerts for embedding failures.
 - [ ] [P1] Toolchain is modernized to Poetry `2.3.x` and latest compatible Python target (`3.13` preferred, `3.12` fallback).
 - [ ] [P1] Architecture/tooling ADRs are completed and any selected architecture migrations are planned with rollback.
 - [ ] [P1] Repository structure, naming, and README coverage are standardized and documented.

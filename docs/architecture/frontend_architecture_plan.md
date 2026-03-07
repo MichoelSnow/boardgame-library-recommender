@@ -38,6 +38,9 @@
 - Request parameter shaping
 - Shared request helpers and consistent error handling
 - Any lightweight response normalization needed by the UI
+- Recommendation list contract awareness:
+  - `/api/recommendations` and `/api/recommendations/{id}` are list/card payloads (scalar game fields + `recommendation_score`)
+  - full relationship/detail fields are fetched via `/api/games/{id}` when opening details
 - Production frontend requests should use same-origin API paths (for example `/api`) rather than hardcoded environment hostnames, so `dev` and `prod` frontends always talk to the API on the same deployed host.
 
 ### Non-Goals

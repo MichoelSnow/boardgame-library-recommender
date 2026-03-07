@@ -5,6 +5,11 @@ primary_region = 'iad'
 
 [env]
   DATABASE_PATH = "/data/boardgames.db"
+  RUNTIME_PROFILE = "standard"
+  APP_SERVER = "uvicorn"
+  CONVENTION_MODE = "false"
+  DB_KEEPALIVE_ENABLED = "true"
+  DB_KEEPALIVE_INTERVAL_SECONDS = "60"
 
 [build]
 
@@ -25,6 +30,7 @@ primary_region = 'iad'
 
 [[vm]]
   size = 'shared-cpu-4x'
+  memory = 2048
 
 [mounts]
   source = "boardgames_data_dev"
