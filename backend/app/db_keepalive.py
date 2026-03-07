@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import os
 from collections.abc import Callable
@@ -55,8 +56,10 @@ async def run_db_keepalive_loop(
 ) -> None:
     while not stop_event.is_set():
         try:
-            ping_fn(engine)
+            await asyncio.to_thread(ping_fn, engine)
             logger.info("DB keepalive ping succeeded.")
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:  # pragma: no cover - safety net logging
             logger.warning("DB keepalive ping failed: %s", exc)
         try:
@@ -78,3 +81,5 @@ async def stop_keepalive_task(
     except asyncio.TimeoutError:
         logger.warning("DB keepalive task did not stop within timeout; cancelling.")
         task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task

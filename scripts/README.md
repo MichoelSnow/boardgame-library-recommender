@@ -114,7 +114,7 @@ What it validates:
 ### `run_prod_health_alerts.py`
 
 Purpose:
-- Run periodic production P0 health checks and send email alerts on failure.
+- Run periodic production P0 health checks and fail the workflow on unhealthy conditions.
 
 When to use:
 - Via scheduled GitHub Actions workflow (`.github/workflows/prod-health-alerts.yml`).
@@ -138,13 +138,10 @@ Alert classes (P0):
 - `db_connectivity_failure`
 - `recommendation_degraded`
 
-Email delivery:
-- Preferred: Resend (`RESEND_API_KEY`)
-- Fallback: SendGrid (`SENDGRID_API_KEY`)
-- Recipients/sender:
-  - `ALERT_EMAIL_TO` (comma-separated)
-  - `ALERT_EMAIL_FROM`
-- If provider env vars are not configured, the script still exits non-zero on P0 failures so GitHub Actions failure notifications can serve as the alert channel.
+Notification model:
+- The script exits non-zero on P0 failures.
+- GitHub Actions failure notifications are the alert delivery channel.
+- No provider-specific email secrets are required.
 
 ### `validate_prod_alert_path.py`
 

@@ -14,21 +14,37 @@ sys.modules["run_prod_health_alerts"] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
-def test_split_csv_handles_empty_and_whitespace() -> None:
-    assert MODULE._split_csv(None) == []
-    assert MODULE._split_csv("") == []
-    assert MODULE._split_csv(" a@example.com, b@example.com , ,c@example.com ") == [
-        "a@example.com",
-        "b@example.com",
-        "c@example.com",
-    ]
+def _healthy_snapshot(convention_mode_active: bool = True) -> MODULE.HealthSnapshot:
+    return MODULE.HealthSnapshot(
+        environment="prod",
+        checked_at_utc="2026-03-07T00:00:00+00:00",
+        release_sha="abc123",
+        convention_mode_active=convention_mode_active,
+        app_ok=True,
+        db_ok=True,
+        recommendation_ok=True,
+        recommendation_state="healthy",
+        events=[],
+    )
 
 
-def test_render_alert_subject_includes_env_and_codes() -> None:
+def test_main_returns_zero_when_convention_mode_is_off(monkeypatch) -> None:
+    monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(False))
+    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    assert MODULE.main() == 0
+
+
+def test_main_returns_zero_when_no_alert_conditions(monkeypatch) -> None:
+    monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(True))
+    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    assert MODULE.main() == 0
+
+
+def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
     snapshot = MODULE.HealthSnapshot(
         environment="prod",
-        checked_at_utc="2026-03-06T21:00:00+00:00",
-        release_sha="abc123",
+        checked_at_utc="2026-03-07T00:00:00+00:00",
+        release_sha="def456",
         convention_mode_active=True,
         app_ok=False,
         db_ok=False,
@@ -36,44 +52,12 @@ def test_render_alert_subject_includes_env_and_codes() -> None:
         recommendation_state="degraded",
         events=[
             MODULE.AlertEvent(
-                code="db_connectivity_failure",
-                summary="db failed",
-                details="db details",
-            ),
-            MODULE.AlertEvent(
                 code="app_unreachable",
                 summary="api failed",
-                details="api details",
-            ),
-        ],
-    )
-
-    subject = MODULE._render_alert_subject(snapshot)
-    assert "[pax-tt][prod] P0 alert" in subject
-    assert "app_unreachable" in subject
-    assert "db_connectivity_failure" in subject
-
-
-def test_render_alert_html_contains_release_sha_and_events() -> None:
-    snapshot = MODULE.HealthSnapshot(
-        environment="prod",
-        checked_at_utc="2026-03-06T21:00:00+00:00",
-        release_sha="def456",
-        convention_mode_active=True,
-        app_ok=True,
-        db_ok=False,
-        recommendation_ok=False,
-        recommendation_state="degraded",
-        events=[
-            MODULE.AlertEvent(
-                code="recommendation_degraded",
-                summary="recommendation down",
-                details="missing embedding",
+                details="connection timeout",
             )
         ],
     )
-
-    html = MODULE._render_alert_html(snapshot)
-    assert "def456" in html
-    assert "recommendation_degraded" in html
-    assert "missing embedding" in html
+    monkeypatch.setattr(MODULE, "check_prod_health", lambda _: snapshot)
+    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    assert MODULE.main() == 1

@@ -3,6 +3,7 @@ from pathlib import Path
 import threading
 import time
 from typing import List, Optional
+from sqlalchemy import exists
 from sqlalchemy.orm import Session
 from . import models
 import pandas as pd
@@ -258,19 +259,17 @@ def get_recommendations(
         recommended_ids = [game[0] for game in recommended_games_with_scores]
         
         stage_started = time.perf_counter()
-        if pax_only:
-            pax_game_ids = {pax.bgg_id for pax in db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()}
-            recommended_ids = [rid for rid in recommended_ids if rid in pax_game_ids]
-            # Re-filter the scored list to match the id list
-            recommended_games_with_scores = [game for game in recommended_games_with_scores if game[0] in recommended_ids]
-        
         # Fetch scalar columns only to avoid relationship loading/serialization overhead.
+        game_query = db.query(*BOARD_GAME_SCALAR_COLUMNS).filter(
+            models.BoardGame.id.in_(recommended_ids)
+        )
+        if pax_only:
+            game_query = game_query.filter(
+                exists().where(models.PAXGame.bgg_id == models.BoardGame.id)
+            )
+
         game_map: dict[int, dict[str, object]] = {}
-        for row in (
-            db.query(*BOARD_GAME_SCALAR_COLUMNS)
-            .filter(models.BoardGame.id.in_(recommended_ids))
-            .all()
-        ):
+        for row in game_query.all():
             row_data = dict(zip(BOARD_GAME_COLUMN_NAMES, row))
             game_map[row_data["id"]] = row_data
         timing["db_fetch_ms"] = (time.perf_counter() - stage_started) * 1000

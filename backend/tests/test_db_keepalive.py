@@ -1,5 +1,4 @@
 import asyncio
-
 import pytest
 
 from backend.app.db_keepalive import (
@@ -40,26 +39,57 @@ def test_resolve_keepalive_interval_rejects_too_small() -> None:
         resolve_keepalive_interval_seconds({"DB_KEEPALIVE_INTERVAL_SECONDS": "2"})
 
 
-def test_run_db_keepalive_loop_pings_until_stopped() -> None:
-    async def runner() -> int:
+def test_run_db_keepalive_loop_invokes_ping(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def runner() -> None:
         stop_event = asyncio.Event()
         calls: list[int] = []
 
+        async def fake_to_thread(fn, *args):  # type: ignore[no-untyped-def]
+            fn(*args)
+
         def fake_ping(_: object) -> None:
             calls.append(1)
+            stop_event.set()
+
+        monkeypatch.setattr("backend.app.db_keepalive.asyncio.to_thread", fake_to_thread)
+
+        await asyncio.wait_for(
+            run_db_keepalive_loop(
+                engine=object(),  # type: ignore[arg-type]
+                interval_seconds=60,
+                stop_event=stop_event,
+                ping_fn=fake_ping,
+            ),
+            timeout=1,
+        )
+        assert calls == [1]
+
+    asyncio.run(runner())
+
+
+def test_run_db_keepalive_loop_respects_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def runner() -> None:
+        stop_event = asyncio.Event()
+
+        async def fake_to_thread(fn, *args):  # type: ignore[no-untyped-def]
+            await asyncio.sleep(10)
+
+        monkeypatch.setattr("backend.app.db_keepalive.asyncio.to_thread", fake_to_thread)
+
+        def fake_ping(_: object) -> None:
+            return
 
         task = asyncio.create_task(
             run_db_keepalive_loop(
                 engine=object(),  # type: ignore[arg-type]
-                interval_seconds=0,
+                interval_seconds=60,
                 stop_event=stop_event,
                 ping_fn=fake_ping,
             )
         )
         await asyncio.sleep(0.01)
-        stop_event.set()
-        await asyncio.wait_for(task, timeout=1)
-        return len(calls)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
 
-    call_count = asyncio.run(runner())
-    assert call_count >= 1
+    asyncio.run(runner())

@@ -350,11 +350,6 @@ poetry run python scripts/validate_prod_release.py
   - workflow exits cleanly when `CONVENTION_MODE` is not active
 - Default notification path:
   - GitHub Actions failure notifications (no extra services required)
-- Optional email provider secrets (only if you want provider-based alert emails):
-  - `ALERT_EMAIL_TO`
-  - `ALERT_EMAIL_FROM`
-  - `RESEND_API_KEY` (preferred)
-  - `SENDGRID_API_KEY` (fallback)
 - Smoke-validate alert path wiring before enabling schedule:
 ```bash
 poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime

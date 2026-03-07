@@ -66,8 +66,7 @@
 
 ## Observability and Alerting
 - [x] [P0] Implement periodic production health-check/alert job.
-- [x] [P0] Integrate Resend for production email alerts.
-- [x] [P1] Add SendGrid fallback plan/config if Resend is not viable.
+- [x] [P0] Use GitHub Actions failure notifications as the production alert channel.
 - [x] [P0] Alert on app unreachable / health failure.
 - [x] [P0] Alert on recommendation degraded mode.
 - [x] [P0] Alert on database connectivity failure.
