@@ -158,5 +158,5 @@ poetry run python backend/app/import_pax_data.py --delete-existing
 - No secrets/credentials/tokens in notebook source or outputs.
 - Productionized logic must move to `data_pipeline/src/`.
 - Generated data artifacts should not be stored in `data_pipeline/notebooks/`; use `data/pipeline/`.
-- Archive notebooks are read-only by convention (`data_pipeline/notebooks/archive/`).
+- Archived notebooks are not retained in-repo; use git history for historical notebook snapshots.
 - See notebook-specific rules in `data_pipeline/notebooks/README.md`.

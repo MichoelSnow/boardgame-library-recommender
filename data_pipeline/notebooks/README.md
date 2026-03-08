@@ -14,6 +14,6 @@
   - use `data_pipeline.src...` for imports (not `crawler.src...`)
 
 ## Archive Policy
-- `data_pipeline/notebooks/archive/` is read-only by convention.
+- Archived notebooks are not kept in this repository.
 - Do not add new active work there.
 - If you need to continue a historical investigation, copy the notebook into the main notebooks directory first.
