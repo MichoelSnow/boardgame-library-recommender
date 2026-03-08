@@ -371,6 +371,7 @@ Related Phase 4 planning docs:
 - [ ] [P1] Add rollback note for toolchain migration (previous Poetry/Python baseline and restore steps).
 - [ ] [P1] Update setup docs with exact Poetry and Python install/verification commands.
 - [ ] [P0] Add startup config validation for required env vars and value ranges.
+- [ ] [P1] Upgrade React/testing-library stack and resolve frontend test-tooling deprecation warnings (including `act` warning paths).
 
 ### Phase 10: Observability and Operational Readiness (2-4 days)
 - [ ] [P1] Add structured logs with request IDs.

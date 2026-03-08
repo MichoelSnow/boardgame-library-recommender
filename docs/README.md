@@ -15,6 +15,8 @@
 ## Start Here
 - [Repo Usage Guide](runbooks/repo_usage_guide.md)
   - practical setup, local run, pipeline, import, and validation command paths
+- [Command Reference](runbooks/command_reference.md)
+  - quick command lookup for frequent operational and validation tasks
 - [Best Practices Migration Guide](roadmaps/best_practices_migration_guide.md)
   - master engineering checklist and phase tracking
 - [Pre-Convention Readiness Checklist](roadmaps/pre_convention_readiness_checklist.md)

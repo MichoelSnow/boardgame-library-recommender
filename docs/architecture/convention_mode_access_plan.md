@@ -136,15 +136,34 @@
 - future public read endpoints for librarian picks
 
 ## Frontend Contract (V1)
-- Add kiosk boot behavior controlled by `REACT_APP_CONVENTION_KIOSK=true`.
+- Use explicit device enrollment for kiosk mode; do not rely on build-time frontend env flags as the primary selector.
+- On a designated kiosk device (one-time per browser profile):
+  1. open kiosk setup UI (for example `/kiosk/setup`)
+  2. submit kiosk key to `POST /api/convention/kiosk/enroll`
+  3. backend validates mode + key and marks browser as kiosk (signed cookie or equivalent server-validated session marker)
 - On app start:
-  1. call `POST /api/convention/guest-token` with `X-Convention-Kiosk-Key`
-  2. store returned token in session auth state
-  3. continue to normal app shell with guest permissions
-- If guest-token call fails:
+  1. call kiosk status endpoint (for example `GET /api/convention/kiosk/status`)
+  2. if `kiosk_mode=true`, call `POST /api/convention/guest-token` with kiosk credentials/marker
+  3. store returned token in session auth state and continue in kiosk UX mode
+- If kiosk guest-token acquisition fails:
   - show blocking "kiosk unavailable" state
   - do not silently fall back to unauthenticated public mode
+- Non-enrolled devices remain in normal mode, even when `CONVENTION_MODE=true`.
 - Existing staff login flow remains unchanged and available.
+
+## Kiosk Device Enrollment Flow (Recommended)
+1. Convention operator enables convention flags:
+  - `CONVENTION_MODE=true`
+  - `CONVENTION_GUEST_ENABLED=true`
+2. Operator enrolls each kiosk browser once:
+  - call `POST /api/convention/kiosk/enroll` using kiosk key
+  - backend returns success and sets signed `kiosk_mode` marker for that browser
+3. Enrolled kiosk browser automatically boots into guest flow on app load.
+4. Non-enrolled devices (staff or public) do not get kiosk behavior.
+5. Unenroll/revoke options:
+  - `POST /api/convention/kiosk/unenroll` clears kiosk marker on that browser
+  - rotate `CONVENTION_KIOSK_KEY` to prevent further enrollments with old key
+  - optional server-side invalidation for active kiosk markers
 
 ## Convention Mode Enforcement
 - Prefer explicit route-level dependency / endpoint classification over broad middleware in the first implementation.

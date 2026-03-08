@@ -19,9 +19,7 @@ import {
   Switch,
   Tooltip,
 } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import axios from 'axios';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
@@ -33,7 +31,17 @@ import CategoryIcon from '@mui/icons-material/Category';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
-import { apiBaseUrl } from '../config';
+import { useConventionUiState } from '../hooks/useConventionUiState';
+import {
+  useCategoriesQuery,
+  useConventionKioskStatusQuery,
+  useGameDetailsQuery,
+  useGamesQuery,
+  useMechanicsQuery,
+  usePaxGameIdsQuery,
+} from '../hooks/useGameListQueries';
+import { useRecommendationMutation } from '../hooks/useRecommendationMutation';
+import { useRecommendationSessionState } from '../hooks/useRecommendationSessionState';
 
 // Helper function to decode HTML entities and preserve line breaks
 // const decodeHtmlEntities = (text) => {
@@ -167,7 +175,8 @@ const GameList = () => {
       'boardgamecategory_name'
     )
   );
-  const [selectedGame, setSelectedGame] = useState(null);
+  const [selectedGameId, setSelectedGameId] = useState(null);
+  const [selectedGamePreview, setSelectedGamePreview] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [sortBy, setSortBy] = useState(
     VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank'
@@ -175,83 +184,86 @@ const GameList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 24;
   const [activeFilter, setActiveFilter] = useState(null);
-  const [isRecommendationLoading, setIsRecommendationLoading] = useState(false);
 
   const { user } = useContext(AuthContext);
 
-  const [likedGames, setLikedGames] = useState([]);
-  const [dislikedGames, setDislikedGames] = useState([]);
   const [isLikedGamesDialogOpen, setIsLikedGamesDialogOpen] = useState(false);
   const [gameList, setGameList] = useState([]);
   const [totalGames, setTotalGames] = useState(0);
   const [isRecommendation, setIsRecommendation] = useState(false);
-  const [allRecommendations, setAllRecommendations] = useState([]);
-  const [paxGameIds, setPaxGameIds] = useState([]); // Store PAX game IDs for filtering
-  const [paxOnly, setPaxOnly] = useState(initialPaxOnly);
-  const [showNonLibraryNotification, setShowNonLibraryNotification] = useState(false);
   const [recommendationNotice, setRecommendationNotice] = useState(null);
-  const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
-    localStorage.getItem('hasSeenNonLibraryMessage') === 'true'
-  );
-  
-  // New states for separated recommendation workflow
-  const [hasRecommendations, setHasRecommendations] = useState(false);
-  const [showingRecommendations, setShowingRecommendations] = useState(false);
-  const [recommendationsStale, setRecommendationsStale] = useState(false);
+  const { data: kioskStatus } = useConventionKioskStatusQuery();
+  const isConventionKiosk = Boolean(kioskStatus?.kiosk_mode);
+  const {
+    paxOnly,
+    setPaxOnly,
+    showNonLibraryNotification,
+    setShowNonLibraryNotification,
+    toggleAllBoardGames,
+  } = useConventionUiState(initialPaxOnly, isConventionKiosk);
+  const {
+    likedGames,
+    dislikedGames,
+    hasRecommendations,
+    showingRecommendations,
+    recommendationsStale,
+    allRecommendations,
+    setHasRecommendations,
+    setShowingRecommendations,
+    setRecommendationsStale,
+    setAllRecommendations,
+    likeGame,
+    dislikeGame,
+    resetRecommendationState,
+  } = useRecommendationSessionState({ user });
   const selectedMechanicIds = selectedMechanics.map(
     (item) => item.boardgamemechanic_id
   );
   const selectedCategoryIds = selectedCategories.map(
     (item) => item.boardgamecategory_id
   );
+  const recommendationMutation = useRecommendationMutation();
+  const isRecommendationLoading = recommendationMutation.isPending;
 
-  const handleLikeGame = (game) => {
-    setLikedGames(prev => {
-      if (prev.find(g => g.id === game.id)) {
-        return prev.filter(g => g.id !== game.id); // un-like
-      } else {
-        return [...prev, game]; // like
-      }
-    });
-    setDislikedGames(prev => prev.filter(g => g.id !== game.id)); // remove from disliked
-    
-    // Mark recommendations as stale if we have recommendations
-    if (hasRecommendations) {
-      setRecommendationsStale(true);
-    }
-  };
+  const { data: popularMechanics = [] } = useMechanicsQuery();
+  const { data: popularCategories = [] } = useCategoriesQuery();
+  const { data: paxGameIds = [] } = usePaxGameIdsQuery();
 
-  const handleDislikeGame = (game) => {
-    setDislikedGames(prev => {
-      if (prev.find(g => g.id === game.id)) {
-        return prev.filter(g => g.id !== game.id); // un-dislike
-      } else {
-        return [...prev, game]; // dislike
-      }
-    });
-    setLikedGames(prev => prev.filter(g => g.id !== game.id)); // remove from liked
-    
-    // Mark recommendations as stale if we have recommendations
-    if (hasRecommendations) {
-      setRecommendationsStale(true);
-    }
-  };
+  const {
+    data: response = { games: [], total: 0 },
+    isLoading,
+    error,
+    isFetching,
+  } = useGamesQuery({
+    gamesPerPage,
+    currentPage,
+    sortBy,
+    paxOnly,
+    searchTerm,
+    playerOptions,
+    selectedDesigners,
+    selectedArtists,
+    selectedMechanicIds,
+    selectedCategoryIds,
+    weight,
+    isRecommendation,
+  });
 
+  const { data: selectedGame } = useGameDetailsQuery({
+    gameId: selectedGameId,
+    enabled: detailsOpen,
+  });
 
   const handleRecommend = async () => {
     try {
-      setIsRecommendationLoading(true);
       setRecommendationNotice(null);
       const fallbackGames = response?.games || [];
       const fallbackTotal = response?.total || 0;
-      const recommendationPayload = {
-        liked_games: likedGames.map(g => g.id),
-        disliked_games: dislikedGames.map(g => g.id),
+      const allResponse = await recommendationMutation.mutateAsync({
+        likedGames: likedGames.map((g) => g.id),
+        dislikedGames: dislikedGames.map((g) => g.id),
         limit: 50, // Backend currently caps recommendation requests at 50
-      };
-      const allResponse = await axios.post(`${apiBaseUrl}/recommendations`, {
-        ...recommendationPayload,
-        pax_only: false
+        paxOnly: false,
       });
       const recommendationsAvailable =
         allResponse.headers['x-recommendations-available'] !== 'false';
@@ -302,8 +314,6 @@ const GameList = () => {
         message: 'Unable to generate recommendations right now.',
       });
       console.error('Failed to fetch recommendations:', err);
-    } finally {
-      setIsRecommendationLoading(false);
     }
   };
 
@@ -327,10 +337,7 @@ const GameList = () => {
     setPaxOnly(true);
     
     // Reset recommendation states
-    setHasRecommendations(false);
-    setShowingRecommendations(false);
-    setRecommendationsStale(false);
-    setAllRecommendations([]);
+    resetRecommendationState();
     setRecommendationNotice(null);
   };
 
@@ -433,18 +440,6 @@ const GameList = () => {
     weight,
   ]);
 
-  // Fetch mechanics by frequency
-  const { data: popularMechanics = [] } = useQuery({
-    // queryKey: ['mechanics_by_frequency'],
-    queryKey: ['mechanics_alphabetically'],    
-    queryFn: async () => {
-      // const response = await axios.get(`${apiBaseUrl}/mechanics/by_frequency`);
-      const response = await axios.get(`${apiBaseUrl}/mechanics/`);
-      return response.data;
-    },
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-  });
-
   useEffect(() => {
     if (!popularMechanics.length || !selectedMechanics.length) {
       return;
@@ -468,17 +463,6 @@ const GameList = () => {
       return changed ? next : previous;
     });
   }, [popularMechanics, selectedMechanics.length]);
-
-  const { data: popularCategories = [] } = useQuery({
-    // queryKey: ['categories_by_frequency'],
-    queryKey: ['categories_alphabetically'],
-    queryFn: async () => {
-      // const response = await axios.get(`${apiBaseUrl}/categories/by_frequency`);
-      const response = await axios.get(`${apiBaseUrl}/categories/`);
-      return response.data;
-    },
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
-  });
 
   useEffect(() => {
     if (!popularCategories.length || !selectedCategories.length) {
@@ -504,76 +488,12 @@ const GameList = () => {
     });
   }, [popularCategories, selectedCategories.length]);
 
-  // Fetch games with filters
-  const { data: response = { games: [], total: 0 }, isLoading, error, isFetching } = useQuery({
-    queryKey: ['games', searchTerm, playerOptions, selectedDesigners, selectedArtists, selectedMechanicIds, selectedCategoryIds, weight, sortBy, currentPage, paxOnly],
-    queryFn: async () => {
-      const params = {
-        limit: gamesPerPage,
-        skip: (currentPage - 1) * gamesPerPage,
-        sort_by: sortBy,
-        pax_only: paxOnly
-      };
-
-      if (searchTerm) params.search = searchTerm;
-
-      if (playerOptions.count) {
-        params.players = playerOptions.count;
-        if (playerOptions.recommendation && playerOptions.recommendation !== 'allowed') {
-          params.recommendations = playerOptions.recommendation;
-        }
-      }
-
-      if (selectedDesigners.length > 0) {
-        params.designer_id = selectedDesigners.map(d => d.boardgamedesigner_id).join(',');
-      }
-
-      if (selectedArtists.length > 0) {
-        params.artist_id = selectedArtists.map(a => a.boardgameartist_id).join(',');
-      }
-
-      if (selectedMechanicIds.length > 0) {
-        params.mechanics = selectedMechanicIds.join(',');
-      }
-
-      if (selectedCategoryIds.length > 0) {
-        params.categories = selectedCategoryIds.join(',');
-      }
-
-      const activeWeights = Object.entries(weight)
-        .filter(([_, checked]) => checked)
-        .map(([key]) => key);
-      
-      if (activeWeights.length > 0) {
-        params.weight = activeWeights.join(',');
-      }
-
-      const response = await axios.get(`${apiBaseUrl}/games/`, { params });
-      return response.data;
-    },
-    keepPreviousData: true,
-    enabled: !isRecommendation, // Disable when showing recommendations
-  });
-
   useEffect(() => {
     if (!isRecommendation && response?.games) {
       setGameList(response.games);
       setTotalGames(response.total);
     }
   }, [response, isRecommendation]);
-
-  // Fetch PAX game IDs once on mount
-  useEffect(() => {
-    const fetchPaxGameIds = async () => {
-      try {
-        const response = await axios.get(`${apiBaseUrl}/pax_game_ids/`);
-        setPaxGameIds(response.data); // Should be an array of IDs
-      } catch (err) {
-        console.error('Failed to fetch PAX game IDs:', err);
-      }
-    };
-    fetchPaxGameIds();
-  }, []);
 
   useEffect(() => {
     if (showingRecommendations && hasRecommendations) {
@@ -632,14 +552,10 @@ const GameList = () => {
     setCurrentPage(newPage);
   };
 
-  const handleGameClick = async (game) => {
-    try {
-      const response = await axios.get(`${apiBaseUrl}/games/${game.id}/`);
-      setSelectedGame(response.data);
-      setDetailsOpen(true);
-    } catch (err) {
-      console.error('Failed to fetch game details:', err);
-    }
+  const handleGameClick = (game) => {
+    setSelectedGameId(game.id);
+    setSelectedGamePreview(game);
+    setDetailsOpen(true);
   };
 
   const handleFilter = (type, id, name) => {
@@ -774,8 +690,8 @@ const GameList = () => {
               sortBy={isRecommendation ? 'recommendation_score' : sortBy}
               liked={likedGames.some(g => g.id === game.id)}
               disliked={dislikedGames.some(g => g.id === game.id)}
-              onLike={() => handleLikeGame(game)}
-              onDislike={() => handleDislikeGame(game)}
+              onLike={() => likeGame(game)}
+              onDislike={() => dislikeGame(game)}
               isPaxGame={paxGameIds.includes(game.id)}
             />
           </Grid>
@@ -816,13 +732,7 @@ const GameList = () => {
                 <FormControlLabel
                   control={<Switch checked={!paxOnly} onChange={(e) => {
                     const showNonLibrary = e.target.checked;
-                    setPaxOnly(!showNonLibrary);
-                    setShowNonLibraryNotification(false);
-                    if (showNonLibrary && !hasSeenNonLibraryMessage) {
-                      setShowNonLibraryNotification(true);
-                      setHasSeenNonLibraryMessage(true);
-                      localStorage.setItem('hasSeenNonLibraryMessage', 'true');
-                    }
+                    toggleAllBoardGames(showNonLibrary);
                   }} />}
                   label="All Board Games"
                   sx={{ mr: 2 }}
@@ -1139,13 +1049,17 @@ const GameList = () => {
           />
         </Box>
 
-        {selectedGame && (
+        {detailsOpen && (selectedGame || selectedGamePreview) && (
           <GameDetails
-            game={selectedGame}
+            game={selectedGame || selectedGamePreview}
             open={detailsOpen}
-            onClose={() => setDetailsOpen(false)}
-            onLike={handleLikeGame}
-            onDislike={handleDislikeGame}
+            onClose={() => {
+              setDetailsOpen(false);
+              setSelectedGameId(null);
+              setSelectedGamePreview(null);
+            }}
+            onLike={likeGame}
+            onDislike={dislikeGame}
             likedGames={likedGames}
             dislikedGames={dislikedGames}
             onFilter={handleFilter}
@@ -1157,8 +1071,8 @@ const GameList = () => {
         onClose={() => setIsLikedGamesDialogOpen(false)}
         likedGames={likedGames}
         dislikedGames={dislikedGames}
-        onRemoveLike={handleLikeGame}
-        onRemoveDislike={handleDislikeGame}
+        onRemoveLike={likeGame}
+        onRemoveDislike={dislikeGame}
       />
     </>
   );

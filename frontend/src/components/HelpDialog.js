@@ -81,9 +81,8 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 </ListItem>
               </List>
               <Alert severity="info" sx={{ mt: 2 }}>
-                <strong>Convention Tip:</strong> Your preferences are session-based and will reset when 
-                you refresh the page or close your browser. This makes it perfect for sharing devices 
-                at the convention!
+                <strong>Convention Tip:</strong> Your preferences persist while your browser session is active
+                (including normal refresh). They reset when the session ends, which keeps shared-device use safe.
               </Alert>
             </AccordionDetails>
           </Accordion>
@@ -312,17 +311,14 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               <Typography variant="subtitle2" gutterBottom>Sharing Devices:</Typography>
               <Typography paragraph>
                 This system is designed for convention use where multiple people share devices. 
-                Your preferences (liked/disliked games) are temporary and reset when you:
+                Your preferences (liked/disliked games) are session-scoped and reset when the session ends:
               </Typography>
               <List dense>
-                <ListItem>
-                  <ListItemText primary="• Refresh the page" />
-                </ListItem>
                 <ListItem>
                   <ListItemText primary="• Close the browser tab" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="• Navigate away and come back" />
+                  <ListItemText primary="• Close the browser/app session on the shared device" />
                 </ListItem>
               </List>
               
@@ -403,8 +399,8 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 "My preferences disappeared"
               </Typography>
               <Typography paragraph>
-                This is normal! The system resets when you refresh or navigate away. 
-                It's designed for sharing devices at conventions.
+                This is normal when the session ends (for example browser/app session restart on a shared device).
+                Regular page refresh should keep your current session preferences.
               </Typography>
             </AccordionDetails>
           </Accordion>

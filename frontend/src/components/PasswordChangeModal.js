@@ -10,8 +10,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import axios from 'axios';
-import { apiBaseUrl } from '../config';
+import { changeCurrentUserPassword } from '../api/user';
 
 const PasswordChangeModal = ({ open, onClose }) => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -42,7 +41,7 @@ const PasswordChangeModal = ({ open, onClose }) => {
     setError('');
 
     try {
-      await axios.put(`${apiBaseUrl}/users/me/password`, {
+      await changeCurrentUserPassword({
         current_password: currentPassword,
         new_password: newPassword
       });

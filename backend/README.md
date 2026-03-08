@@ -14,12 +14,12 @@ For full repository usage flows, see:
 
 ## Local Run
 ```bash
-poetry run python -m backend.app.runtime_profile --serve
+poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Optional direct development server:
+Optional runtime-profile bootstrap:
 ```bash
-poetry run uvicorn backend.app.main:app --reload
+poetry run python -m backend.app.runtime_profile --serve
 ```
 
 ### Development Server Notes
@@ -27,6 +27,7 @@ poetry run uvicorn backend.app.main:app --reload
 - OpenAPI schema: `http://localhost:8000/openapi.json`
 - CORS is configured for local frontend development.
 - Timeout guards exist on long-running API paths to avoid hanging requests.
+- `runtime_profile --serve` currently defaults to port `8080`.
 
 ## Migrations
 Run migrations from repo root:

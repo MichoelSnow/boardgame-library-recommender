@@ -69,8 +69,10 @@ For auth/release validation flows, set optional smoke-test and admin vars docume
 ### 3) Run backend
 
 ```bash
-poetry run python -m backend.app.runtime_profile --serve
+poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+`backend.app.runtime_profile --serve` is intended for runtime-profile/server-mode bootstrapping and currently defaults to port `8080`.
 
 ### 4) Run frontend
 

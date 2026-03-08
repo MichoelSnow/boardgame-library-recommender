@@ -54,6 +54,7 @@
 - `flyctl` authenticated.
 - Correct app selected (`dev` or `prod`).
 - Required secrets are already set in Fly.
+- Production auth endpoints must be served over HTTPS/TLS only (no plain HTTP for login/token flows).
 - For Postgres-backed environments with DB autostop enabled, `DATABASE_URL` should use Flycast hostnames (for example `pax-tt-db-dev.flycast`), not `.internal` hostnames.
 - Flycast private IP is allocated on each DB app used by the app:
   - `fly ips list -a pax-tt-db-dev`
