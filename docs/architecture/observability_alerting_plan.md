@@ -46,7 +46,7 @@
 Implementation status:
 - Implemented:
   - `.github/workflows/prod-health-alerts.yml` (runs every 20 minutes + manual trigger)
-  - `scripts/run_prod_health_alerts.py` (P0 health checks + failure signaling)
+  - `scripts/alerts/run_prod_health_alerts.py` (P0 health checks + failure signaling)
 - Runtime gating:
   - checks are skipped unless `CONVENTION_MODE=true` (read from `/api/version`)
 

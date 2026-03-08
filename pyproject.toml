@@ -1,11 +1,11 @@
 [tool.poetry]
 name = "pax-tt-recommender"
 version = "0.3.0"
-description = "BoardGameGeek data crawler and recommender system"
+description = "BoardGameGeek data pipeline and recommender system"
 authors = ["MichoelSnow <michoelsnow@gmail.com>"]
 readme = "README.md"
 packages = [
-    { include = "crawler" }
+    { include = "data_pipeline" }
 ]
 
 [tool.poetry.dependencies]

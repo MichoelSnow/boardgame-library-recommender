@@ -20,6 +20,12 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Notebook output/layout hygiene
+        run: |
+          python scripts/validate/validate_notebook_outputs.py
+      - name: Notebook secret-pattern scan
+        run: |
+          python scripts/validate/validate_notebook_secrets.py
 
   frontend-audit:
     # Temporarily disabled during early migration phases; re-enable in Phase 8.
@@ -60,14 +66,14 @@ jobs:
           poetry check
       - name: Python format check
         run: |
-          poetry run black --check backend crawler
+          poetry run black --check backend data_pipeline
       - name: Python import sanity check
         run: |
-          poetry run python -m compileall backend crawler
+          poetry run python -m compileall backend data_pipeline
       - name: Python tests (if runnable in CI)
         run: |
           if poetry run python -c "import pytest" >/dev/null 2>&1 && [ -f backend/database/boardgames.db ]; then
-            poetry run pytest backend/tests crawler/tests -q
+            poetry run pytest backend/tests data_pipeline/tests -q
           else
             echo "Skipping pytest (pytest missing or backend/database/boardgames.db not present in CI)."
           fi

@@ -23,3 +23,21 @@ application when it is run from this repository.
 - Fly production logs should still be reviewed with `fly logs`; container files are
   not a substitute for platform log access.
 - Old logs can be deleted periodically as needed.
+
+## Viewing Logs
+
+```bash
+tail -f logs/import_data.log
+tail -f logs/import_pax_data.log
+tail -f logs/data_processor.log
+tail -f logs/get_game_data.log
+tail -f logs/get_ratings.log
+```
+
+## Optional Rotation/Cleanup
+
+If you want periodic local cleanup, add a cron entry such as:
+
+```bash
+0 0 * * 0 find /path/to/repo/logs -name "*.log" -mtime +30 -delete
+```

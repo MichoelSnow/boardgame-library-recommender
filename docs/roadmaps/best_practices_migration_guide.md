@@ -10,7 +10,7 @@ _Last updated: 2026-02-27_
 ## Scope
 1. Backend API (`backend/app`)
 2. Frontend SPA (`frontend/src`)
-3. Data ingestion/recommendation pipeline (`crawler/src`, import scripts)
+3. Data ingestion/recommendation pipeline (`data_pipeline/src`, import scripts)
 4. Deployment and ops on Fly.io
 
 ## Current Baseline
@@ -262,38 +262,38 @@ Related Phase 4 planning docs:
 - `docs/adr/0001-phase-4-architecture-foundations.md`
 
 ### Phase 5: Repository Structure and Naming Cleanup (2-5 days)
-- [ ] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
-- [ ] [P2] Decide whether `crawler/` should be renamed to a clearer name (for example `pipeline/` or `data_pipeline/`).
-- [ ] [P1] Decide final location boundaries:
-- [ ] [P1] runtime/import scripts that currently live in `backend/app/`
-- [ ] [P1] pipeline scripts vs exploratory notebooks
-- [ ] [P1] test utilities vs production scripts
-- [ ] [P1] generated artifacts vs source-controlled files
-- [ ] [P1] Add a file-placement policy:
-- [ ] [P1] no generated build outputs committed unless explicitly required
-- [ ] [P1] no runtime logs/DB/model artifacts in source directories
-- [ ] [P1] no backup files (for example `*.bak`) in production code paths
-- [ ] [P1] Audit and remove/relocate obsolete or duplicate files (for example duplicate test/performance scripts).
-- [ ] [P1] Add/update `.gitignore` rules to match artifact policy.
-- [ ] [P0] Remove tracked backup/temp artifacts from source control and prevent reintroduction (for example `*.bak` checks).
-- [ ] [P1] Define notebook policy:
-- [ ] [P1] where notebooks live
-- [ ] [P1] whether notebook data/secrets are allowed in repo
-- [ ] [P1] Review all existing notebooks and document:
-- [ ] [P1] what feature/workflow value each notebook adds
-- [ ] [P1] whether each notebook should remain a notebook or be converted into a script/module
-- [ ] [P1] ownership and maintenance expectations for notebooks kept in repo
-- [ ] [P1] conversion plan for notebook logic that should move to scripts
-- [ ] [P0] Run credential-artifact hygiene pass (notebooks/scripts) and remove blocked files (tokens/keys/secrets).
-- [ ] [P0] Add pre-commit/CI check to block committing known secret artifact patterns.
-- [ ] [P1] Add or update README coverage:
-- [ ] [P1] `backend/README.md` (API, migrations, local run/test)
-- [ ] [P1] `frontend/README.md` (dev server, build, test, env vars)
-- [ ] [P1] pipeline directory README (data flow, commands, outputs)
-- [ ] [P1] `scripts/README.md` (what each script does and when to run it)
-- [ ] [P1] `docs/README.md` index linking key guides and runbooks
-- [ ] [P1] Update root `README.md` project structure section to reflect final layout.
-- [ ] [P1] Record major structure decisions in ADRs.
+- [x] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
+- [x] [P2] Decide whether `crawler/` should be renamed to a clearer name (for example `pipeline/` or `data_pipeline/`).
+- [x] [P1] Decide final location boundaries:
+- [x] [P1] runtime/import scripts that currently live in `backend/app/`
+- [x] [P1] pipeline scripts vs exploratory notebooks
+- [x] [P1] test utilities vs production scripts
+- [x] [P1] generated artifacts vs source-controlled files
+- [x] [P1] Add a file-placement policy:
+- [x] [P1] no generated build outputs committed unless explicitly required
+- [x] [P1] no runtime logs/DB/model artifacts in source directories
+- [x] [P1] no backup files (for example `*.bak`) in production code paths
+- [x] [P1] Audit and remove/relocate obsolete or duplicate files (for example duplicate test/performance scripts).
+- [x] [P1] Add/update `.gitignore` rules to match artifact policy.
+- [x] [P0] Remove tracked backup/temp artifacts from source control and prevent reintroduction (for example `*.bak` checks).
+- [x] [P1] Define notebook policy:
+- [x] [P1] where notebooks live
+- [x] [P1] whether notebook data/secrets are allowed in repo
+- [x] [P1] Review all existing notebooks and document:
+- [x] [P1] what feature/workflow value each notebook adds
+- [x] [P1] whether each notebook should remain a notebook or be converted into a script/module
+- [x] [P1] ownership and maintenance expectations for notebooks kept in repo
+- [x] [P1] conversion plan for notebook logic that should move to scripts
+- [x] [P0] Run credential-artifact hygiene pass (notebooks/scripts) and remove blocked files (tokens/keys/secrets).
+- [x] [P0] Add pre-commit/CI check to block committing known secret artifact patterns.
+- [x] [P1] Add or update README coverage:
+- [x] [P1] `backend/README.md` (API, migrations, local run/test)
+- [x] [P1] `frontend/README.md` (dev server, build, test, env vars)
+- [x] [P1] pipeline directory README (data flow, commands, outputs)
+- [x] [P1] `scripts/README.md` (what each script does and when to run it)
+- [x] [P1] `docs/README.md` index linking key guides and runbooks
+- [x] [P1] Update root `README.md` project structure section to reflect final layout.
+- [x] [P1] Record major structure decisions in ADRs.
 
 ### Phase 6: Testing Foundation (4-7 days)
 - [ ] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.
@@ -304,13 +304,13 @@ Related Phase 4 planning docs:
 - [ ] [P1] Add OpenAPI contract snapshot test.
 - [ ] [P1] Add frontend integration tests (auth flow, filtering, recommendation flow, API error states).
 - [ ] [P1] Add MSW-based API mocks for deterministic frontend tests.
-- [ ] [P1] Add crawler/pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
+- [ ] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
 - [ ] [P1] Add fixture/golden tests for output shape and key fields.
 - [ ] [P0] Ensure all tests run in CI on PR.
-- [ ] [P1] Document test commands for backend, frontend, and pipeline in repo docs.
+- [x] [P1] Document test commands for backend, frontend, and pipeline in repo docs.
 - [ ] [P1] Document expected test runtime and minimum local prerequisites.
-- [ ] [P1] Add load/performance baseline tests and store reference results.
-- [ ] [P1] Define performance regression thresholds and failure policy.
+- [x] [P1] Add load/performance baseline tests and store reference results.
+- [x] [P1] Define performance regression thresholds and failure policy.
 
 ### Phase 7: Security Hardening (2-4 days)
 - [x] [P0] Remove insecure production fallback behavior for `SECRET_KEY`.
@@ -320,8 +320,8 @@ Related Phase 4 planning docs:
 - [ ] [P1] Add npm dependency audit policy to CI.
 - [ ] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
 - [ ] [P1] Review and scrub logs for sensitive data exposure.
-- [ ] [P1] Define outbound alert escalation channel for production incidents.
-- [ ] [P1] Define alert recipients and escalation path.
+- [x] [P1] Define outbound alert escalation channel for production incidents.
+- [x] [P1] Define alert recipients and escalation path.
 - [ ] [P1] Document how to run security scans locally and in CI.
 - [ ] [P0] Implement endpoint rate limiting policy (auth endpoints, recommendation endpoints, and general API).
 - [ ] [P1] Validate rate-limit behavior with abuse and load test scenarios.
@@ -381,13 +381,13 @@ Related Phase 4 planning docs:
 - [ ] [P1] Define and document p95 latency target.
 - [ ] [P1] Define and document auth failure alert threshold.
 - [ ] [P1] Document incident triage steps in runbook.
-- [ ] [P0] Add production alert for missing/corrupt embeddings.
-- [ ] [P0] Ensure alert notifications include environment, release SHA, and failure reason.
+- [x] [P0] Add production alert for missing/corrupt embeddings.
+- [x] [P0] Ensure alert notifications include environment, release SHA, and failure reason.
 - [ ] [P1] Add periodic embedding health check and alert on transition to degraded mode.
 - [ ] [P1] Validate alert noise controls (dedupe/rate limit) to avoid spam.
 - [ ] [P1] Add incident postmortem template and follow-up tracking process.
 - [ ] [P1] Add release-note template that flags breaking changes and deprecations.
-- [ ] [P1] Document Fly operational diagnostics runbook (`fly status`, `fly releases`, machine status, and log inspection).
+- [x] [P1] Document Fly operational diagnostics runbook (`fly status`, `fly releases`, machine status, and log inspection).
 - [ ] [P2] Define Fly cost guardrails (budget threshold and monthly review process).
 - [ ] [P2] Define alert path for unexpected Fly cost/resource growth.
 
@@ -400,6 +400,15 @@ Related Phase 4 planning docs:
 - [ ] [P2] Add lightweight ADRs for major architecture decisions.
 - [ ] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs.
 - [ ] [P1] Define timeout/retry policy for external calls and long-running jobs.
+- [ ] [P0] Run memory/performance validation for `data_pipeline/src` scripts on Fly runtime targets and capture OOM-safe limits per job.
+- [ ] [P0] Decide pipeline execution topology on Fly:
+- [ ] [P0] whether jobs can safely run on existing app/db machines
+- [ ] [P0] or require dedicated pipeline worker machines/apps with isolated sizing
+- [ ] [P0] Define independent monthly cadence for pipeline rebuild jobs (outside app request path) and document trigger/ownership.
+- [ ] [P0] Define canonical storage plan for pipeline outputs/artifacts:
+- [ ] [P0] where raw/intermediate/final outputs live
+- [ ] [P0] retention/cleanup policy
+- [ ] [P0] handoff path from pipeline outputs to runtime-consumed artifacts
 
 ### Phase 12: Data Safety and Migration Discipline (2-4 days)
 - [ ] [P0] Define backup cadence and retention policy for production data.
@@ -434,14 +443,14 @@ Related Phase 4 planning docs:
 - [x] [P1] Runtime release metadata available via `/api/version`.
 - [ ] [P1] CI enforces lint, tests, and security checks on every PR.
 - [ ] [P1] Core backend and frontend flows have regression coverage.
-- [ ] [P1] Deploy/rollback runbook exists and has been exercised.
+- [x] [P1] Deploy/rollback runbook exists and has been exercised.
 - [ ] [P1] Known schema/contract mismatches are resolved.
 - [x] [P1] Dev and prod environments are separated and documented.
 - [ ] [P1] Promotion to prod requires passing pre-prod validation checklist.
 - [ ] [P1] Production supports degraded recommendation mode with actionable alerts for embedding failures.
 - [ ] [P1] Toolchain is modernized to Poetry `2.3.x` and latest compatible Python target (`3.13` preferred, `3.12` fallback).
 - [ ] [P1] Architecture/tooling ADRs are completed and any selected architecture migrations are planned with rollback.
-- [ ] [P1] Repository structure, naming, and README coverage are standardized and documented.
+- [x] [P1] Repository structure, naming, and README coverage are standardized and documented.
 - [ ] [P1] Security hardening controls are implemented with documented exceptions for context-dependent items.
 - [ ] [P1] Data backup/restore and migration safety processes are documented and exercised.
 
