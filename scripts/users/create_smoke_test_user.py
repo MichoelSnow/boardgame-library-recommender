@@ -6,13 +6,22 @@ import logging
 import os
 import sys
 
-from validation_common import (
-    APP_CONFIG,
-    build_url,
-    post_form_json,
-    request_with_retry,
-    resolve_smoke_test_credentials,
-)
+try:
+    from validation_common import (
+        APP_CONFIG,
+        build_url,
+        post_form_json,
+        request_with_retry,
+        resolve_smoke_test_credentials,
+    )
+except ModuleNotFoundError:
+    from scripts.validation_common import (
+        APP_CONFIG,
+        build_url,
+        post_form_json,
+        request_with_retry,
+        resolve_smoke_test_credentials,
+    )
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

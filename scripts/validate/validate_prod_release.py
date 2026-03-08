@@ -17,14 +17,14 @@ def read_validated_sha() -> str:
     if not VALIDATED_SHA_PATH.exists():
         raise RuntimeError(
             f"Validated SHA file not found at {VALIDATED_SHA_PATH}. "
-            "Run poetry run python scripts/validate_dev_deploy.py first."
+            "Run poetry run python scripts/validate/validate_dev_deploy.py first."
         )
 
     validated_sha = VALIDATED_SHA_PATH.read_text().strip()
     if not validated_sha:
         raise RuntimeError(
             f"Validated SHA file at {VALIDATED_SHA_PATH} is empty. "
-            "Re-run poetry run python scripts/validate_dev_deploy.py."
+            "Re-run poetry run python scripts/validate/validate_dev_deploy.py."
         )
     return validated_sha
 
@@ -51,7 +51,7 @@ def main() -> int:
             "Release metadata and SHA",
             [
                 *POETRY_PYTHON,
-                "scripts/validate_fly_release.py",
+                "scripts/validate/validate_fly_release.py",
                 "--env",
                 "prod",
                 "--expected-ref",
@@ -60,21 +60,21 @@ def main() -> int:
         ),
         (
             "Fly health checks",
-            [*POETRY_PYTHON, "scripts/validate_fly_health_checks.py", "--env", "prod"],
+            [*POETRY_PYTHON, "scripts/validate/validate_fly_health_checks.py", "--env", "prod"],
         ),
         (
             "Auth flow smoke test",
-            [*POETRY_PYTHON, "scripts/validate_auth_flow.py", "--env", "prod"],
+            [*POETRY_PYTHON, "scripts/validate/validate_auth_flow.py", "--env", "prod"],
         ),
         (
             "Recommendation artifact files",
-            [*POETRY_PYTHON, "scripts/validate_recommendation_artifacts.py", "--env", "prod"],
+            [*POETRY_PYTHON, "scripts/validate/validate_recommendation_artifacts.py", "--env", "prod"],
         ),
         (
             "Recommendation endpoint smoke test",
             [
                 *POETRY_PYTHON,
-                "scripts/validate_recommendation_endpoint.py",
+                "scripts/validate/validate_recommendation_endpoint.py",
                 "--env",
                 "prod",
                 "--game-id",
@@ -85,7 +85,7 @@ def main() -> int:
             "Performance gate",
             [
                 *POETRY_PYTHON,
-                "scripts/validate_performance_gate.py",
+                "scripts/validate/validate_performance_gate.py",
                 "--env",
                 "prod",
                 "--game-id",
@@ -96,7 +96,7 @@ def main() -> int:
             "Record deploy traceability",
             [
                 *POETRY_PYTHON,
-                "scripts/record_deploy_traceability.py",
+                "scripts/deploy/record_deploy_traceability.py",
                 "--env",
                 "prod",
                 "--expected-sha-path",
@@ -107,7 +107,7 @@ def main() -> int:
         ),
         (
             "Rollback path validation",
-            [*POETRY_PYTHON, "scripts/prepare_fly_rollback.py", "--env", "prod"],
+            [*POETRY_PYTHON, "scripts/deploy/prepare_fly_rollback.py", "--env", "prod"],
         ),
     ]
 

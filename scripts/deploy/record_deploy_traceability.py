@@ -9,7 +9,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from validation_common import fetch_json, get_app_name, get_base_url, run_command
+try:
+    from validation_common import fetch_json, get_app_name, get_base_url, run_command
+except ModuleNotFoundError:
+    from scripts.validation_common import (
+        fetch_json,
+        get_app_name,
+        get_base_url,
+        run_command,
+    )
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

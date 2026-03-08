@@ -14,62 +14,23 @@ A board game recommendation system that crawls BoardGameGeek.com data and provid
 
 ## Project Structure
 
-```
+```text
 pax_tt_recommender/
-├── backend/                    # FastAPI backend with ML recommendations
-│   ├── app/                   # Backend application code
-│   │   ├── main.py            # FastAPI app with auth, CORS, compression
-│   │   ├── models.py          # SQLAlchemy models (15+ entities)
-│   │   ├── schemas.py         # Pydantic schemas for API serialization
-│   │   ├── crud.py            # Database operations with ML integration
-│   │   ├── database.py        # Database config with custom StaticFiles
-│   │   ├── recommender.py     # ML recommendation engine
-│   │   ├── security.py        # JWT authentication and password hashing
-│   │   ├── import_data.py     # Main data import with batch processing
-│   │   └── import_pax_data.py # PAX convention games import
-│   ├── database/              # SQLite database and ML files
-│   │   ├── boardgames.db      # Main SQLite database
-│   │   ├── images/            # Game cover images (1000+ files)
-│   │   ├── *.npz              # Sparse matrix embeddings
-│   │   └── *.json             # Game-to-index mappings
-│   ├── tests/                 # Comprehensive test suite
-│   │   ├── test_db_queries.py # Database connectivity tests
-│   │   ├── test_performance.py # API performance benchmarks
-│   │   └── create_indexes.py  # Database optimization
-│   ├── alembic/               # Database migrations
-│   └── run_tests.py           # Test runner with batch execution
-├── crawler/                   # BGG data collection pipeline
-│   ├── src/                   # 3-stage crawler implementation
-│   │   ├── get_ranks.py       # BGG rankings scraper (Selenium)
-│   │   ├── get_game_data.py   # Detailed game info (BGG API)
-│   │   ├── get_ratings.py     # User ratings collection
-│   │   ├── data_processor.py  # Data normalization and CSV generation
-│   │   ├── create_embeddings.py # ML embeddings generation
-│   │   └── download_images.py # Game image downloader
-│   └── notebooks/             # Development and analysis notebooks
-├── frontend/                  # React SPA with Material-UI
-│   ├── src/
-│   │   ├── components/        # Reusable React components
-│   │   │   ├── GameList.js    # Main game listing with filters
-│   │   │   ├── GameDetails.js # Game detail modal with recommendations
-│   │   │   ├── Navbar.js      # Navigation with auth integration
-│   │   │   └── *.js           # Additional UI components
-│   │   ├── context/           # React Context providers
-│   │   │   └── AuthContext.js # Authentication state management
-│   │   ├── pages/             # Page-level components
-│   │   │   └── LoginPage.js   # User authentication page
-│   │   └── services/          # API service layer
-│   └── build/                 # Production build output
-├── data/                      # Data storage and processing
-│   ├── crawler/               # Raw BGG data (Parquet files)
-│   ├── processed/             # Normalized CSV files (12+ types)
-│   └── pax/                   # PAX convention game data
-├── logs/                      # Centralized local runtime logs
-├── scripts/                   # Build and deployment scripts
-│   ├── build-for-production.sh # Frontend build automation
-│   └── upload_to_fly_volume.sh # Fly.io deployment helper
-└── fly.toml                   # Fly.io deployment configuration
+├── backend/     # FastAPI runtime, models/migrations, backend tests
+├── frontend/    # React SPA
+├── crawler/     # Data pipeline code + exploratory notebooks
+├── scripts/     # Deploy/validation/ops scripts
+├── docs/        # Policies, runbooks, roadmaps, ADRs
+├── data/        # Local-only pipeline outputs (ignored)
+└── logs/        # Local runtime/trace logs (ignored)
 ```
+
+Directory-specific entry points:
+- [backend/README.md](/home/msnow/git/pax_tt_recommender/backend/README.md)
+- [frontend/README.md](/home/msnow/git/pax_tt_recommender/frontend/README.md)
+- [crawler/README.md](/home/msnow/git/pax_tt_recommender/crawler/README.md)
+- [scripts/README.md](/home/msnow/git/pax_tt_recommender/scripts/README.md)
+- [docs/README.md](/home/msnow/git/pax_tt_recommender/docs/README.md)
 
 ## Architecture Overview
 
@@ -350,17 +311,13 @@ This will:
 
 ### Running Tests
 
-From the backend directory:
-
 ```bash
-# Using the test runner script
-poetry run python run_tests.py test_db_queries
-poetry run python run_tests.py create_indexes
-poetry run python run_tests.py all
+# Backend
+poetry run pytest backend/tests -q
 
-# Or directly
-poetry run python tests/test_db_queries.py
-poetry run python tests/create_indexes.py
+# Targeted backend tests
+poetry run pytest backend/tests/test_db_queries.py -q
+poetry run python backend/tests/create_indexes.py
 ```
 
 ### Test Files
@@ -498,17 +455,13 @@ POST /api/suggestions/           # Submit game suggestions
 
 ### Production Build
 
-Build the frontend for production deployment:
+Production deploys are driven by Fly config + GitHub Actions or the local fallback deploy script:
 
 ```bash
-# Build frontend and prepare for deployment
-./scripts/build-for-production.sh
+# Local fallback deploy
+scripts/deploy/fly_deploy.sh dev
+scripts/deploy/fly_deploy.sh prod
 ```
-
-This script:
-- Builds the React frontend with production optimizations
-- Copies build files to backend static directory
-- Prepares the application for containerized deployment
 
 ### Fly.io Deployment
 
@@ -553,11 +506,11 @@ ALLOWED_HOSTS=your-app.fly.dev
 ### Production Data Management
 
 ```bash
-# Upload data to Fly.io volume
-./scripts/upload_to_fly_volume.sh
+# Backup DB
+poetry run python scripts/db/fly_postgres_backup.py --env prod
 
-# Connect to production database
-flyctl ssh console
+# Restore to disposable validation DB
+poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/<backup-file>.sql
 ```
 
 ### Monitoring & Maintenance
@@ -616,14 +569,11 @@ flyctl ssh console
 
 ### Testing
 ```bash
-# Run comprehensive test suite
-poetry run python backend/run_tests.py all
+# Backend tests
+poetry run pytest backend/tests -q
 
-# Performance benchmarks
-poetry run python backend/run_tests.py test_performance
-
-# Database optimization
-poetry run python backend/run_tests.py create_indexes
+# Frontend tests
+cd frontend && npm test
 ```
 
 ### Monitoring

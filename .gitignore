@@ -54,3 +54,8 @@ frontend/build/
 # Scratch
 cursor_plans.MD
 .tmp/
+
+# Backup / temp editor artifacts
+*.bak
+*.tmp
+*.orig

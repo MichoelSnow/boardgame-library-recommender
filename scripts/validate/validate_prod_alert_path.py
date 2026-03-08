@@ -12,9 +12,9 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 WORKFLOW_PATH = Path(".github/workflows/prod-health-alerts.yml")
-ALERT_SCRIPT_PATH = Path("scripts/run_prod_health_alerts.py")
+ALERT_SCRIPT_PATH = Path("scripts/alerts/run_prod_health_alerts.py")
 EXPECTED_CRON = 'cron: "*/20 * * * *"'
-EXPECTED_RUN_COMMAND = "python scripts/run_prod_health_alerts.py --env prod"
+EXPECTED_RUN_COMMAND = "python scripts/alerts/run_prod_health_alerts.py --env prod"
 
 
 def validate_static_configuration() -> None:
@@ -47,7 +47,7 @@ def validate_runtime_dry_run(environment: str) -> None:
     result = subprocess.run(
         [
             sys.executable,
-            "scripts/run_prod_health_alerts.py",
+            "scripts/alerts/run_prod_health_alerts.py",
             "--env",
             environment,
             "--dry-run",

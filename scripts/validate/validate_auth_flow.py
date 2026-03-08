@@ -5,13 +5,22 @@ import logging
 import sys
 import urllib.error
 
-from validation_common import (
-    build_url,
-    fetch_json,
-    request_once,
-    resolve_smoke_test_credentials,
-    post_form_json,
-)
+try:
+    from validation_common import (
+        build_url,
+        fetch_json,
+        request_once,
+        resolve_smoke_test_credentials,
+        post_form_json,
+    )
+except ModuleNotFoundError:
+    from scripts.validation_common import (
+        build_url,
+        fetch_json,
+        request_once,
+        resolve_smoke_test_credentials,
+        post_form_json,
+    )
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

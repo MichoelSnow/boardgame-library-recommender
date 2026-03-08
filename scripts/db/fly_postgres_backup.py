@@ -6,10 +6,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 CURRENT_DIR = Path(__file__).resolve().parent
-if str(CURRENT_DIR) not in sys.path:
-    sys.path.insert(0, str(CURRENT_DIR))
+SCRIPTS_ROOT = CURRENT_DIR.parent
+if str(SCRIPTS_ROOT) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_ROOT))
 
-from fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
+try:
+    from fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
+except ModuleNotFoundError:
+    from scripts.fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
 
 LOGGER = logging.getLogger(__name__)
 

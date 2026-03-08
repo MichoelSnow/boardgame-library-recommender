@@ -4,7 +4,10 @@ import argparse
 import logging
 import sys
 
-from validation_common import build_url, request_with_retry
+try:
+    from validation_common import build_url, request_with_retry
+except ModuleNotFoundError:
+    from scripts.validation_common import build_url, request_with_retry
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

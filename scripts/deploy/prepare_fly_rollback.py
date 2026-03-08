@@ -6,7 +6,10 @@ import re
 import subprocess
 import sys
 
-from validation_common import get_app_name, run_command
+try:
+    from validation_common import get_app_name, run_command
+except ModuleNotFoundError:
+    from scripts.validation_common import get_app_name, run_command
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

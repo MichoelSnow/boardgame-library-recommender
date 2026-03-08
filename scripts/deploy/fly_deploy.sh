@@ -5,8 +5,8 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/fly_deploy.sh prod
-  scripts/fly_deploy.sh dev
+  scripts/deploy/fly_deploy.sh prod
+  scripts/deploy/fly_deploy.sh dev
 
 This wraps fly deploy and injects build metadata so /api/version reports:
   - git_sha

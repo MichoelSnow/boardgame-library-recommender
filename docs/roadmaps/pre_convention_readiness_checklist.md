@@ -76,9 +76,9 @@
 - [ ] [P1] Add recovery notifications for major alert classes.
 - [ ] [P0] Test the full production alert path before convention launch.
   - Static smoke check:
-    - `poetry run python scripts/validate_prod_alert_path.py --env prod --skip-runtime`
+    - `poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip-runtime`
   - Runtime dry-run check:
-    - `poetry run python scripts/validate_prod_alert_path.py --env prod`
+    - `poetry run python scripts/validate/validate_prod_alert_path.py --env prod`
 
 ## Rehearsal and Validation
 - [x] [P0] Run a convention-condition rehearsal in `dev`.

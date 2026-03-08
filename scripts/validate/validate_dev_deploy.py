@@ -16,7 +16,7 @@ VALIDATION_STEPS = [
         "Release metadata and SHA",
         [
             *POETRY_PYTHON,
-            "scripts/validate_fly_release.py",
+            "scripts/validate/validate_fly_release.py",
             "--env",
             "dev",
             "--expected-ref",
@@ -27,23 +27,23 @@ VALIDATION_STEPS = [
     ),
     (
         "Fly health checks",
-        [*POETRY_PYTHON, "scripts/validate_fly_health_checks.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate/validate_fly_health_checks.py", "--env", "dev"],
     ),
     (
         "Auth flow smoke test",
-        [*POETRY_PYTHON, "scripts/validate_auth_flow.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate/validate_auth_flow.py", "--env", "dev"],
     ),
     (
         "Recommendation artifact files",
-        [*POETRY_PYTHON, "scripts/validate_recommendation_artifacts.py", "--env", "dev"],
+        [*POETRY_PYTHON, "scripts/validate/validate_recommendation_artifacts.py", "--env", "dev"],
     ),
     (
         "Recommendation endpoint smoke test",
-        [*POETRY_PYTHON, "scripts/validate_recommendation_endpoint.py", "--env", "dev", "--game-id", "224517"],
+        [*POETRY_PYTHON, "scripts/validate/validate_recommendation_endpoint.py", "--env", "dev", "--game-id", "224517"],
     ),
     (
         "Performance gate",
-        [*POETRY_PYTHON, "scripts/validate_performance_gate.py", "--env", "dev", "--game-id", "224517"],
+        [*POETRY_PYTHON, "scripts/validate/validate_performance_gate.py", "--env", "dev", "--game-id", "224517"],
     ),
 ]
 

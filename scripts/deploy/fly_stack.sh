@@ -5,7 +5,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/fly_stack.sh <dev|prod> <up|down|status>
+  scripts/deploy/fly_stack.sh <dev|prod> <up|down|status>
 
 Commands:
   up      Start DB machine first, then app machine.
@@ -47,7 +47,7 @@ if ! command -v fly >/dev/null 2>&1; then
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "Error: jq is required for scripts/fly_stack.sh."
+  echo "Error: jq is required for scripts/deploy/fly_stack.sh."
   exit 1
 fi
 

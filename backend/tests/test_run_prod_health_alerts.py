@@ -4,7 +4,7 @@ import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / "scripts" / "run_prod_health_alerts.py"
+SCRIPT_PATH = REPO_ROOT / "scripts" / "alerts" / "run_prod_health_alerts.py"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("run_prod_health_alerts", SCRIPT_PATH)

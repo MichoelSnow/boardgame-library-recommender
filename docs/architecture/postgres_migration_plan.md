@@ -171,7 +171,7 @@ fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alem
 7. Deploy/cut the `dev` app over to Postgres.
 8. Run the standard dev validation flow:
 ```bash
-poetry run python scripts/validate_dev_deploy.py
+poetry run python scripts/validate/validate_dev_deploy.py
 ```
 9. Perform targeted manual regression checks for DB-backed behavior.
 
@@ -195,7 +195,7 @@ fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic 
 7. Deploy/cut the `prod` app over to Postgres.
 8. Run the standard prod validation flow:
 ```bash
-poetry run python scripts/validate_prod_release.py
+poetry run python scripts/validate/validate_prod_release.py
 ```
 9. Keep the legacy SQLite DB intact until the Postgres-backed release is proven stable.
 
@@ -239,8 +239,8 @@ fly volumes list -a <db-app>
 - The repeatable local command is:
 
 ```bash
-poetry run python scripts/fly_postgres_backup.py --env dev
-poetry run python scripts/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-before-cutover.sql
+poetry run python scripts/db/fly_postgres_backup.py --env dev
+poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-before-cutover.sql
 ```
 
 - The backup task is not complete until:
@@ -256,8 +256,8 @@ poetry run python scripts/fly_postgres_backup.py --env prod --output /tmp/pax-tt
 - The repeatable local command is:
 
 ```bash
-poetry run python scripts/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-postgres-backup-20260304T012020Z.sql
-poetry run python scripts/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-before-cutover.sql --restore-db pax_tt_recommender_restore_test
+poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-postgres-backup-20260304T012020Z.sql
+poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-before-cutover.sql --restore-db pax_tt_recommender_restore_test
 ```
 
 - The restore task is not complete until:

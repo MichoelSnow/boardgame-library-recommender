@@ -262,38 +262,38 @@ Related Phase 4 planning docs:
 - `docs/adr/0001-phase-4-architecture-foundations.md`
 
 ### Phase 5: Repository Structure and Naming Cleanup (2-5 days)
-- [ ] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
-- [ ] [P2] Decide whether `crawler/` should be renamed to a clearer name (for example `pipeline/` or `data_pipeline/`).
-- [ ] [P1] Decide final location boundaries:
-- [ ] [P1] runtime/import scripts that currently live in `backend/app/`
-- [ ] [P1] pipeline scripts vs exploratory notebooks
-- [ ] [P1] test utilities vs production scripts
-- [ ] [P1] generated artifacts vs source-controlled files
-- [ ] [P1] Add a file-placement policy:
-- [ ] [P1] no generated build outputs committed unless explicitly required
-- [ ] [P1] no runtime logs/DB/model artifacts in source directories
-- [ ] [P1] no backup files (for example `*.bak`) in production code paths
-- [ ] [P1] Audit and remove/relocate obsolete or duplicate files (for example duplicate test/performance scripts).
-- [ ] [P1] Add/update `.gitignore` rules to match artifact policy.
-- [ ] [P0] Remove tracked backup/temp artifacts from source control and prevent reintroduction (for example `*.bak` checks).
-- [ ] [P1] Define notebook policy:
-- [ ] [P1] where notebooks live
-- [ ] [P1] whether notebook data/secrets are allowed in repo
-- [ ] [P1] Review all existing notebooks and document:
-- [ ] [P1] what feature/workflow value each notebook adds
-- [ ] [P1] whether each notebook should remain a notebook or be converted into a script/module
-- [ ] [P1] ownership and maintenance expectations for notebooks kept in repo
-- [ ] [P1] conversion plan for notebook logic that should move to scripts
+- [x] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
+- [x] [P2] Decide whether `crawler/` should be renamed to a clearer name (for example `pipeline/` or `data_pipeline/`).
+- [x] [P1] Decide final location boundaries:
+- [x] [P1] runtime/import scripts that currently live in `backend/app/`
+- [x] [P1] pipeline scripts vs exploratory notebooks
+- [x] [P1] test utilities vs production scripts
+- [x] [P1] generated artifacts vs source-controlled files
+- [x] [P1] Add a file-placement policy:
+- [x] [P1] no generated build outputs committed unless explicitly required
+- [x] [P1] no runtime logs/DB/model artifacts in source directories
+- [x] [P1] no backup files (for example `*.bak`) in production code paths
+- [x] [P1] Audit and remove/relocate obsolete or duplicate files (for example duplicate test/performance scripts).
+- [x] [P1] Add/update `.gitignore` rules to match artifact policy.
+- [x] [P0] Remove tracked backup/temp artifacts from source control and prevent reintroduction (for example `*.bak` checks).
+- [x] [P1] Define notebook policy:
+- [x] [P1] where notebooks live
+- [x] [P1] whether notebook data/secrets are allowed in repo
+- [x] [P1] Review all existing notebooks and document:
+- [x] [P1] what feature/workflow value each notebook adds
+- [x] [P1] whether each notebook should remain a notebook or be converted into a script/module
+- [x] [P1] ownership and maintenance expectations for notebooks kept in repo
+- [x] [P1] conversion plan for notebook logic that should move to scripts
 - [ ] [P0] Run credential-artifact hygiene pass (notebooks/scripts) and remove blocked files (tokens/keys/secrets).
-- [ ] [P0] Add pre-commit/CI check to block committing known secret artifact patterns.
-- [ ] [P1] Add or update README coverage:
-- [ ] [P1] `backend/README.md` (API, migrations, local run/test)
-- [ ] [P1] `frontend/README.md` (dev server, build, test, env vars)
-- [ ] [P1] pipeline directory README (data flow, commands, outputs)
-- [ ] [P1] `scripts/README.md` (what each script does and when to run it)
-- [ ] [P1] `docs/README.md` index linking key guides and runbooks
-- [ ] [P1] Update root `README.md` project structure section to reflect final layout.
-- [ ] [P1] Record major structure decisions in ADRs.
+- [x] [P0] Add pre-commit/CI check to block committing known secret artifact patterns.
+- [x] [P1] Add or update README coverage:
+- [x] [P1] `backend/README.md` (API, migrations, local run/test)
+- [x] [P1] `frontend/README.md` (dev server, build, test, env vars)
+- [x] [P1] pipeline directory README (data flow, commands, outputs)
+- [x] [P1] `scripts/README.md` (what each script does and when to run it)
+- [x] [P1] `docs/README.md` index linking key guides and runbooks
+- [x] [P1] Update root `README.md` project structure section to reflect final layout.
+- [x] [P1] Record major structure decisions in ADRs.
 
 ### Phase 6: Testing Foundation (4-7 days)
 - [ ] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.

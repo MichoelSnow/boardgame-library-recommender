@@ -4,7 +4,10 @@ import argparse
 import logging
 import sys
 
-from validation_common import build_url, fetch_json, measure_json_request
+try:
+    from validation_common import build_url, fetch_json, measure_json_request
+except ModuleNotFoundError:
+    from scripts.validation_common import build_url, fetch_json, measure_json_request
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

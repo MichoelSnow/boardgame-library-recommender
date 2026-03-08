@@ -57,6 +57,8 @@ These files should be treated as the single source of truth for their topic. Oth
   - owns operational run procedures
 - [Engineering Guide](/home/msnow/git/pax_tt_recommender/docs/policies/engineering_guide.md)
   - owns repo-wide engineering expectations
+- [Repository Structure Policy](/home/msnow/git/pax_tt_recommender/docs/policies/repository_structure_policy.md)
+  - owns top-level layout boundaries and artifact/notebook placement rules
 
 ## Architecture and Migration Plans
 These docs describe specific Phase 4 architecture decisions and implementation plans. They should inherit targets and launch priorities from the canonical docs above.
