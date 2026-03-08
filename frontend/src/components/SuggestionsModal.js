@@ -11,8 +11,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import axios from 'axios';
-import { apiBaseUrl } from '../config';
+import { createSuggestion } from '../api/suggestions';
 
 const SuggestionsModal = ({ open, onClose }) => {
   const [comment, setComment] = useState('');
@@ -35,7 +34,7 @@ const SuggestionsModal = ({ open, onClose }) => {
     setError('');
 
     try {
-      await axios.post(`${apiBaseUrl}/suggestions/`, { comment: comment.trim() });
+      await createSuggestion(comment.trim());
       setSuccess(true);
       setComment('');
       setTimeout(() => {

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { apiBaseUrl } from '../config';
+import { fetchCurrentUser, loginWithPassword } from '../api/auth';
+import { clearAuthToken, setAuthToken } from '../api/client';
 
 const AuthContext = createContext();
 
@@ -13,15 +13,15 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setToken(null);
         localStorage.removeItem('token');
-        delete axios.defaults.headers.common['Authorization'];
+        clearAuthToken();
     }, []);
 
     const fetchUser = useCallback(async () => {
         if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            setAuthToken(token);
             try {
-                const response = await axios.get(`${apiBaseUrl}/users/me/`);
-                setUser(response.data);
+                const currentUser = await fetchCurrentUser();
+                setUser(currentUser);
             } catch (error) {
                 console.error('Failed to fetch user', error);
                 logout();
@@ -36,21 +36,11 @@ export const AuthProvider = ({ children }) => {
 
     const login = useCallback(async (username, password) => {
         try {
-        const formData = new URLSearchParams();
-        formData.append('username', username);
-        formData.append('password', password);
-        formData.append('grant_type', 'password');
-        
-            const response = await axios.post(`${apiBaseUrl}/token`, formData, {
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-            });
-        const { access_token } = response.data;
+        const { access_token } = await loginWithPassword(username, password);
         
         setToken(access_token);
         localStorage.setItem('token', access_token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+        setAuthToken(access_token);
         await fetchUser();
         } catch (error) {
             console.error('Login failed:', error);

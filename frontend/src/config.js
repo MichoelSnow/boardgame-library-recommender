@@ -13,5 +13,7 @@ const config = {
 };
 
 const environment = process.env.NODE_ENV || 'development';
-export const apiBaseUrl = config[environment].apiBaseUrl;
-export const imageBaseUrl = config[environment].imageBaseUrl; 
+const resolvedEnvironment = config[environment] ? environment : 'development';
+
+export const apiBaseUrl = config[resolvedEnvironment].apiBaseUrl;
+export const imageBaseUrl = config[resolvedEnvironment].imageBaseUrl;

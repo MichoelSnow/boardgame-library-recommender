@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -15,7 +15,6 @@ import {
   Tooltip,
   Alert,
 } from '@mui/material';
-import axios from 'axios';
 import GameCard from './GameCard';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
@@ -29,6 +28,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import { apiBaseUrl, imageBaseUrl } from '../config';
+import { useGameRecommendationsQuery } from '../hooks/useGameListQueries';
 
 // Helper function to decode HTML entities and preserve line breaks
 const decodeHtmlEntities = (text) => {
@@ -44,13 +44,19 @@ const decodeHtmlEntities = (text) => {
 };
 
 const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames, onLike, onDislike }) => {
-  const [recommendations, setRecommendations] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [recommendationsAvailable, setRecommendationsAvailable] = useState(true);
-  const [recommendationError, setRecommendationError] = useState('');
-  const [selectedGame, setSelectedGame] = useState(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [bgColor, setBgColor] = useState('#f5f5f5');
+  const {
+    data: recommendationResponse,
+    isLoading: recommendationsLoading,
+    isError: recommendationsError,
+  } = useGameRecommendationsQuery({
+    gameId: game?.id,
+    enabled: open,
+  });
+
+  const recommendations = recommendationResponse?.data || [];
+  const recommendationsAvailable =
+    recommendationResponse?.headers?.['x-recommendations-available'] !== 'false';
 
   // Get the appropriate image URL based on environment
   const getImageUrl = (imageUrl) => {
@@ -92,31 +98,6 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
   };
 
-  useEffect(() => {
-    const fetchRecommendations = async () => {
-      if (!game) return;
-      setLoading(true);
-      setRecommendationError('');
-      setRecommendationsAvailable(true);
-      try {
-        const response = await axios.get(`${apiBaseUrl}/recommendations/${game.id}`);
-        setRecommendationsAvailable(
-          response.headers['x-recommendations-available'] !== 'false'
-        );
-        setRecommendations(response.data);
-      } catch (err) {
-        setRecommendationError('Unable to load similar games right now.');
-        console.error('Failed to fetch recommendations:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (open && game) {
-      fetchRecommendations();
-    }
-  }, [game, open]);
-
   if (!game) return null;
 
   const handleLikeClick = (e) => {
@@ -129,14 +110,9 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     onDislike(game);
   };
 
-  const handleRecommendationClick = async (rec) => {
-    try {
-      await axios.get(`${apiBaseUrl}/games/${rec.id}`);
-      onClose();
-      onFilter('game', rec.id, rec.name);
-    } catch (err) {
-      console.error('Failed to fetch recommended game:', err);
-    }
+  const handleRecommendationClick = (rec) => {
+    onClose();
+    onFilter('game', rec.id, rec.name);
   };
 
   const renderList = (items, label, type) => {
@@ -188,7 +164,7 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
   };
 
   const renderRecommendations = () => {
-    if (loading) {
+    if (recommendationsLoading) {
       return (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
           <CircularProgress />
@@ -197,8 +173,8 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
     }
 
     if (!recommendations || recommendations.length === 0) {
-      if (recommendationError) {
-        return <Alert severity="error">{recommendationError}</Alert>;
+      if (recommendationsError) {
+        return <Alert severity="error">Unable to load similar games right now.</Alert>;
       }
 
       if (!recommendationsAvailable) {
@@ -403,21 +379,6 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
       </Dialog>
-      {selectedGame && (
-        <GameDetails
-          game={selectedGame}
-          open={detailsOpen}
-          onClose={() => {
-            setDetailsOpen(false);
-            setSelectedGame(null);
-          }}
-          onFilter={onFilter}
-          likedGames={likedGames}
-          dislikedGames={dislikedGames}
-          onLike={onLike}
-          onDislike={onDislike}
-        />
-      )}
     </>
   );
 };

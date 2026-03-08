@@ -82,7 +82,7 @@ const tourSteps = [
   {
     id: 'help-button',
     title: 'Need More Help?',
-    content: 'Click the help button in the top bar anytime for detailed instructions. Your preferences reset when you refresh, perfect for sharing devices!',
+    content: 'Click the help button in the top bar anytime for detailed instructions. Your preferences persist during your active session and reset when the session ends.',
     target: '[data-tour="help-button"]',
     position: 'bottom'
   }
