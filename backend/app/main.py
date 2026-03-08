@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Request, Depends, status, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Depends, status, Response, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, RedirectResponse
@@ -8,9 +8,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Literal, Optional
 import logging
 import httpx
+import hmac
 from sqlalchemy.orm import Session
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
+from . import convention_kiosk
 from .database import engine, SessionLocal, CORSAwareStaticFiles, SQLALCHEMY_DATABASE_URL
 from .db_keepalive import (
     resolve_keepalive_interval_seconds,
@@ -23,6 +25,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
+from pydantic import BaseModel
 from .logging_utils import build_log_handlers
 from .versioning import get_app_version
 
@@ -63,6 +66,10 @@ GameSortField = Literal[
     "name_desc",
     "recommendation_score",
 ]
+
+
+class KioskEnrollRequest(BaseModel):
+    kiosk_key: Optional[str] = None
 
 
 def apply_recommendation_status_headers(response: Response) -> None:
@@ -234,6 +241,72 @@ async def api_version():
         "environment": os.getenv("NODE_ENV", "development"),
         "convention_mode": os.getenv("CONVENTION_MODE", "false").strip().lower() == "true",
     }
+
+
+@app.get("/api/convention/kiosk/status")
+async def convention_kiosk_status(request: Request):
+    convention_mode = convention_kiosk.is_convention_mode_enabled()
+    kiosk_mode = False
+
+    if convention_mode:
+        cookie_token = request.cookies.get(convention_kiosk.KIOSK_COOKIE_NAME)
+        kiosk_mode = convention_kiosk.is_valid_kiosk_cookie_token(
+            token=cookie_token,
+            secret_key=security.SECRET_KEY,
+            algorithm=security.ALGORITHM,
+        )
+
+    return {
+        "convention_mode": convention_mode,
+        "kiosk_mode": kiosk_mode,
+    }
+
+
+@app.post("/api/convention/kiosk/enroll")
+async def convention_kiosk_enroll(
+    response: Response,
+    payload: KioskEnrollRequest,
+    x_convention_kiosk_key: Optional[str] = Header(default=None),
+):
+    if not convention_kiosk.is_convention_mode_enabled() or not convention_kiosk.is_convention_guest_enabled():
+        raise HTTPException(status_code=404, detail="Convention kiosk enrollment is disabled.")
+
+    expected_key = convention_kiosk.get_expected_kiosk_key()
+    if not expected_key:
+        raise HTTPException(status_code=503, detail="Convention kiosk key is not configured.")
+
+    provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
+    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
+        raise HTTPException(status_code=401, detail="Invalid kiosk key.")
+
+    kiosk_token = convention_kiosk.issue_kiosk_cookie_token(
+        secret_key=security.SECRET_KEY,
+        algorithm=security.ALGORITHM,
+    )
+    response.set_cookie(
+        key=convention_kiosk.KIOSK_COOKIE_NAME,
+        value=kiosk_token,
+        max_age=convention_kiosk.KIOSK_COOKIE_TTL_SECONDS,
+        httponly=True,
+        secure=os.getenv("NODE_ENV", "development").lower() == "production",
+        samesite="lax",
+        path="/",
+    )
+
+    return {
+        "convention_mode": True,
+        "kiosk_mode": True,
+        "expires_in": convention_kiosk.KIOSK_COOKIE_TTL_SECONDS,
+    }
+
+
+@app.post("/api/convention/kiosk/unenroll")
+async def convention_kiosk_unenroll(response: Response):
+    response.delete_cookie(
+        key=convention_kiosk.KIOSK_COOKIE_NAME,
+        path="/",
+    )
+    return {"kiosk_mode": False}
 
 # Move the root endpoint to /api and keep this as a fallback for API requests
 @app.get("/", include_in_schema=False)

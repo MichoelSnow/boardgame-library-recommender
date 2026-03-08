@@ -4,6 +4,9 @@ This guide is the practical "how to use the repo" entrypoint.
 
 Use this file when you need to run the system locally, refresh data, import data, validate a deploy, or operate Fly dev/prod stacks.
 
+For a quick command lookup, use:
+- [command_reference.md](command_reference.md)
+
 ## Domain READMEs
 
 - Backend: [backend/README.md](../../backend/README.md)
@@ -35,8 +38,11 @@ BGG_PASSWORD=<optional for pipeline ingest>
 Backend:
 
 ```bash
-poetry run python -m backend.app.runtime_profile --serve
+poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Note:
+- `backend.app.runtime_profile --serve` is for runtime-profile/server-mode bootstrapping and currently defaults to port `8080`.
 
 Frontend:
 

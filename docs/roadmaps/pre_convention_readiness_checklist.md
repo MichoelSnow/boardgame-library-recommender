@@ -64,6 +64,19 @@
 - [x] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
+## Admin Panel and Convention UX Controls
+- [ ] [P0] Implement an authenticated admin panel before convention launch.
+- [ ] [P0] Add admin capability to switch convention primary color theme at runtime.
+- [ ] [P0] Add admin capability to create/manage users.
+- [ ] [P0] Add admin capability to upload PAX game IDs CSV and run validation/import flow.
+- [ ] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
+- [ ] [P0] Establish canonical convention color palette and document assignment:
+  - `#904799`
+  - `#D9272D`
+  - `#007DBB`
+  - `#F4B223`
+  - next convention default primary color: `#D9272D`
+
 ## Observability and Alerting
 - [x] [P0] Implement periodic production health-check/alert job.
 - [x] [P0] Use GitHub Actions failure notifications as the production alert channel.

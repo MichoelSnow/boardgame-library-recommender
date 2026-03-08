@@ -65,6 +65,11 @@ export const useRecommendationSessionState = ({ user }) => {
     [userIdentity]
   );
   const hydratedRecommendationStorageKeyRef = useRef(null);
+  const isHydratedRef = useRef(false);
+
+  useEffect(() => {
+    isHydratedRef.current = false;
+  }, [recommendationStorageKey]);
 
   useEffect(() => {
     if (!userIdentity) {
@@ -77,6 +82,7 @@ export const useRecommendationSessionState = ({ user }) => {
 
     const persistedState = loadRecommendationState(recommendationStorageKey);
     if (!persistedState) {
+      isHydratedRef.current = true;
       return;
     }
 
@@ -88,10 +94,14 @@ export const useRecommendationSessionState = ({ user }) => {
     setHasRecommendations(Boolean(persistedState.hasRecommendations));
     setShowingRecommendations(Boolean(persistedState.showingRecommendations));
     setRecommendationsStale(Boolean(persistedState.recommendationsStale));
+    isHydratedRef.current = true;
   }, [recommendationStorageKey, userIdentity]);
 
   useEffect(() => {
     if (!userIdentity) {
+      return;
+    }
+    if (!isHydratedRef.current) {
       return;
     }
 

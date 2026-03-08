@@ -9,6 +9,10 @@ This file is the canonical home for ad hoc and medium-term roadmap items that we
 
 ## UI
 - In the dialog, show preferred and best player counts.
+- Keep game details dialog open when applying dialog-based filters (do not auto-close on filter chip click).
+- In game details dialog, show selected-state styling for already-applied filter chips (for example blue chip), and avoid invisible toggle behavior.
+- Update Board Game Catalog Help Guide content to match current behavior and remove stale guidance.
+  - Example stale copy to remove/update: recommendation/session behavior after page refresh.
 
 ## Code
 - Move to Python 3.12.

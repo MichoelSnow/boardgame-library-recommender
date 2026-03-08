@@ -49,6 +49,25 @@
 - [ ] Consider richer recommendation workflows after core performance and stability work is complete.
 - [ ] Consider librarian-list ordering/ranking only after the unordered list version proves useful.
 
+### Admin Console
+- Priority:
+  - `Now`
+- Summary:
+  - add a dedicated admin panel for convention operations and content/runtime controls
+- Initial capability targets:
+  - switch convention primary color theme from approved palette
+  - create/manage users
+  - upload and validate PAX game IDs CSV
+  - extend with additional operational controls after V1
+- Convention palette baseline:
+  - `#904799`
+  - `#D9272D`
+  - `#007DBB`
+  - `#F4B223`
+  - current next-convention primary target: `#D9272D`
+- Launch-critical note:
+  - This feature is convention-critical and must be tracked in [pre_convention_readiness_checklist.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/pre_convention_readiness_checklist.md) until complete.
+
 ## Intake Rule
 - Before starting a new feature implementation, add it here with:
   - summary
