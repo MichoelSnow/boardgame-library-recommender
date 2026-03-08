@@ -1,0 +1,30 @@
+# Backlog
+
+This file is the canonical home for ad hoc and medium-term roadmap items that were previously tracked in `todo.md`.
+
+## Data
+- Download all images into a database for faster serving.
+  - Current status: image download script exists; dataset is partially downloaded.
+- Precompute recommendations for all games for dialog views.
+
+## UI
+- In the dialog, show preferred and best player counts.
+
+## Code
+- Move to Python 3.12.
+- After the Python upgrade, simplify `backend/app/versioning.py` to rely on stdlib `tomllib` only (remove fallback parser path if no longer needed).
+- Harden `backend/scripts/migrate_sqlite_to_postgres.py` sequence-reset SQL to quote table identifiers explicitly instead of direct string interpolation.
+
+## App
+- Allow multiple selection in player count.
+- Sort categories and mechanics alphabetically.
+- Align categories and mechanics into a fixed grid if possible.
+- Add ability to send recommendation lists via email or SMS.
+- Add tag search (larger effort).
+
+## Fly.io
+- Add redundancy using multiple volumes where feasible.
+- Add user activity logging (for example, last login time).
+
+## Notebooks
+- Add back `google-api-python-client`, `google-auth-httplib2`, and `google-auth-oauthlib` for `data_pipeline/notebooks/pax_tabletop_library.ipynb`.

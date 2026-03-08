@@ -22,6 +22,12 @@ Start dev server:
 npm start
 ```
 
+### Development Server Notes
+- Runs at `http://localhost:3000`
+- Hot-reload on source changes
+- Uses backend API configuration from frontend service/config code
+- Auth/session state is managed through React context
+
 ## Build
 ```bash
 npm run build

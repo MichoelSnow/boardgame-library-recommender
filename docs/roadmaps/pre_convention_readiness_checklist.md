@@ -6,7 +6,7 @@
 
 ## Usage
 - Use this as the canonical launch gate for convention readiness.
-- Keep `todo.md` for short-lived notes and ad hoc follow-ups.
+- Keep ad hoc follow-ups in [backlog.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/backlog.md).
 - Keep `docs/roadmaps/best_practices_migration_guide.md` for long-horizon engineering and architecture work.
 
 ## Priority Legend
@@ -98,8 +98,13 @@
 ## Data Refresh and Operations
 - [ ] [P0] Finalize and document the offline rebuild -> cutover data refresh procedure.
 - [ ] [P0] Confirm no live rebuilds will run during convention hours.
-- [ ] [P1] Validate the monthly rebuild path against the new Postgres + R2 architecture.
-- [ ] [P1] Validate manual refresh trigger procedure.
+- [ ] [P0] Validate the monthly rebuild path against the new Postgres + R2 architecture.
+- [ ] [P0] Validate manual refresh trigger procedure.
+- [ ] [P0] Validate `data_pipeline/src` jobs on Fly runtime targets and record OOM-safe CPU/RAM/job sizing.
+- [ ] [P0] Decide and document pipeline execution topology before convention:
+  - run on existing app/db machines
+  - or run on dedicated pipeline worker machines/apps
+- [ ] [P0] Define and validate canonical storage path for monthly rebuild outputs/artifacts, including retention and runtime handoff.
 
 ## Convention-Day Operations
 - [ ] [P0] Create a pre-opening checklist for each convention day.

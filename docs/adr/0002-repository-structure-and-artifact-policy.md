@@ -9,16 +9,16 @@
 
 ## Decision
 - Keep the existing top-level directories with explicit ownership boundaries:
-  - `backend/`, `frontend/`, `crawler/`, `scripts/`, `docs/`, `data/`, `logs/`
-- Keep the pipeline directory name as `crawler/` for now.
+  - `backend/`, `frontend/`, `data_pipeline/`, `scripts/`, `docs/`, `data/`, `logs/`
+- Rename the prior `crawler/` directory to `data_pipeline/` and keep `data_pipeline/` as the canonical name.
 - Formalize file placement and artifact policy in:
   - `docs/policies/repository_structure_policy.md`
 - Enforce backup/temp artifact hygiene through:
   - `.gitignore` patterns (`*.bak`, `*.tmp`, `*.orig`)
   - removal of tracked backup artifacts from source control
-- Require notebook inventory and keep/convert decisions in `crawler/README.md`.
+- Require notebook inventory and keep/convert decisions in `data_pipeline/README.md`.
 
 ## Consequences
 - Clearer placement rules reduce accidental sprawl and improve onboarding.
 - Existing scripts/docs can reference stable ownership boundaries.
-- Future rename of `crawler/` remains possible, but is explicitly deferred until value outweighs churn.
+- Path references needed one-time updates across docs/workflows and were completed as part of the rename.

@@ -72,3 +72,17 @@ poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev
 ```bash
 poetry run python scripts/validate/validate_performance_gate.py --env dev --game-id 224517
 ```
+
+## Notebook Hygiene Checks
+
+## `validate_notebook_outputs.py`
+- Verifies notebooks have no outputs/execution counts and no unexpected non-notebook artifacts.
+```bash
+python scripts/validate/validate_notebook_outputs.py
+```
+
+## `validate_notebook_secrets.py`
+- Scans notebook source and outputs for common credential/secret leak patterns.
+```bash
+python scripts/validate/validate_notebook_secrets.py
+```

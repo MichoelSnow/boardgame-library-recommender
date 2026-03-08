@@ -19,13 +19,13 @@ This directory is organized by operational task, not by individual script histor
   - k6 load-test scripts
 
 Detailed references:
-- [deploy/README.md](/home/msnow/git/pax_tt_recommender/scripts/deploy/README.md)
-- [validate/README.md](/home/msnow/git/pax_tt_recommender/scripts/validate/README.md)
-- [alerts/README.md](/home/msnow/git/pax_tt_recommender/scripts/alerts/README.md)
-- [db/README.md](/home/msnow/git/pax_tt_recommender/scripts/db/README.md)
-- [perf/README.md](/home/msnow/git/pax_tt_recommender/scripts/perf/README.md)
-- [users/README.md](/home/msnow/git/pax_tt_recommender/scripts/users/README.md)
-- [load/README.md](/home/msnow/git/pax_tt_recommender/scripts/load/README.md)
+- [deploy/README.md](deploy/README.md)
+- [validate/README.md](validate/README.md)
+- [alerts/README.md](alerts/README.md)
+- [db/README.md](db/README.md)
+- [perf/README.md](perf/README.md)
+- [users/README.md](users/README.md)
+- [load/README.md](load/README.md)
 
 ## Quick Tasks
 
@@ -80,6 +80,8 @@ poetry run python scripts/validate/validate_auth_flow.py --env dev
 poetry run python scripts/validate/validate_recommendation_artifacts.py --env dev
 poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev --game-id 224517
 poetry run python scripts/validate/validate_performance_gate.py --env dev
+python scripts/validate/validate_notebook_outputs.py
+python scripts/validate/validate_notebook_secrets.py
 ```
 
 ### 8) Record Traceability / Rollback Target
