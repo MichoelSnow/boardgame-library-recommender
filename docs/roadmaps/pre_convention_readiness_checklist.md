@@ -40,15 +40,15 @@
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
 - [x] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
 - [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
-- [ ] [P0] Build the seeded image backfill pipeline for:
+- [x] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games
   - top `10,000` ranked games
-- [ ] [P0] Build the ongoing image-sync script for qualifying games.
-- [ ] [P0] Wire import/update flows to trigger image-sync checks.
+- [x] [P0] Build the ongoing image-sync script for qualifying games.
+- [x] [P0] Wire import/update flows to trigger image-sync checks.
 - [ ] [P0] Cut `dev` over to R2-backed image delivery and validate.
 - [ ] [P0] Cut `prod` over to R2-backed image delivery and validate.
 - [ ] [P1] Confirm placeholder behavior is clean for missing images.
-- [ ] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
+- [x] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
 
 ## Runtime and Scaling

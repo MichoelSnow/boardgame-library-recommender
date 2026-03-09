@@ -9,6 +9,7 @@ from typing import List, Literal, Optional
 import logging
 import httpx
 import hmac
+from urllib.parse import quote
 from sqlalchemy.orm import Session
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
@@ -28,6 +29,7 @@ import os
 from pydantic import BaseModel
 from .logging_utils import build_log_handlers
 from .versioning import get_app_version
+from data_pipeline.src.assets.r2_sync import R2ImageSyncer, r2_config_available
 
 # Configure logging
 logging.basicConfig(
@@ -227,6 +229,11 @@ async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
         logger.error(f"Database operation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database error")
 
+
+def get_r2_public_base_url() -> str | None:
+    """Return configured public CDN base URL for image delivery, if present."""
+    return os.getenv("R2_PUBLIC_BASE_URL", "").strip().rstrip("/") or None
+
 @app.get("/api")
 async def api_root():
     return {"message": "Board Game Recommender API"}
@@ -342,6 +349,45 @@ async def proxy_image(url: str):
     except Exception as e:
         logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching image")
+
+
+@app.get("/api/images/{game_id}/cached")
+async def get_cached_image(game_id: int, db: Session = Depends(get_db)):
+    """
+    Resolve an image by game ID, preferring R2/CDN.
+
+    If the image key is missing in R2, fetch from origin and upload to R2,
+    then redirect to the CDN URL.
+    """
+    game = crud.get_game(db, game_id)
+    if game is None or not game.image:
+        raise HTTPException(status_code=404, detail="Game image not found")
+
+    r2_public_base_url = get_r2_public_base_url()
+    if not r2_public_base_url or not r2_config_available():
+        return RedirectResponse(
+            url=f"/api/proxy-image/{quote(game.image, safe='')}",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
+
+    try:
+        syncer = R2ImageSyncer.from_env()
+        key, _ = syncer.sync_image_url(bgg_id=game_id, image_url=game.image)
+        return RedirectResponse(
+            url=f"{r2_public_base_url}/{key}",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
+    except Exception as exc:  # pragma: no cover - defensive fallback path
+        logger.warning(
+            "R2 cache-fill failed for game_id=%s image=%s; falling back to proxy. Error: %s",
+            game_id,
+            game.image,
+            exc,
+        )
+        return RedirectResponse(
+            url=f"/api/proxy-image/{quote(game.image, safe='')}",
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+        )
 
 @app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(

@@ -32,6 +32,33 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 200  # Number of games to process before committing
 
+
+def run_r2_image_sync_pax_only() -> bool:
+    """Trigger R2 image sync for PAX games after PAX import."""
+    command = [
+        sys.executable,
+        "-m",
+        "data_pipeline.src.assets.sync_r2_images",
+        "--scope",
+        "pax-only",
+    ]
+    logger.info("Running R2 image sync command: %s", " ".join(command))
+
+    import subprocess
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        if result.stdout:
+            logger.info("R2 image sync stdout: %s", result.stdout)
+        if result.stderr:
+            logger.info("R2 image sync stderr: %s", result.stderr)
+        return True
+    except subprocess.CalledProcessError as exc:
+        logger.error("R2 image sync failed with code %s", exc.returncode)
+        logger.error("R2 image sync stdout: %s", exc.stdout)
+        logger.error("R2 image sync stderr: %s", exc.stderr)
+        return False
+
 def create_pax_game_record(game_data: pd.Series) -> models.PAXGame:
     """Create a PAX game record from the data without saving to database."""
     # Handle empty bgg_id values
@@ -183,6 +210,11 @@ def main():
     parser = argparse.ArgumentParser(description='Import PAX tabletop games data into the database')
     parser.add_argument('--delete-existing', action='store_true', 
                       help='Delete existing PAX games before import')
+    parser.add_argument(
+        '--sync-images-r2',
+        action='store_true',
+        help='After import, run R2 image sync for PAX games.',
+    )
     args = parser.parse_args()
     
     # Get the PAX data directory
@@ -192,6 +224,12 @@ def main():
     
     # Import the data with delete_existing from command line args
     import_pax_data(str(pax_data_dir), delete_existing=args.delete_existing)
+
+    if args.sync_images_r2:
+        if run_r2_image_sync_pax_only():
+            logger.info("R2 image sync completed successfully after PAX import.")
+        else:
+            logger.error("R2 image sync failed after PAX import.")
 
 if __name__ == "__main__":
     main() 

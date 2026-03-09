@@ -98,13 +98,13 @@ poetry run python -c "from backend.app.db_config import get_database_url; print(
 Most recent suggestions in dev:
 
 ```bash
-fly ssh console -a pax-tt-db-dev -C "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c \"SELECT s.id, u.username, s.comment, s.timestamp FROM user_suggestions s JOIN users u ON u.id = s.user_id ORDER BY s.timestamp DESC LIMIT 20;\""
+fly ssh console -a pax-tt-db-dev -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 ```
 
 Most recent suggestions in prod:
 
 ```bash
-fly ssh console -a pax-tt-db-prod -C "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c \"SELECT s.id, u.username, s.comment, s.timestamp FROM user_suggestions s JOIN users u ON u.id = s.user_id ORDER BY s.timestamp DESC LIMIT 20;\""
+fly ssh console -a pax-tt-db-prod -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 ```
 
 Most recent suggestions (local SQLite):
@@ -233,4 +233,42 @@ k6 run \
   -e DURATION="3m" \
   -e THINK_TIME_SECONDS="2.0" \
   scripts/load/k6_rehearsal.js
+```
+## 11. R2 Image Sync
+
+Dry run:
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000
+```
+
+Actual sync:
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope all-qualified --max-rank 10000
+```
+
+PAX-only sync:
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope pax-only
+```
+
+Import + sync:
+```bash
+poetry run python backend/app/import_data.py --sync-images-r2 --sync-images-max-rank 10000
+poetry run python backend/app/import_pax_data.py --sync-images-r2
+```
+
+Count candidates:
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000 2>&1 \
+  | awk -F': ' '/Candidates selected/ {print $2}'
+```
+
+
+Count R2 objects:
+```bash
+export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
+aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
+  --endpoint-url "$R2_ENDPOINT_URL"
 ```

@@ -57,6 +57,34 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 200  # Number of games to process before committing
 
+
+def run_r2_image_sync(max_rank: int) -> bool:
+    """Trigger R2 image sync for qualifying games after import."""
+    command = [
+        sys.executable,
+        "-m",
+        "data_pipeline.src.assets.sync_r2_images",
+        "--scope",
+        "all-qualified",
+        "--max-rank",
+        str(max_rank),
+    ]
+    logger.info("Running R2 image sync command: %s", " ".join(command))
+    import subprocess
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        if result.stdout:
+            logger.info("R2 image sync stdout: %s", result.stdout)
+        if result.stderr:
+            logger.info("R2 image sync stderr: %s", result.stderr)
+        return True
+    except subprocess.CalledProcessError as exc:
+        logger.error("R2 image sync failed with code %s", exc.returncode)
+        logger.error("R2 image sync stdout: %s", exc.stdout)
+        logger.error("R2 image sync stderr: %s", exc.stderr)
+        return False
+
 def create_game_record(game_data: pd.Series) -> models.BoardGame:
     """Create a game record from the data without saving to database."""
     game_create = schemas.BoardGameCreate(
@@ -374,6 +402,17 @@ def main():
     parser = argparse.ArgumentParser(description='Import board game data into the database')
     parser.add_argument('--delete-existing', action='store_true', 
                       help='Delete existing database before import')
+    parser.add_argument(
+        '--sync-images-r2',
+        action='store_true',
+        help='After import, run R2 image sync for qualifying games.',
+    )
+    parser.add_argument(
+        '--sync-images-max-rank',
+        type=int,
+        default=10000,
+        help='Top-rank cutoff for R2 sync qualification (default: 10000).',
+    )
     args = parser.parse_args()
     
     # Get the processed data directory
@@ -393,6 +432,12 @@ def main():
     
     # Import the data with delete_existing from command line args
     import_all_data(str(data_dir), timestamp, delete_existing=args.delete_existing)
+
+    if args.sync_images_r2:
+        if run_r2_image_sync(max_rank=args.sync_images_max_rank):
+            logger.info("R2 image sync completed successfully after data import.")
+        else:
+            logger.error("R2 image sync failed after data import.")
 
 if __name__ == "__main__":
     main() 

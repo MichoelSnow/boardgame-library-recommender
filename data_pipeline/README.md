@@ -16,6 +16,8 @@
   - `recommender.py`
 - `src/assets/`
   - `download_images.py`
+  - `r2_sync.py`
+  - `sync_r2_images.py`
 - `src/common/`
   - `logging_utils.py`
 - `notebooks/`
@@ -151,6 +153,66 @@ Optional reset import:
 
 ```bash
 poetry run python backend/app/import_pax_data.py --delete-existing
+```
+
+## Image Sync to Cloudflare R2
+
+Canonical object keys use `games/<bgg_id>.<ext>` (for example `games/224517.jpg`).
+Use a single shared R2 bucket for local/dev/prod to avoid duplicated storage costs.
+
+Required environment variables:
+
+```env
+R2_ENDPOINT_URL=<cloudflare-r2-s3-endpoint>
+R2_ACCESS_KEY_ID=<r2-access-key-id>
+R2_SECRET_ACCESS_KEY=<r2-secret-access-key>
+R2_BUCKET_NAME=<single-shared-r2-bucket-name>
+R2_REGION=auto
+# optional:
+R2_PUBLIC_BASE_URL=<cdn-base-url>
+```
+
+Seed/ongoing sync script:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope all-qualified --max-rank 10000
+```
+
+Behavior note:
+- Existing R2 objects are prefetched by default from `games/` and skipped without download.
+- If prefetch fails, the script falls back to per-ID existence checks.
+- Images are not re-downloaded when already present unless `--overwrite-existing` is passed.
+
+Optional flag:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --no-prefetch-existing
+```
+
+Scope-specific runs:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope pax-only
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope top-rank-only --max-rank 10000
+```
+
+Dry-run candidate verification:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000
+```
+
+Downloader integration (download locally and sync uploaded files in the same pass):
+
+```bash
+poetry run python -m data_pipeline.src.assets.download_images --sync-r2
+```
+
+Import workflow integration:
+
+```bash
+poetry run python backend/app/import_data.py --sync-images-r2 --sync-images-max-rank 10000
+poetry run python backend/app/import_pax_data.py --sync-images-r2
 ```
 
 ## Notebook Policy

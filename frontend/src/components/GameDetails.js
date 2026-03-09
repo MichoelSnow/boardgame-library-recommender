@@ -27,7 +27,8 @@ import StarBorderOutlinedIcon from '@mui/icons-material/StarBorderOutlined';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
-import { apiBaseUrl, imageBaseUrl } from '../config';
+import { placeholderImagePath } from '../config';
+import { resolveGameDetailImageUrl } from '../utils/imageUrls';
 import { useGameRecommendationsQuery } from '../hooks/useGameListQueries';
 
 // Helper function to decode HTML entities and preserve line breaks
@@ -58,44 +59,36 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
   const recommendationsAvailable =
     recommendationResponse?.headers?.['x-recommendations-available'] !== 'false';
 
-  // Get the appropriate image URL based on environment
-  const getImageUrl = (imageUrl) => {
-    if (!imageUrl) return null;
-    
-    // If imageBaseUrl is null, we're in production and should use proxy
-    if (!imageBaseUrl) {
-      return `${apiBaseUrl}/proxy-image/${encodeURIComponent(imageUrl)}`; // Use proxy to avoid CORS issues
-    }
-    
-    // Otherwise, use the proxy through our backend
-    return `${imageBaseUrl}/${imageUrl.split('/').pop()}`;
-  };
-
   // Handle image load to extract dominant color for background (same as GameCard)
   const handleImageLoad = (event) => {
-    const img = event.target;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-    
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let r = 0, g = 0, b = 0;
-    const total = imageData.length / 4;
-    
-    for (let i = 0; i < imageData.length; i += 4) {
-      r += imageData[i];
-      g += imageData[i + 1];
-      b += imageData[i + 2];
+    try {
+      const img = event.target;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let r = 0, g = 0, b = 0;
+      const total = imageData.length / 4;
+
+      for (let i = 0; i < imageData.length; i += 4) {
+        r += imageData[i];
+        g += imageData[i + 1];
+        b += imageData[i + 2];
+      }
+
+      r = Math.floor(r / total);
+      g = Math.floor(g / total);
+      b = Math.floor(b / total);
+
+      const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+      setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
+    } catch (error) {
+      // Cross-origin images without CORS headers cannot be sampled.
+      setBgColor('#f5f5f5');
     }
-    
-    r = Math.floor(r / total);
-    g = Math.floor(g / total);
-    b = Math.floor(b / total);
-    
-    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
-    setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
   };
 
   if (!game) return null;
@@ -223,7 +216,10 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
             {game.image && (
               <Box
                 component="img"
-                src={getImageUrl(game.image)} // Use proxy function instead of direct URL
+                src={resolveGameDetailImageUrl({
+                  gameId: game.id,
+                  imageUrl: game.image,
+                })}
                 alt={game.name}
                 sx={{
                   width: 100,
@@ -233,8 +229,10 @@ const GameDetails = ({ game, open, onClose, onFilter, likedGames, dislikedGames,
                   transition: 'background-color 0.3s ease',
                   flexShrink: 0
                 }}
-                crossOrigin="anonymous"
                 onLoad={handleImageLoad}
+                onError={(event) => {
+                  event.currentTarget.src = placeholderImagePath;
+                }}
               />
             )}
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>

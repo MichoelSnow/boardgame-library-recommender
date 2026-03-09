@@ -80,6 +80,12 @@ Import processed game/entity data:
 poetry run python backend/app/import_data.py
 ```
 
+Import and trigger R2 image sync for qualifying games (top rank + PAX):
+
+```bash
+poetry run python backend/app/import_data.py --sync-images-r2 --sync-images-max-rank 10000
+```
+
 Optional full refresh:
 
 ```bash
@@ -91,6 +97,22 @@ Import PAX data:
 ```bash
 poetry run python backend/app/import_pax_data.py
 ```
+
+Import PAX data and sync PAX image set to R2:
+
+```bash
+poetry run python backend/app/import_pax_data.py --sync-images-r2
+```
+
+Manual R2 image sync script:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --scope all-qualified --max-rank 10000
+```
+
+R2 bucket policy note:
+- Use one shared `R2_BUCKET_NAME` across local/dev/prod.
+- Do not split images into separate dev/prod buckets unless isolation requirements outweigh storage-cost goals.
 
 ## 5. Fly Stack Operations (Dev/Prod)
 

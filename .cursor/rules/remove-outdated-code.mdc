@@ -1,6 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-Whenever you update files check to see if there are any deprecated code sections or imports which can be deleted.

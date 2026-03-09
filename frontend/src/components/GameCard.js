@@ -18,7 +18,8 @@ import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmergencyIcon from '@mui/icons-material/Emergency';
-import { apiBaseUrl, imageBaseUrl } from '../config';
+import { placeholderImagePath } from '../config';
+import { buildGameImageCandidates } from '../utils/imageUrls';
 
 const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
     const [src, setSrc] = useState(placeholder);
@@ -58,23 +59,13 @@ const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
 const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDislike, compact = false, isPaxGame = false }) => {
   const [bgColor, setBgColor] = useState('#f5f5f5');
   
-  // Use different image sources based on environment
-  let localImage = null;
-  let remoteImage = null;
-  
-  if (game.image) {
-    if (imageBaseUrl) {
-      // Development environment - use local proxy
-      localImage = `${imageBaseUrl}/${game.image.split('/').pop()}`;
-      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-    } else {
-      // Production environment - always use proxy to avoid CORS issues
-      localImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-    }
-  }
-  
-  const placeholderImage = '/placeholder.png';
+  const imageCandidates = buildGameImageCandidates({
+    gameId: game?.id,
+    imageUrl: game?.image,
+  });
+  const localImage = imageCandidates[0] || null;
+  const remoteImage = imageCandidates[1] || null;
+  const placeholderImage = placeholderImagePath;
   const imageSrc = useProgressiveImage(localImage, remoteImage, placeholderImage);
 
   const handleImageError = () => {
@@ -93,29 +84,34 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
   };
 
   const handleImageLoad = (event) => {
-    const img = event.target;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-    
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let r = 0, g = 0, b = 0;
-    const total = imageData.length / 4;
-    
-    for (let i = 0; i < imageData.length; i += 4) {
-      r += imageData[i];
-      g += imageData[i + 1];
-      b += imageData[i + 2];
+    try {
+      const img = event.target;
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let r = 0, g = 0, b = 0;
+      const total = imageData.length / 4;
+
+      for (let i = 0; i < imageData.length; i += 4) {
+        r += imageData[i];
+        g += imageData[i + 1];
+        b += imageData[i + 2];
+      }
+
+      r = Math.floor(r / total);
+      g = Math.floor(g / total);
+      b = Math.floor(b / total);
+
+      const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+      setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
+    } catch (error) {
+      // Cross-origin images without CORS headers cannot be sampled.
+      setBgColor('#f5f5f5');
     }
-    
-    r = Math.floor(r / total);
-    g = Math.floor(g / total);
-    b = Math.floor(b / total);
-    
-    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
-    setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
   };
 
   return (
@@ -158,7 +154,6 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
           image={imageSrc}
           alt={game.name}
           loading="lazy"
-          crossOrigin="anonymous"
           onLoad={handleImageLoad}
           onError={handleImageError}
         />

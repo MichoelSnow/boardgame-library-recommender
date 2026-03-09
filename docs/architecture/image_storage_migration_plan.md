@@ -32,6 +32,8 @@
 - Store stable image keys/paths in app data, not full provider URLs.
 - Preferred key format:
   - `games/<bgg_id>.<ext>`
+- Use a single shared R2 bucket across local/dev/prod to avoid duplicate storage cost.
+- Environment separation for runtime behavior is handled by app config and deployment process, not by duplicating image objects per environment.
 
 ## Current State
 - The app currently depends on BoardGameGeek-hosted image URLs at runtime.
@@ -56,7 +58,7 @@
 - Store only the image key/path in app data; construct the full provider/CDN URL from configuration.
 
 ## Migration Sequence
-1. Create the Cloudflare R2 bucket and define the public/CDN URL pattern.
+1. Create one Cloudflare R2 bucket and define the public/CDN URL pattern.
 2. Define the canonical storage key format (preferably based on BGG ID).
 3. Build the bulk image-download pipeline for the seeded initial catalog.
 4. Seed Cloudflare R2 with:
@@ -73,6 +75,26 @@
 7. Update the app to resolve images from the new storage path using stored image keys/paths.
 8. Validate coverage, latency, cache-miss behavior, and placeholder behavior in `dev`.
 9. Cut production over to the Cloudflare R2-backed image-delivery path.
+
+## Current Implementation Baseline (Completed)
+- Frontend image resolution is now centralized in `frontend/src/utils/imageUrls.js`.
+- Runtime-configurable image sources are supported:
+  - `REACT_APP_IMAGE_CDN_BASE_URL` for CDN/R2 delivery
+  - `REACT_APP_IMAGE_LOCAL_BASE_URL` for local mounted images
+  - `REACT_APP_IMAGE_USE_PROXY_FALLBACK` for backend proxy fallback control
+  - `REACT_APP_IMAGE_PLACEHOLDER` for placeholder asset override
+- Default placeholder path now resolves to `/assets/images/game-placeholder.svg` and no longer depends on the missing `/placeholder.png` path.
+- `GameCard` and `GameDetails` use the same URL resolution rules to avoid split behavior.
+- App image resolution now supports CDN-first cache fill:
+  - frontend first tries `REACT_APP_IMAGE_CDN_BASE_URL`
+  - fallback endpoint `/api/images/{game_id}/cached` syncs missing images into R2 and redirects
+- Canonical key strategy is implemented in code as `games/<bgg_id>.<ext>` via `data_pipeline/src/assets/r2_sync.py`.
+- Ongoing/seed sync entrypoint is implemented at `data_pipeline/src/assets/sync_r2_images.py`:
+  - `--scope all-qualified` for top-rank + PAX qualifying sets
+  - `--scope pax-only` for PAX-specific refreshes
+- Import flows can now trigger sync checks:
+  - `backend/app/import_data.py --sync-images-r2`
+  - `backend/app/import_pax_data.py --sync-images-r2`
 
 ## Operational Constraints
 - The migration should prioritize mobile performance.

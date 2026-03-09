@@ -214,8 +214,8 @@ Overall execution order override:
   3. Phase 4B convention runtime profile skeleton
   4. Phase 5 repository structure cleanup
   5. Phase 4 frontend architecture foundation implementation
-  6. Phase 4 convention mode implementation
-  7. Phase 4 image migration implementation
+  6. Phase 4 image migration implementation
+  7. Phase 4 convention mode implementation  
   8. Phase 4 convention rehearsal/load testing in `dev`
   9. Later hardening phases
 - Phase 4 implementation items intentionally occur before later phase categories because later phases should build on the intended architecture rather than deepen investment in transitional paths.
