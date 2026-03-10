@@ -10,6 +10,7 @@ import logging
 import httpx
 import hmac
 import mimetypes
+import tempfile
 from urllib.parse import quote
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -325,6 +326,42 @@ def find_existing_local_image_relative_path(game_id: int) -> str | None:
             return relative_path
     return None
 
+
+def persist_cached_image_bundle(
+    *,
+    image_bytes: bytes,
+    destination: Path,
+    thumbnail_destination: Path,
+) -> None:
+    """
+    Persist original image and thumbnail to local storage.
+
+    Intended to run in a worker thread from async request handlers.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        dir=str(destination.parent),
+        prefix=f"{destination.name}.",
+        suffix=".tmp",
+        delete=False,
+    ) as tmp_file:
+        tmp_file.write(image_bytes)
+        tmp_name = tmp_file.name
+    Path(tmp_name).replace(destination)
+
+    write_webp_thumbnail(
+        image_bytes,
+        thumbnail_destination,
+    )
+
+
+async def run_image_io_task(task):
+    """Run blocking image I/O task outside the event loop."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(db_executor, task)
+
+
 @app.get("/api")
 async def api_root():
     return {"message": "Board Game Recommender API"}
@@ -483,11 +520,13 @@ async def get_cached_image(
                 content_type=content_type,
             )
             destination = IMAGE_STORAGE_DIR / relative_path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(image_bytes)
-            write_webp_thumbnail(
-                image_bytes,
-                IMAGE_STORAGE_DIR / build_thumbnail_relative_path(game_id),
+            thumbnail_destination = IMAGE_STORAGE_DIR / build_thumbnail_relative_path(game_id)
+            await run_image_io_task(
+                lambda: persist_cached_image_bundle(
+                    image_bytes=image_bytes,
+                    destination=destination,
+                    thumbnail_destination=thumbnail_destination,
+                )
             )
             return RedirectResponse(
                 url=f"/images/{relative_path}",

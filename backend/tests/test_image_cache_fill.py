@@ -35,6 +35,9 @@ def test_cached_image_fly_local_downloads_and_redirects(monkeypatch, tmp_path):
         return (b"image-bytes", "image/jpeg")
 
     monkeypatch.setattr(main, "download_origin_image_content", mock_download_origin_image_content)
+    async def mock_run_image_io_task(task):
+        task()
+    monkeypatch.setattr(main, "run_image_io_task", mock_run_image_io_task)
 
     response = asyncio.run(
         main.get_cached_image(224517, image_url="https://example.com/game.jpg")

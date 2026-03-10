@@ -13,6 +13,7 @@ import asyncio
 import logging
 import mimetypes
 import os
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -199,7 +200,7 @@ async def seed_images(
 ) -> tuple[int, int, int]:
     image_root.mkdir(parents=True, exist_ok=True)
     (image_root / "games").mkdir(parents=True, exist_ok=True)
-    semaphore = asyncio.Semaphore(max(1, concurrency))
+    worker_count = max(1, concurrency)
 
     downloaded = 0
     skipped = 0
@@ -218,23 +219,32 @@ async def seed_images(
                 return
 
             try:
-                async with semaphore:
-                    content, content_type = await download_image_content(
-                        client,
-                        image_url,
-                        timeout_seconds=timeout_seconds,
-                    )
+                content, content_type = await download_image_content(
+                    client,
+                    image_url,
+                    timeout_seconds=timeout_seconds,
+                )
                 relative_path = build_relative_image_path(
                     game_id,
                     image_url=image_url,
                     content_type=content_type,
                 )
                 target_path = image_root / relative_path
+                # Re-check after download to avoid race overwrite when another process seeded first.
+                if target_path.exists() and not overwrite_existing:
+                    skipped += 1
+                    return
                 target_path.parent.mkdir(parents=True, exist_ok=True)
-                tmp_path = target_path.with_suffix(target_path.suffix + ".tmp")
-                with open(tmp_path, "wb") as handle:
-                    handle.write(content)
-                tmp_path.replace(target_path)
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    dir=str(target_path.parent),
+                    prefix=f"{target_path.name}.",
+                    suffix=".tmp",
+                    delete=False,
+                ) as tmp_file:
+                    tmp_file.write(content)
+                    tmp_name = tmp_file.name
+                Path(tmp_name).replace(target_path)
                 write_webp_thumbnail(
                     content,
                     thumbnail_path_for_game(game_id, image_root),
@@ -244,7 +254,26 @@ async def seed_images(
                 failed += 1
                 logger.warning("Failed image seed for game_id=%s (%s): %s", game_id, image_url, exc)
 
-        await asyncio.gather(*(process_one(game_id, image_url) for game_id, image_url in candidates))
+        queue: asyncio.Queue[tuple[int, str] | None] = asyncio.Queue()
+        for candidate in candidates:
+            queue.put_nowait(candidate)
+        for _ in range(worker_count):
+            queue.put_nowait(None)
+
+        async def worker() -> None:
+            while True:
+                item = await queue.get()
+                try:
+                    if item is None:
+                        return
+                    game_id, image_url = item
+                    await process_one(game_id, image_url)
+                finally:
+                    queue.task_done()
+
+        workers = [asyncio.create_task(worker()) for _ in range(worker_count)]
+        await queue.join()
+        await asyncio.gather(*workers)
 
     return downloaded, skipped, failed
 
