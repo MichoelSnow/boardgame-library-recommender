@@ -13,6 +13,8 @@ primary_region = 'iad'
   CONVENTION_MODE = "false"
   DB_KEEPALIVE_ENABLED = "true"
   DB_KEEPALIVE_INTERVAL_SECONDS = "60"
+  IMAGE_BACKEND = "fly_local"
+  IMAGE_STORAGE_DIR = "/data/images"
 
 [build]
 
@@ -37,6 +39,9 @@ primary_region = 'iad'
 [mounts]
   source = "boardgames_data"
   destination = "/data"
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "10GB"
 
 [[restart]]
   policy = "on-failure"

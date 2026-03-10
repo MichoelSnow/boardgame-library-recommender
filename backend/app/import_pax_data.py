@@ -32,6 +32,48 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 200  # Number of games to process before committing
 
+
+def run_image_sync_pax_only(backend: str) -> bool:
+    """Trigger optional image sync for PAX games after PAX import."""
+    if backend == "fly_local":
+        command = [
+            sys.executable,
+            "-m",
+            "data_pipeline.src.assets.sync_fly_images",
+            "--scope",
+            "pax-only",
+        ]
+        log_label = "Fly-local image sync"
+    elif backend == "r2_cdn":
+        command = [
+            sys.executable,
+            "-m",
+            "data_pipeline.src.assets.sync_r2_images",
+            "--scope",
+            "pax-only",
+        ]
+        log_label = "R2 image sync"
+    else:
+        logger.error("Unsupported image sync backend: %s", backend)
+        return False
+
+    logger.info("Running %s command: %s", log_label, " ".join(command))
+
+    import subprocess
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        if result.stdout:
+            logger.info("%s stdout: %s", log_label, result.stdout)
+        if result.stderr:
+            logger.info("%s stderr: %s", log_label, result.stderr)
+        return True
+    except subprocess.CalledProcessError as exc:
+        logger.error("%s failed with code %s", log_label, exc.returncode)
+        logger.error("%s stdout: %s", log_label, exc.stdout)
+        logger.error("%s stderr: %s", log_label, exc.stderr)
+        return False
+
 def create_pax_game_record(game_data: pd.Series) -> models.PAXGame:
     """Create a PAX game record from the data without saving to database."""
     # Handle empty bgg_id values
@@ -183,6 +225,22 @@ def main():
     parser = argparse.ArgumentParser(description='Import PAX tabletop games data into the database')
     parser.add_argument('--delete-existing', action='store_true', 
                       help='Delete existing PAX games before import')
+    parser.add_argument(
+        '--sync-images',
+        action='store_true',
+        help='After import, run image sync for PAX games.',
+    )
+    parser.add_argument(
+        '--sync-images-backend',
+        choices=['fly_local', 'r2_cdn'],
+        default='fly_local',
+        help='Image sync backend (default: fly_local).',
+    )
+    parser.add_argument(
+        '--sync-images-r2',
+        action='store_true',
+        help='Deprecated alias for --sync-images --sync-images-backend r2_cdn.',
+    )
     args = parser.parse_args()
     
     # Get the PAX data directory
@@ -192,6 +250,21 @@ def main():
     
     # Import the data with delete_existing from command line args
     import_pax_data(str(pax_data_dir), delete_existing=args.delete_existing)
+
+    should_sync_images = args.sync_images or args.sync_images_r2
+    sync_backend = "r2_cdn" if args.sync_images_r2 else args.sync_images_backend
+
+    if should_sync_images:
+        if run_image_sync_pax_only(sync_backend):
+            logger.info(
+                "Image sync completed successfully after PAX import (backend=%s).",
+                sync_backend,
+            )
+        else:
+            logger.error(
+                "Image sync failed after PAX import (backend=%s).",
+                sync_backend,
+            )
 
 if __name__ == "__main__":
     main() 

@@ -38,6 +38,7 @@ RUN mkdir -p /data
 # Copy backend code
 COPY backend/app/ /app/backend/app/
 COPY backend/scripts/ /app/backend/scripts/
+COPY data_pipeline/ /app/data_pipeline/
 # Copy Alembic configuration and migration files for database migrations
 COPY backend/alembic/ /app/backend/alembic/
 COPY backend/alembic.ini /app/backend/alembic.ini

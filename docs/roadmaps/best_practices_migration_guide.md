@@ -178,7 +178,7 @@ Deployment verification rule:
 - [x] [P1] frontend architecture (`docs/architecture/frontend_architecture_plan.md`)
 - [x] [P1] migration cutover strategy (`docs/architecture/migration_cutover_strategy.md`)
 - [x] [P1] data contract ownership (`docs/policies/data_contract_ownership.md`)
-- [x] [P1] Select the target image-storage provider for Phase 4 planning (Cloudflare R2).
+- [x] [P1] Select and finalize the primary image-storage runtime path for Phase 4 implementation (Fly-local with R2 backup retained).
 
 ### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
 - [x] [P1] Implement `DATABASE_URL` support with SQLite fallback.
@@ -214,8 +214,8 @@ Overall execution order override:
   3. Phase 4B convention runtime profile skeleton
   4. Phase 5 repository structure cleanup
   5. Phase 4 frontend architecture foundation implementation
-  6. Phase 4 convention mode implementation
-  7. Phase 4 image migration implementation
+  6. Phase 4 image migration implementation
+  7. Phase 4 convention mode implementation  
   8. Phase 4 convention rehearsal/load testing in `dev`
   9. Later hardening phases
 - Phase 4 implementation items intentionally occur before later phase categories because later phases should build on the intended architecture rather than deepen investment in transitional paths.
@@ -245,7 +245,7 @@ Phase 4 decision summary:
 - Subsystem-specific implementation details live in the relevant planning docs listed below.
 
 Phase 4 non-functional targets:
-- Defined in [Service Level Targets](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Defined in [Service Level Targets](../policies/service_level_targets.md).
 - Phase 4 planning and implementation docs should reference that file as the canonical source rather than duplicating target values.
 
 Related Phase 4 planning docs:

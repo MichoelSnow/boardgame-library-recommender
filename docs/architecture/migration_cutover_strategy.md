@@ -49,7 +49,7 @@ before the next major cutover begins.
 - Do not remove fallback paths until the replacement path is validated and stable.
 - For the current migration tracks, this means:
   - keep SQLite intact during Postgres stabilization
-  - keep the pre-cutover image-resolution path available until R2-backed delivery is proven stable
+  - keep the backup image-resolution path available until Fly-local delivery is proven stable in both `dev` and `prod`
   - keep normal non-convention auth mode available via configuration
   - keep the normal non-convention runtime profile available
 

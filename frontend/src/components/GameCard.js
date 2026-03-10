@@ -1,4 +1,4 @@
-import React, { useState, memo, useEffect } from 'react';
+import React, { useState, memo, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -18,69 +18,63 @@ import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmergencyIcon from '@mui/icons-material/Emergency';
-import { apiBaseUrl, imageBaseUrl } from '../config';
+import { placeholderImagePath } from '../config';
+import { buildGameImageCandidates } from '../utils/imageUrls';
 
-const useProgressiveImage = (localSrc, remoteSrc, placeholder) => {
-    const [src, setSrc] = useState(placeholder);
-  
-    useEffect(() => {
-      if (!localSrc) {
-        setSrc(remoteSrc || placeholder);
-        return;
-      }
-  
-      const localImg = new Image();
-      localImg.src = localSrc;
-  
-      localImg.onload = () => {
-        setSrc(localSrc);
-      };
-  
-      localImg.onerror = () => {
-        if (remoteSrc) {
-            const remoteImg = new Image();
-            remoteImg.src = remoteSrc;
-            remoteImg.onload = () => {
-                setSrc(remoteSrc);
-            };
-            remoteImg.onerror = () => {
-                setSrc(placeholder);
-            }
-        } else {
-            setSrc(placeholder);
-        }
-      };
-    }, [localSrc, remoteSrc, placeholder]);
-  
-    return src;
-  };
+const DEFAULT_IMAGE_BG_COLOR = '#f5f5f5';
 
-const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDislike, compact = false, isPaxGame = false }) => {
-  const [bgColor, setBgColor] = useState('#f5f5f5');
-  
-  // Use different image sources based on environment
-  let localImage = null;
-  let remoteImage = null;
-  
-  if (game.image) {
-    if (imageBaseUrl) {
-      // Development environment - use local proxy
-      localImage = `${imageBaseUrl}/${game.image.split('/').pop()}`;
-      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-    } else {
-      // Production environment - always use proxy to avoid CORS issues
-      localImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-      remoteImage = `${apiBaseUrl}/proxy-image/${encodeURIComponent(game.image)}`;
-    }
+const extractAccentColor = (img) => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !img?.width || !img?.height) {
+    return DEFAULT_IMAGE_BG_COLOR;
   }
-  
-  const placeholderImage = '/placeholder.png';
-  const imageSrc = useProgressiveImage(localImage, remoteImage, placeholderImage);
 
-  const handleImageError = () => {
-    // This function is now effectively a no-op as the hook handles the fallback.
-    // It's kept to avoid breaking the CardMedia prop, but could be removed.
-  };
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  const total = imageData.length / 4;
+
+  for (let i = 0; i < imageData.length; i += 4) {
+    r += imageData[i];
+    g += imageData[i + 1];
+    b += imageData[i + 2];
+  }
+
+  r = Math.floor(r / total);
+  g = Math.floor(g / total);
+  b = Math.floor(b / total);
+
+  const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+  return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`;
+};
+
+const GameCard = memo(({
+  game,
+  onClick,
+  sortBy,
+  liked,
+  disliked,
+  onLike,
+  onDislike,
+  compact = false,
+  isPaxGame = false,
+  enableImageAccent = true,
+}) => {
+  const [bgColor, setBgColor] = useState(DEFAULT_IMAGE_BG_COLOR);
+  const accentJobRef = useRef(null);
+
+  const imageCandidates = buildGameImageCandidates({
+    gameId: game?.id,
+    imageUrl: game?.image,
+  });
+  const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
+  const imageSrc = imageCandidates[imageCandidateIndex] || placeholderImagePath;
 
   const handleLikeClick = (e) => {
     e.stopPropagation();
@@ -92,30 +86,61 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
     onDislike();
   };
 
-  const handleImageLoad = (event) => {
-    const img = event.target;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
-    
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let r = 0, g = 0, b = 0;
-    const total = imageData.length / 4;
-    
-    for (let i = 0; i < imageData.length; i += 4) {
-      r += imageData[i];
-      g += imageData[i + 1];
-      b += imageData[i + 2];
+  useEffect(() => {
+    if (!enableImageAccent) {
+      setBgColor(DEFAULT_IMAGE_BG_COLOR);
     }
-    
-    r = Math.floor(r / total);
-    g = Math.floor(g / total);
-    b = Math.floor(b / total);
-    
-    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
-    setBgColor(`rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`);
+  }, [enableImageAccent]);
+
+  useEffect(() => {
+    setImageCandidateIndex(0);
+  }, [game?.id, game?.image]);
+
+  useEffect(() => () => {
+    if (accentJobRef.current && window.cancelIdleCallback) {
+      window.cancelIdleCallback(accentJobRef.current);
+    } else if (accentJobRef.current) {
+      window.clearTimeout(accentJobRef.current);
+    }
+  }, []);
+
+  const handleImageLoad = (event) => {
+    if (!enableImageAccent) {
+      setBgColor(DEFAULT_IMAGE_BG_COLOR);
+      return;
+    }
+
+    const img = event.currentTarget;
+    const run = () => {
+      try {
+        setBgColor(extractAccentColor(img));
+      } catch (error) {
+        // Cross-origin images without CORS headers cannot be sampled.
+        setBgColor(DEFAULT_IMAGE_BG_COLOR);
+      }
+    };
+
+    if (accentJobRef.current && window.cancelIdleCallback) {
+      window.cancelIdleCallback(accentJobRef.current);
+    } else if (accentJobRef.current) {
+      window.clearTimeout(accentJobRef.current);
+    }
+
+    if (window.requestIdleCallback) {
+      accentJobRef.current = window.requestIdleCallback(run, { timeout: 500 });
+    } else {
+      accentJobRef.current = window.setTimeout(run, 0);
+    }
+  };
+
+  const handleImageError = () => {
+    setImageCandidateIndex((previous) => {
+      const next = previous + 1;
+      if (next >= imageCandidates.length) {
+        return previous;
+      }
+      return next;
+    });
   };
 
   return (
@@ -151,14 +176,12 @@ const GameCard = memo(({ game, onClick, sortBy, liked, disliked, onLike, onDisli
             height: 160,
             objectFit: 'contain',
             backgroundColor: bgColor,
-            transition: 'background-color 0.3s ease',
             flexShrink: 0,
             alignSelf: 'center'
           }}
           image={imageSrc}
           alt={game.name}
           loading="lazy"
-          crossOrigin="anonymous"
           onLoad={handleImageLoad}
           onError={handleImageError}
         />
