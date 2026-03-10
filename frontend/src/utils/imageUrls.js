@@ -14,34 +14,120 @@ export const extractImageFilename = (imageUrl) => {
   return lastSegment || null;
 };
 
-export const buildGameImageCandidates = ({ gameId, imageUrl }) => {
+const ALLOWED_IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'avif',
+]);
+
+const normalizeExtension = (extension) => {
+  if (!extension) {
+    return null;
+  }
+  const lower = extension.toLowerCase();
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(lower)) {
+    return null;
+  }
+  return lower === 'jpeg' ? 'jpg' : lower;
+};
+
+const inferImageExtension = (imageUrl) => {
   if (!imageUrl) {
+    return 'jpg';
+  }
+  const cleanUrl = imageUrl.split('?')[0].split('#')[0];
+  const filename = cleanUrl.split('/').pop() || '';
+  if (!filename.includes('.')) {
+    return 'jpg';
+  }
+  const extension = filename.split('.').pop();
+  return normalizeExtension(extension) || 'jpg';
+};
+
+const buildCanonicalImageFilename = ({ gameId, imageUrl }) => {
+  if (!gameId) {
+    return null;
+  }
+  const extension = inferImageExtension(imageUrl);
+  return `${gameId}.${extension}`;
+};
+
+const buildThumbnailCandidates = ({ gameId }) => {
+  if (!gameId) {
     return [];
   }
-
   const candidates = [];
-  const filename = extractImageFilename(imageUrl);
+  if (imageCdnBaseUrl) {
+    candidates.push(`${imageCdnBaseUrl}/thumbnails/${gameId}.webp`);
+  }
+  if (imageLocalBaseUrl) {
+    candidates.push(`${imageLocalBaseUrl}/thumbnails/${gameId}.webp`);
+  }
+  return candidates;
+};
 
-  if (filename && imageCdnBaseUrl) {
+const buildOriginalCandidates = ({ gameId, imageUrl, filename, canonicalFilename }) => {
+  const candidates = [];
+
+  if (canonicalFilename && imageCdnBaseUrl) {
+    candidates.push(`${imageCdnBaseUrl}/games/${canonicalFilename}`);
+  } else if (filename && imageCdnBaseUrl) {
     candidates.push(`${imageCdnBaseUrl}/${filename}`);
   }
 
-  if (filename && imageLocalBaseUrl) {
+  if (canonicalFilename && imageLocalBaseUrl) {
+    candidates.push(`${imageLocalBaseUrl}/games/${canonicalFilename}`);
+  } else if (filename && imageLocalBaseUrl) {
     candidates.push(`${imageLocalBaseUrl}/${filename}`);
   }
 
   if (gameId) {
-    candidates.push(`${apiBaseUrl}/images/${gameId}/cached`);
+    const encodedImageUrl = encodeURIComponent(imageUrl);
+    candidates.push(
+      `${apiBaseUrl}/images/${gameId}/cached?image_url=${encodedImageUrl}`
+    );
   } else if (useImageProxyFallback) {
     candidates.push(`${apiBaseUrl}/proxy-image/${encodeURIComponent(imageUrl)}`);
   } else {
     candidates.push(imageUrl);
   }
 
+  return candidates;
+};
+
+export const buildGameImageCandidates = ({ gameId, imageUrl }) => {
+  if (!imageUrl) {
+    return [];
+  }
+
+  const filename = extractImageFilename(imageUrl);
+  const canonicalFilename = buildCanonicalImageFilename({ gameId, imageUrl });
+  const candidates = [
+    ...buildThumbnailCandidates({ gameId }),
+    ...buildOriginalCandidates({
+      gameId,
+      imageUrl,
+      filename,
+      canonicalFilename,
+    }),
+  ];
   return [...new Set(candidates)];
 };
 
-export const resolveGameDetailImageUrl = ({ gameId, imageUrl }) => {
-  const [primary] = buildGameImageCandidates({ gameId, imageUrl });
-  return primary || null;
+export const buildGameDetailImageCandidates = ({ gameId, imageUrl }) => {
+  if (!imageUrl) {
+    return [];
+  }
+  const filename = extractImageFilename(imageUrl);
+  const canonicalFilename = buildCanonicalImageFilename({ gameId, imageUrl });
+  const candidates = buildOriginalCandidates({
+    gameId,
+    imageUrl,
+    filename,
+    canonicalFilename,
+  });
+  return [...new Set(candidates)];
 };

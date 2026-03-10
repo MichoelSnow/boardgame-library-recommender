@@ -15,6 +15,8 @@
 ## Start Here
 - [Repo Usage Guide](runbooks/repo_usage_guide.md)
   - practical setup, local run, pipeline, import, and validation command paths
+- [Image Storage Operations](runbooks/image_storage_operations.md)
+  - canonical dev/prod image import, count, and storage operations
 - [Command Reference](runbooks/command_reference.md)
   - quick command lookup for frequent operational and validation tasks
 - [Best Practices Migration Guide](roadmaps/best_practices_migration_guide.md)
@@ -72,7 +74,7 @@ These docs describe specific Phase 4 architecture decisions and implementation p
 - [Postgres Migration Plan](architecture/postgres_migration_plan.md)
   - relational DB migration from SQLite to self-managed Postgres on Fly
 - [Image Storage Migration Plan](architecture/image_storage_migration_plan.md)
-  - move image delivery to Cloudflare R2 + CDN
+  - image-delivery migration history and architecture decisions
 - [Convention Mode Access Plan](architecture/convention_mode_access_plan.md)
   - access model for anonymous read-only convention use and authenticated writes
 - [Convention Runtime Policy](architecture/convention_runtime_policy.md)

@@ -16,15 +16,15 @@ export const apiBaseUrl = normalizeUrl(
 // Optional local image mount (for development/local volume use).
 export const imageLocalBaseUrl = normalizeUrl(
   process.env.REACT_APP_IMAGE_LOCAL_BASE_URL ||
-    (isDevelopment ? 'http://localhost:8000/images' : '')
+    (isDevelopment ? 'http://localhost:8000/images' : '/images')
 );
 
-// Optional CDN base URL (for R2 + CDN cutover).
+// Optional CDN base URL (backup path; primary runtime is fly_local).
 export const imageCdnBaseUrl = normalizeUrl(
   process.env.REACT_APP_IMAGE_CDN_BASE_URL || ''
 );
 
-// Keep proxy fallback enabled by default until the R2 cutover is complete.
+// Keep proxy fallback enabled by default as a resilience safety net.
 export const useImageProxyFallback =
   (process.env.REACT_APP_IMAGE_USE_PROXY_FALLBACK || 'true').toLowerCase() ===
   'true';

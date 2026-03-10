@@ -9,8 +9,11 @@ This file is the canonical home for ad hoc and medium-term roadmap items that we
 
 ## UI
 - In the dialog, show preferred and best player counts.
+- Add in-library indicators to the game details dialog content area.
+- Add in-library indicators to similar games shown in the dialog recommendations section.
 - Keep game details dialog open when applying dialog-based filters (do not auto-close on filter chip click).
 - In game details dialog, show selected-state styling for already-applied filter chips (for example blue chip), and avoid invisible toggle behavior.
+- Reset game catalog pagination to page 1 when toggling between `pax_only` and `all board games` to avoid invalid/out-of-range pages (for example page 7020 in all-games -> page 7020 in pax-only).
 - Update Board Game Catalog Help Guide content to match current behavior and remove stale guidance.
   - Example stale copy to remove/update: recommendation/session behavior after page refresh.
 

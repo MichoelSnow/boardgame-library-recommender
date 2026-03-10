@@ -6,7 +6,7 @@
 
 ## Usage
 - Use this as the canonical launch gate for convention readiness.
-- Keep ad hoc follow-ups in [backlog.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/backlog.md).
+- Keep ad hoc follow-ups in [backlog.md](backlog.md).
 - Keep `docs/roadmaps/best_practices_migration_guide.md` for long-horizon engineering and architecture work.
 
 ## Priority Legend
@@ -39,14 +39,15 @@
 - [x] [P0] Define and test backup procedure for self-managed Postgres on Fly.
 - [x] [P0] Define and test restore procedure for self-managed Postgres on Fly.
 - [x] [P0] Make the production app fail fast when `DATABASE_URL` is missing before the final Postgres production cutover.
-- [ ] [P0] Create Cloudflare R2 bucket and define canonical image URL/key config.
+- [x] [P0] Define canonical Fly-local image storage/runtime model (`IMAGE_BACKEND=fly_local`, `/data/images` originals + thumbnails).
 - [x] [P0] Build the seeded image backfill pipeline for:
   - convention/library-relevant games
   - top `10,000` ranked games
 - [x] [P0] Build the ongoing image-sync script for qualifying games.
 - [x] [P0] Wire import/update flows to trigger image-sync checks.
-- [ ] [P0] Cut `dev` over to R2-backed image delivery and validate.
-- [ ] [P0] Cut `prod` over to R2-backed image delivery and validate.
+- [x] [P0] Cut `dev` over to Fly-local image delivery and validate.
+- [ ] [P0] Cut `prod` over to Fly-local image delivery and validate (post-merge promotion only).
+- [ ] [P1] (Backup path) Validate Cloudflare R2 fallback path after primary Fly-local cutover is stable.
 - [ ] [P1] Confirm placeholder behavior is clean for missing images.
 - [x] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
@@ -111,7 +112,7 @@
 ## Data Refresh and Operations
 - [ ] [P0] Finalize and document the offline rebuild -> cutover data refresh procedure.
 - [ ] [P0] Confirm no live rebuilds will run during convention hours.
-- [ ] [P0] Validate the monthly rebuild path against the new Postgres + R2 architecture.
+- [ ] [P0] Validate the monthly rebuild path against the new Postgres + Fly-local image architecture.
 - [ ] [P0] Validate manual refresh trigger procedure.
 - [ ] [P0] Validate `data_pipeline/src` jobs on Fly runtime targets and record OOM-safe CPU/RAM/job sizing.
 - [ ] [P0] Decide and document pipeline execution topology before convention:

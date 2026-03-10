@@ -1,154 +1,72 @@
 # Image Storage Migration Plan
 
 ## Purpose
-- Define the migration away from direct runtime image loading from BoardGameGeek.
-- Move toward a controlled image-delivery path using object storage plus CDN.
+- Define image delivery architecture that avoids direct client/runtime dependency on BoardGameGeek for normal operation.
+- Keep the convention path fast, reliable, and operationally simple.
+
+## Current Status (2026-03-09)
+- `dev` has been updated and validated on the Fly-local image model.
+- `prod` has not been changed yet by design.
+- Production cutover is intentionally deferred until:
+  1. changes are merged to `main`
+  2. `main` is deployed to `prod`
+  3. production image seeding is executed and validated
 
 ## Goals
-- Reduce latency for mobile-heavy usage.
-- Remove runtime dependency on BoardGameGeek for normal image delivery.
-- Improve reliability during convention usage.
-- Use a cost-efficient object storage provider for image delivery.
+- Reduce card-grid image latency.
+- Keep image delivery resilient during convention usage.
+- Minimize moving parts and recurring infrastructure cost.
+- Preserve a rollback path if the primary model regresses.
 
 ## Service-Level Reference
-- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
-- This migration must support the image-delivery target and remain aligned with the overall convention-hour reliability and recovery targets.
+- Canonical performance/reliability/recovery targets: [service_level_targets.md](../policies/service_level_targets.md).
 
 ## Cutover Strategy Reference
-- Cross-cutting sequencing and rollback rules are defined in [migration_cutover_strategy.md](/home/msnow/git/pax_tt_recommender/docs/architecture/migration_cutover_strategy.md).
-- This migration should be shipped as its own major cutover, not combined with the Postgres cutover.
+- Cross-cutting sequencing and rollback rules: [migration_cutover_strategy.md](migration_cutover_strategy.md).
 
 ## Non-Goals
-- Do not store images in the relational database.
-- Do not require the provider choice to be finalized before documenting the migration plan.
+- Store images in relational DB tables.
+- Make image migration dependent on Postgres migration sequencing.
 
-## Target Architecture
-- Store image assets in object storage.
-- Serve them through a CDN.
-- Target provider:
-  - Cloudflare R2
-- Delivery model:
-  - Cloudflare R2 object storage plus CDN delivery
-- Store stable image keys/paths in app data, not full provider URLs.
-- Preferred key format:
-  - `games/<bgg_id>.<ext>`
-- Use a single shared R2 bucket across local/dev/prod to avoid duplicate storage cost.
-- Environment separation for runtime behavior is handled by app config and deployment process, not by duplicating image objects per environment.
+## Active Target Architecture
+- Primary runtime model (`dev`, planned for `prod`):
+  - `IMAGE_BACKEND=fly_local`
+  - image files on app volume under `/data/images`
+- Storage layout:
+  - originals: `/data/images/games/<bgg_id>.<ext>`
+  - thumbnails: `/data/images/thumbnails/<bgg_id>.webp`
+- Client behavior:
+  - catalog cards prefer thumbnail path first
+  - details view prefers original path
+- Cache-fill behavior:
+  - `/api/images/{game_id}/cached?image_url=<origin-url>` can fill missing originals and generate thumbnail sidecar
 
-## Current State
-- The app currently depends on BoardGameGeek-hosted image URLs at runtime.
-- This adds:
-  - extra latency
-  - external dependency risk
-  - less predictable performance during heavy use
+## Backup Architecture (Retained, Not Primary)
+- Cloudflare R2 path remains available as backup/rollback support only.
+- It is not the first-line runtime path.
 
-## Failure Policy
-- Final-state runtime behavior should not depend on BoardGameGeek for image delivery.
-- If an image is missing after cutover, the app should render a local placeholder image rather than a broken image or a runtime fallback to BoardGameGeek.
-- The placeholder should:
-  - keep the same card aspect ratio and layout
-  - avoid broken-image icons
-  - optionally display subtle "Image unavailable" messaging
+## Design Decisions
+- Keep stable keying by BGG ID (`games/<bgg_id>.<ext>`).
+- Keep thumbnails as a sidecar (`thumbnails/<bgg_id>.webp`) while retaining originals.
+- Prefer Fly-local serving for primary runtime simplicity/perf.
+- Preserve R2 tooling as a contingency path.
 
-## Key Design Decisions
-- Key images by BoardGameGeek game ID where possible.
-- Keep the image layer independent from the relational DB migration.
-- Do not combine this migration with the Postgres cutover in one step.
-- Treat this as a deliberate Phase 4 cutover effort, not an indefinite hybrid state.
-- Store only the image key/path in app data; construct the full provider/CDN URL from configuration.
-
-## Migration Sequence
-1. Create one Cloudflare R2 bucket and define the public/CDN URL pattern.
-2. Define the canonical storage key format (preferably based on BGG ID).
-3. Build the bulk image-download pipeline for the seeded initial catalog.
-4. Seed Cloudflare R2 with:
-   - all convention/library-relevant games
-   - the top `10,000` games across ranked lists (accepting overlap between lists)
-5. Build a single image-sync script that:
-   - checks whether a game is library-relevant, or
-   - checks whether a game is in the top `10,000` ranked set,
-   - and downloads/uploads the image if it qualifies and is missing
-6. Trigger that image-sync script from the import/update path so it handles:
-   - newly added qualifying games
-   - games that newly become library-relevant
-   - games whose rank rises into the top `10,000`
-7. Update the app to resolve images from the new storage path using stored image keys/paths.
-8. Validate coverage, latency, cache-miss behavior, and placeholder behavior in `dev`.
-9. Cut production over to the Cloudflare R2-backed image-delivery path.
-
-## Current Implementation Baseline (Completed)
-- Frontend image resolution is now centralized in `frontend/src/utils/imageUrls.js`.
-- Runtime-configurable image sources are supported:
-  - `REACT_APP_IMAGE_CDN_BASE_URL` for CDN/R2 delivery
-  - `REACT_APP_IMAGE_LOCAL_BASE_URL` for local mounted images
-  - `REACT_APP_IMAGE_USE_PROXY_FALLBACK` for backend proxy fallback control
-  - `REACT_APP_IMAGE_PLACEHOLDER` for placeholder asset override
-- Default placeholder path now resolves to `/assets/images/game-placeholder.svg` and no longer depends on the missing `/placeholder.png` path.
-- `GameCard` and `GameDetails` use the same URL resolution rules to avoid split behavior.
-- App image resolution now supports CDN-first cache fill:
-  - frontend first tries `REACT_APP_IMAGE_CDN_BASE_URL`
-  - fallback endpoint `/api/images/{game_id}/cached` syncs missing images into R2 and redirects
-- Canonical key strategy is implemented in code as `games/<bgg_id>.<ext>` via `data_pipeline/src/assets/r2_sync.py`.
-- Ongoing/seed sync entrypoint is implemented at `data_pipeline/src/assets/sync_r2_images.py`:
-  - `--scope all-qualified` for top-rank + PAX qualifying sets
-  - `--scope pax-only` for PAX-specific refreshes
-- Import flows can now trigger sync checks:
-  - `backend/app/import_data.py --sync-images-r2`
-  - `backend/app/import_pax_data.py --sync-images-r2`
-
-## Operational Constraints
-- The migration should prioritize mobile performance.
-- The migration should minimize new ongoing cost where possible.
-- The migration should be validated in `dev` before production cutover.
-- The implementation should assume Cloudflare R2 unless a later cost or operational constraint forces re-evaluation.
-- The initial cutover does not require a full all-games backfill; the seeded catalog plus controlled cache-fill path is the target.
-
-## Cost Analysis (Current Planning Estimate)
-- Current catalog size:
-  - `168,475` games
-- Image-size estimate source:
-  - local image files for ranked games `1..100`
-  - `98 / 100` images present locally
-- Observed sample statistics:
-  - mean image size: `770,913` bytes (`752.85 KiB`)
-  - standard deviation: `854,336` bytes (`834.31 KiB`)
-- Estimated total storage footprint for `168,475` games using the observed mean:
-  - `129,879,638,434` bytes
-  - `129.88 GB` (decimal)
-  - `120.96 GiB` (binary)
-- Estimated monthly storage cost using this sample-based mean:
-  - Fly storage at `$0.15 / GB-month`: about `$19.48 / month`
-  - R2 storage at `$0.015 / GB-month`: about `$1.95 / month`
-- Interpretation:
-  - R2 is about `10x` cheaper on storage alone under this estimate
-  - storage-only pricing is not the whole decision; request/egress/CDN behavior still matter
-  - despite that caveat, Cloudflare R2 is the chosen target provider for Phase 4 planning based on current cost direction
-- Sample caveat:
-  - this estimate is based on a top-100 ranked-game sample, not the full corpus
-  - the top-ranked sample may overrepresent larger images, so final all-catalog sizing should be verified before provider selection
+## Migration Sequence (Primary Path)
+1. Implement and validate Fly-local image serving in `dev`.
+2. Seed `dev` volume images using BGG-origin sync.
+3. Validate image performance and placeholder behavior in `dev`.
+4. Merge to `main`.
+5. Deploy `main` to `prod`.
+6. Seed `prod` image volume (BGG-origin sync).
+7. Run production validation.
+8. Keep R2 path available only as backup.
 
 ## Validation Criteria
-- Most requested images resolve from the new storage path.
-- BoardGameGeek is used only as a controlled cache-fill origin on R2 misses, not as the normal client-facing image source.
-- Missing images fall back to the local placeholder cleanly.
-- First meaningful image is visible within the target `1500 ms` budget under representative convention conditions.
-- Broken-image rates are acceptable before final cutover.
+- Catalog cards load via thumbnail path without broken-image icons.
+- Details view loads originals correctly.
+- Missing images resolve to placeholder cleanly.
+- Image operations are documented in one operational runbook.
+- Production cutover follows dev-first promotion discipline.
 
-## Seeded Cache Strategy
-- Initial preload target:
-  - all convention/library-relevant games
-  - top `10,000` games from ranked lists
-- Because the ranked lists overlap, the actual seeded image count will be lower than a naive additive count.
-- This reduces:
-  - initial migration time
-  - initial storage footprint
-  - upfront download volume
-- The long tail should be filled by the controlled cache-miss ingestion path over time.
-
-## Cache-Miss Policy
-- Prefer a non-blocking cache-miss policy in V1:
-  - if an image is missing from R2 at request time, render the local placeholder
-  - record/log the miss for follow-up ingestion
-- Do not make the main user-facing request path wait on a synchronous BoardGameGeek fetch in the first implementation.
-- This keeps request latency predictable and avoids coupling page-render latency to third-party image fetches.
-- If synchronous cache fill is ever added later, it should include explicit duplicate-fill protection for the same image key.
+## Operations Reference
+- Canonical commands and procedures: [image_storage_operations.md](../runbooks/image_storage_operations.md).

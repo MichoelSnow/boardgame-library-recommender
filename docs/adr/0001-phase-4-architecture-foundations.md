@@ -39,15 +39,21 @@
 
 ### Tradeoffs
 - Direct BGG loading is simplest but creates latency and external dependency risk.
-- Fly storage keeps infrastructure consolidated but is materially more expensive on current estimates.
-- Cloudflare R2 is cheaper on storage and fits the object-storage + CDN delivery model better.
+- Fly storage keeps infrastructure consolidated and operationally simple for this project shape.
+- Cloudflare R2 is cheaper on storage and remains viable as a backup path, but adds external-service setup/ops overhead.
 
 ### Final Decision
-- Move image delivery to Cloudflare R2 + CDN.
+- Move image delivery to Fly-local volume storage as the primary runtime path.
+- Keep Cloudflare R2 path available as a backup/rollback option.
 - Store stable image keys/paths, not full provider URLs.
-- Use a seeded-cache strategy with:
+- Use a seeded strategy with:
   - convention/library-relevant games
   - top `10,000` ranked games
+
+### Decision Update (2026-03-09)
+- Primary runtime image delivery switched to Fly-local (`IMAGE_BACKEND=fly_local`) with originals + thumbnail sidecars.
+- R2 tooling is retained as backup-only and is not the normal serving path.
+- `dev` validation is complete; `prod` rollout remains explicitly deferred until post-merge promotion.
 
 ## Decision 3: Convention Access Model
 ### Options Considered

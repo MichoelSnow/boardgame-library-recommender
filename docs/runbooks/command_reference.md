@@ -234,35 +234,37 @@ k6 run \
   -e THINK_TIME_SECONDS="2.0" \
   scripts/load/k6_rehearsal.js
 ```
-## 11. R2 Image Sync
+## 11. Fly Image Seed (Primary)
 
-Dry run:
+Seed all qualified images directly from BGG to Fly dev volume:
+
 ```bash
-poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
 ```
 
-Actual sync:
+Dry run candidate count:
+
 ```bash
-poetry run python -m data_pipeline.src.assets.sync_r2_images --scope all-qualified --max-rank 10000
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
 ```
 
-PAX-only sync:
+PAX-only seed:
 ```bash
-poetry run python -m data_pipeline.src.assets.sync_r2_images --scope pax-only
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope pax-only"'
 ```
 
-Import + sync:
+Count image files on Fly volume:
 ```bash
-poetry run python backend/app/import_data.py --sync-images-r2 --sync-images-max-rank 10000
-poetry run python backend/app/import_pax_data.py --sync-images-r2
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
 ```
 
-Count candidates:
+## 12. R2 Commands (Backup-Only)
+
+R2 dry run candidates:
 ```bash
 poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000 2>&1 \
   | awk -F': ' '/Candidates selected/ {print $2}'
 ```
-
 
 Count R2 objects:
 ```bash

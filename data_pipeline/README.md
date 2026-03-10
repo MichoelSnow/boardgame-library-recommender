@@ -15,6 +15,7 @@
   - `create_embeddings.py`
   - `recommender.py`
 - `src/assets/`
+  - `sync_fly_images.py`
   - `download_images.py`
   - `r2_sync.py`
   - `sync_r2_images.py`
@@ -78,7 +79,7 @@ Resume mode:
 poetry run python -m data_pipeline.src.ingest.get_ratings --continue-from-last
 ```
 
-### DuckDB Ratings Backend
+### 3a) DuckDB Ratings Backend
 
 The ratings crawler uses DuckDB as a persistent crawl-time store.
 
@@ -155,10 +156,40 @@ Optional reset import:
 poetry run python backend/app/import_pax_data.py --delete-existing
 ```
 
-## Image Sync to Cloudflare R2
+## Image Seeding to Fly Volumes (Primary)
+
+Active runtime for `dev` and `prod` is Fly-local images:
+- `IMAGE_BACKEND=fly_local`
+- `IMAGE_STORAGE_DIR=/data/images`
+
+Primary seed command (BGG origin -> Fly/local image storage):
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000
+```
+
+Scope variants:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_fly_images --scope pax-only
+poetry run python -m data_pipeline.src.assets.sync_fly_images --scope top-rank-only --max-rank 10000
+```
+
+Dry-run:
+
+```bash
+poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run
+```
+
+For Fly machine commands (dev/prod `fly ssh` usage), file counts, and validation:
+- [docs/runbooks/image_storage_operations.md](../docs/runbooks/image_storage_operations.md)
+
+## Cloudflare R2 Path (Deprecated Backup-Only)
+
+This path is retained only for rollback/contingency operations.
+Do not use it as the default workflow.
 
 Canonical object keys use `games/<bgg_id>.<ext>` (for example `games/224517.jpg`).
-Use a single shared R2 bucket for local/dev/prod to avoid duplicated storage costs.
 
 Required environment variables:
 
@@ -172,48 +203,41 @@ R2_REGION=auto
 R2_PUBLIC_BASE_URL=<cdn-base-url>
 ```
 
-Seed/ongoing sync script:
+R2 sync command:
 
 ```bash
 poetry run python -m data_pipeline.src.assets.sync_r2_images --scope all-qualified --max-rank 10000
 ```
 
-Behavior note:
+R2 behavior notes:
 - Existing R2 objects are prefetched by default from `games/` and skipped without download.
 - If prefetch fails, the script falls back to per-ID existence checks.
 - Images are not re-downloaded when already present unless `--overwrite-existing` is passed.
 
-Optional flag:
+Optional flags and scopes:
 
 ```bash
 poetry run python -m data_pipeline.src.assets.sync_r2_images --no-prefetch-existing
-```
-
-Scope-specific runs:
-
-```bash
 poetry run python -m data_pipeline.src.assets.sync_r2_images --scope pax-only
 poetry run python -m data_pipeline.src.assets.sync_r2_images --scope top-rank-only --max-rank 10000
-```
-
-Dry-run candidate verification:
-
-```bash
 poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000
 ```
 
-Downloader integration (download locally and sync uploaded files in the same pass):
+Import integration commands:
 
 ```bash
+# Primary path (Fly-local)
+poetry run python backend/app/import_data.py --sync-images --sync-images-backend fly_local --sync-images-max-rank 10000
+poetry run python backend/app/import_pax_data.py --sync-images --sync-images-backend fly_local
+
+# Backup path (R2)
 poetry run python -m data_pipeline.src.assets.download_images --sync-r2
+poetry run python backend/app/import_data.py --sync-images --sync-images-backend r2_cdn --sync-images-max-rank 10000
+poetry run python backend/app/import_pax_data.py --sync-images --sync-images-backend r2_cdn
 ```
 
-Import workflow integration:
-
-```bash
-poetry run python backend/app/import_data.py --sync-images-r2 --sync-images-max-rank 10000
-poetry run python backend/app/import_pax_data.py --sync-images-r2
-```
+Compatibility note:
+- `--sync-images-r2` is still accepted as a legacy alias and maps to `--sync-images --sync-images-backend r2_cdn`.
 
 ## Notebook Policy
 - Notebooks are allowed only under `data_pipeline/notebooks/`.

@@ -9,6 +9,7 @@ from typing import List, Literal, Optional
 import logging
 import httpx
 import hmac
+import mimetypes
 from urllib.parse import quote
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -21,15 +22,16 @@ from .db_keepalive import (
     should_enable_db_keepalive,
     stop_keepalive_task,
 )
+from .image_processing import build_thumbnail_relative_path, write_webp_thumbnail
 import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
 from pydantic import BaseModel
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 from .logging_utils import build_log_handlers
 from .versioning import get_app_version
-from data_pipeline.src.assets.r2_sync import R2ImageSyncer, r2_config_available
 
 # Configure logging
 logging.basicConfig(
@@ -44,8 +46,13 @@ models.Base.metadata.create_all(bind=engine)
 
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-# Define images directory for local development
-IMAGES_DIR = PROJECT_ROOT / "backend" / "database" / "images"
+# Define images directory (local default, Fly override via IMAGE_STORAGE_DIR)
+IMAGE_STORAGE_DIR = Path(
+    os.getenv(
+        "IMAGE_STORAGE_DIR",
+        str(PROJECT_ROOT / "backend" / "database" / "images"),
+    )
+)
 STATIC_DIR = PROJECT_ROOT / "frontend" / "build"
 
 app = FastAPI(
@@ -68,6 +75,16 @@ GameSortField = Literal[
     "name_desc",
     "recommendation_score",
 ]
+
+ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "avif"}
+CONTENT_TYPE_TO_EXTENSION = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/avif": "avif",
+}
 
 
 class KioskEnrollRequest(BaseModel):
@@ -142,12 +159,17 @@ app.add_middleware(
 # Add Gzip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Mount images directory for local development with CORS support
-if os.path.exists(IMAGES_DIR):
-    logger.info(f"Mounting images directory from {IMAGES_DIR}")
-    app.mount("/images", CORSAwareStaticFiles(directory=str(IMAGES_DIR)), name="images")
-else:
-    logger.warning(f"Images directory not found at {IMAGES_DIR}")
+# Mount images directory with CORS support
+try:
+    IMAGE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    logger.info("Mounting images directory from %s", IMAGE_STORAGE_DIR)
+    app.mount(
+        "/images",
+        CORSAwareStaticFiles(directory=str(IMAGE_STORAGE_DIR)),
+        name="images",
+    )
+except Exception as exc:  # pragma: no cover - startup safety logging
+    logger.warning("Failed to mount images directory %s: %s", IMAGE_STORAGE_DIR, exc)
 
 # # Serve static frontend files
 # if os.path.exists(STATIC_DIR):
@@ -233,6 +255,75 @@ async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
 def get_r2_public_base_url() -> str | None:
     """Return configured public CDN base URL for image delivery, if present."""
     return os.getenv("R2_PUBLIC_BASE_URL", "").strip().rstrip("/") or None
+
+
+def infer_extension_from_content_type(content_type: str | None) -> str | None:
+    if not content_type:
+        return None
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return CONTENT_TYPE_TO_EXTENSION.get(media_type)
+
+
+def infer_extension_from_url(image_url: str | None) -> str | None:
+    if not image_url:
+        return None
+    guessed_type, _ = mimetypes.guess_type(image_url)
+    if guessed_type:
+        extension = infer_extension_from_content_type(guessed_type)
+        if extension:
+            return extension
+    filename = image_url.split("?", 1)[0].split("#", 1)[0].rsplit("/", 1)[-1]
+    if "." not in filename:
+        return None
+    extension = filename.rsplit(".", 1)[-1].lower()
+    if extension in ALLOWED_IMAGE_EXTENSIONS:
+        return "jpg" if extension == "jpeg" else extension
+    return None
+
+
+def build_image_storage_relative_path(
+    game_id: int,
+    *,
+    image_url: str | None = None,
+    content_type: str | None = None,
+) -> str:
+    extension = (
+        infer_extension_from_content_type(content_type)
+        or infer_extension_from_url(image_url)
+        or "jpg"
+    )
+    return f"games/{game_id}.{extension}"
+
+
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+async def download_origin_image_content(
+    image_url: str,
+    *,
+    timeout_seconds: int = 20,
+) -> tuple[bytes, str | None]:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(image_url, timeout=timeout_seconds)
+        response.raise_for_status()
+        return response.content, response.headers.get("Content-Type")
+
+
+def get_image_backend() -> str:
+    """Return active image backend mode."""
+    return os.getenv("IMAGE_BACKEND", "bgg_proxy").strip().lower()
+
+
+def find_existing_local_image_relative_path(game_id: int) -> str | None:
+    for extension in sorted(ALLOWED_IMAGE_EXTENSIONS):
+        normalized_ext = "jpg" if extension == "jpeg" else extension
+        relative_path = f"games/{game_id}.{normalized_ext}"
+        if (IMAGE_STORAGE_DIR / relative_path).exists():
+            return relative_path
+    return None
 
 @app.get("/api")
 async def api_root():
@@ -352,40 +443,85 @@ async def proxy_image(url: str):
 
 
 @app.get("/api/images/{game_id}/cached")
-async def get_cached_image(game_id: int, db: Session = Depends(get_db)):
+async def get_cached_image(
+    game_id: int,
+    image_url: Optional[str] = Query(default=None),
+):
     """
-    Resolve an image by game ID, preferring R2/CDN.
+    Resolve an image by game ID using the configured backend.
 
-    If the image key is missing in R2, fetch from origin and upload to R2,
-    then redirect to the CDN URL.
+    - `fly_local`: redirect to mounted local files and cache-fill from origin on misses.
+    - `r2_cdn`: redirect to configured public CDN key path.
+    - fallback/unknown: proxy origin image.
     """
-    game = crud.get_game(db, game_id)
-    if game is None or not game.image:
-        raise HTTPException(status_code=404, detail="Game image not found")
+    resolved_image_url = (image_url or "").strip()
+    if not resolved_image_url:
+        db = SessionLocal()
+        try:
+            game = crud.get_game(db, game_id)
+            if game is None or not game.image:
+                raise HTTPException(status_code=404, detail="Game image not found")
+            resolved_image_url = game.image
+        finally:
+            db.close()
 
-    r2_public_base_url = get_r2_public_base_url()
-    if not r2_public_base_url or not r2_config_available():
+    image_backend = get_image_backend()
+
+    if image_backend == "fly_local":
+        try:
+            existing_relative_path = find_existing_local_image_relative_path(game_id)
+            if existing_relative_path:
+                return RedirectResponse(
+                    url=f"/images/{existing_relative_path}",
+                    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+                )
+
+            image_bytes, content_type = await download_origin_image_content(resolved_image_url)
+            relative_path = build_image_storage_relative_path(
+                game_id,
+                image_url=resolved_image_url,
+                content_type=content_type,
+            )
+            destination = IMAGE_STORAGE_DIR / relative_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(image_bytes)
+            write_webp_thumbnail(
+                image_bytes,
+                IMAGE_STORAGE_DIR / build_thumbnail_relative_path(game_id),
+            )
+            return RedirectResponse(
+                url=f"/images/{relative_path}",
+                status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            )
+        except Exception as exc:  # pragma: no cover - defensive fallback path
+            logger.warning(
+                "Fly-local image cache-fill failed for game_id=%s image=%s; falling back to proxy. Error: %s",
+                game_id,
+                resolved_image_url,
+                exc,
+            )
+            return RedirectResponse(
+                url=f"/api/proxy-image/{quote(resolved_image_url, safe='')}",
+                status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            )
+
+    if image_backend == "r2_cdn":
+        r2_public_base_url = get_r2_public_base_url()
+        if r2_public_base_url:
+            key = build_image_storage_relative_path(game_id, image_url=resolved_image_url)
+            return RedirectResponse(
+                url=f"{r2_public_base_url}/{key}",
+                status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+            )
+
+    try:  # Fallback for bgg_proxy or unknown backend values
         return RedirectResponse(
-            url=f"/api/proxy-image/{quote(game.image, safe='')}",
+            url=f"/api/proxy-image/{quote(resolved_image_url, safe='')}",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
-
-    try:
-        syncer = R2ImageSyncer.from_env()
-        key, _ = syncer.sync_image_url(bgg_id=game_id, image_url=game.image)
+    except Exception:  # pragma: no cover - defensive fallback path
         return RedirectResponse(
-            url=f"{r2_public_base_url}/{key}",
-            status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-        )
-    except Exception as exc:  # pragma: no cover - defensive fallback path
-        logger.warning(
-            "R2 cache-fill failed for game_id=%s image=%s; falling back to proxy. Error: %s",
-            game_id,
-            game.image,
-            exc,
-        )
-        return RedirectResponse(
-            url=f"/api/proxy-image/{quote(game.image, safe='')}",
+            url=f"/api/proxy-image/{quote(resolved_image_url, safe='')}",
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
