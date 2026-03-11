@@ -1,5 +1,8 @@
 from sqlalchemy import UniqueConstraint
+from sqlalchemy.sql.selectable import FromClause
+from sqlalchemy.orm import Session
 from types import SimpleNamespace
+from typing import Any, cast
 
 from backend.app import crud, models
 
@@ -40,7 +43,9 @@ def test_add_mechanic_returns_existing_relation_without_duplicate_insert():
     )
     db = FakeSession(existing=existing_relation)
 
-    result = crud.add_mechanic(db, game_id=7, mechanic_name="Deck Building")
+    result = crud.add_mechanic(
+        cast(Session, db), game_id=7, mechanic_name="Deck Building"
+    )
 
     assert result is existing_relation
     assert db.queried_model is models.Mechanic
@@ -51,18 +56,21 @@ def test_add_mechanic_returns_existing_relation_without_duplicate_insert():
 def test_add_mechanic_creates_relation_when_missing():
     db = FakeSession()
 
-    result = crud.add_mechanic(db, game_id=9, mechanic_name="Worker Placement")
+    result = crud.add_mechanic(
+        cast(Session, db), game_id=9, mechanic_name="Worker Placement"
+    )
+    result_any = cast(Any, result)
 
     assert isinstance(result, models.Mechanic)
-    assert result.game_id == 9
-    assert result.boardgamemechanic_name == "Worker Placement"
+    assert result_any.game_id == 9
+    assert result_any.boardgamemechanic_name == "Worker Placement"
     assert db.queried_model is models.Mechanic
     assert db.added is result
     assert db.commit_count == 1
 
 
 def test_relation_tables_define_name_uniqueness_constraints():
-    expected_constraints = {
+    expected_constraints: dict[FromClause, tuple[str, str]] = {
         models.Mechanic.__table__: ("game_id", "boardgamemechanic_name"),
         models.Category.__table__: ("game_id", "boardgamecategory_name"),
         models.Designer.__table__: ("game_id", "boardgamedesigner_name"),
@@ -71,9 +79,10 @@ def test_relation_tables_define_name_uniqueness_constraints():
     }
 
     for table, expected_columns in expected_constraints.items():
+        table_with_constraints = cast(Any, table)
         unique_constraints = [
             constraint
-            for constraint in table.constraints
+            for constraint in table_with_constraints.constraints
             if isinstance(constraint, UniqueConstraint)
         ]
         assert any(

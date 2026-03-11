@@ -1,5 +1,7 @@
 import sqlalchemy as sa
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
+from sqlalchemy.engine import Connection
+from typing import cast
 
 from backend.scripts.migrate_sqlite_to_postgres import (
     fetch_source_rows,
@@ -187,7 +189,7 @@ def test_reset_postgres_sequences_only_targets_integer_primary_keys():
 
     reset_postgres_sequences(
         ["with_id", "without_integer_id"],
-        FakeConnection(),
+        cast(Connection, FakeConnection()),
         {
             "with_id": with_id,
             "without_integer_id": without_integer_id,
