@@ -1,16 +1,28 @@
 {
   "allowed_high_or_critical_packages": [
     "@remix-run/router",
+    "@svgr/plugin-svgo",
+    "@svgr/webpack",
     "@tootallnate/once",
     "axios",
+    "css-minimizer-webpack-plugin",
+    "css-select",
     "form-data",
     "glob",
     "jsonpath",
     "minimatch",
     "node-forge",
     "nth-check",
+    "react-router",
+    "react-router-dom",
+    "react-scripts",
     "rollup",
+    "rollup-plugin-terser",
     "serialize-javascript",
-    "underscore"
+    "svgo",
+    "terser-webpack-plugin",
+    "underscore",
+    "workbox-build",
+    "workbox-webpack-plugin"
   ]
 }

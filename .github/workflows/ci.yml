@@ -44,6 +44,8 @@ jobs:
 
   python-quality:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "DUMMY_CI_ONLY_SECRET_KEY_NOT_FOR_PRODUCTION_12345"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
