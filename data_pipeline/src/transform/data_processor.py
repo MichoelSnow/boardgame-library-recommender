@@ -7,7 +7,7 @@ It combines board game rankings and detailed game data into a format that matche
 
 import pandas as pd
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, cast
 import logging
 import time
 import csv
@@ -184,8 +184,9 @@ def save_suggested_num_players(
             for k, v in d.items()
         ]
     )
+    votes_data = cast(pd.Series, df_exploded["votes"]).tolist()
     df_exploded = pd.concat(
-        [df_exploded.drop(columns="votes"), pd.json_normalize(df_exploded["votes"])],
+        [df_exploded.drop(columns="votes"), pd.json_normalize(votes_data)],
         axis=1,
     )
     df_exploded = df_exploded.loc[
@@ -357,6 +358,7 @@ def combine_crawler_data(
     # Filter out excluded games
     if exclude_ids:
         df_merged = df_merged[~df_merged["id"].isin(exclude_ids)]
+    df_merged = cast(pd.DataFrame, df_merged)
 
     # Save the basic info
     save_basic_info(df_merged, output_file_base, timestamp)
