@@ -1,0 +1,16 @@
+{
+  "allowed_high_or_critical_packages": [
+    "@remix-run/router",
+    "@tootallnate/once",
+    "axios",
+    "form-data",
+    "glob",
+    "jsonpath",
+    "minimatch",
+    "node-forge",
+    "nth-check",
+    "rollup",
+    "serialize-javascript",
+    "underscore"
+  ]
+}

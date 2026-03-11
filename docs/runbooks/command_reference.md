@@ -274,3 +274,33 @@ export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
 aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
   --endpoint-url "$R2_ENDPOINT_URL"
 ```
+
+## 13. Quality Gates
+
+Python:
+```bash
+poetry run black --check \
+  backend/tests/test_api_endpoints.py \
+  data_pipeline/src/features/create_embeddings.py \
+  data_pipeline/tests/test_create_embeddings.py \
+  data_pipeline/tests/test_data_processor.py
+poetry run ruff check \
+  backend/tests/test_api_endpoints.py \
+  data_pipeline/src/features/create_embeddings.py \
+  data_pipeline/tests/test_create_embeddings.py \
+  data_pipeline/tests/test_data_processor.py \
+  scripts/alerts/run_prod_health_alerts.py \
+  scripts/db/fly_postgres_backup.py \
+  scripts/db/fly_postgres_restore.py \
+  scripts/validation_common.py
+poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
+```
+
+Frontend:
+```bash
+cd frontend
+npm run lint
+npm run build
+npm audit --omit=dev --json > /tmp/npm_audit.json
+python ../scripts/validate/validate_frontend_audit.py
+```

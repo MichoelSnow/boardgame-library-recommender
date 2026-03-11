@@ -23,17 +23,32 @@ def override_main_db_dependency():
 @pytest.fixture
 async def api_client():
     transport = httpx.ASGITransport(app=main.app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
         yield client
 
 
 @pytest.mark.anyio
-async def test_games_endpoint_passes_filter_and_pagination_params(monkeypatch, api_client):
+async def test_games_endpoint_passes_filter_and_pagination_params(
+    monkeypatch, api_client
+):
     captured = {}
 
     def mock_get_games(**kwargs):
         captured.update(kwargs)
-        return ([{"id": 1, "name": "Alpha", "mechanics": [], "categories": [], "suggested_players": []}], 1)
+        return (
+            [
+                {
+                    "id": 1,
+                    "name": "Alpha",
+                    "mechanics": [],
+                    "categories": [],
+                    "suggested_players": [],
+                }
+            ],
+            1,
+        )
 
     monkeypatch.setattr(main.crud, "get_games", mock_get_games)
 
@@ -61,7 +76,9 @@ async def test_games_endpoint_passes_filter_and_pagination_params(monkeypatch, a
 @pytest.mark.anyio
 async def test_games_endpoint_rejects_invalid_limit():
     transport = httpx.ASGITransport(app=main.app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as api_client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as api_client:
         response = await api_client.get("/api/games/", params={"limit": 0})
     assert response.status_code == 422
 
@@ -116,7 +133,9 @@ async def test_auth_token_success_and_failure(monkeypatch, api_client):
         "authenticate_user",
         lambda db, u, p: SimpleNamespace(username="u"),
     )
-    monkeypatch.setattr(security, "create_access_token", lambda data, expires_delta=None: "token123")
+    monkeypatch.setattr(
+        security, "create_access_token", lambda data, expires_delta=None: "token123"
+    )
     good = await api_client.post("/api/token", data={"username": "u", "password": "ok"})
     assert good.status_code == 200
     assert good.json()["access_token"] == "token123"
@@ -130,7 +149,9 @@ async def test_users_me_requires_auth(api_client):
 
 @pytest.mark.anyio
 async def test_users_me_and_password_change_authenticated(monkeypatch, api_client):
-    main.app.dependency_overrides[security.get_current_active_user] = _override_current_user
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
     monkeypatch.setattr(main.crud, "change_user_password", lambda **kwargs: True)
 
     me = await api_client.get("/api/users/me/")
@@ -155,7 +176,9 @@ async def test_suggestions_requires_auth(api_client):
 
 @pytest.mark.anyio
 async def test_suggestions_authenticated(monkeypatch, api_client):
-    main.app.dependency_overrides[security.get_current_active_user] = _override_current_user
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
     monkeypatch.setattr(
         main.crud,
         "create_user_suggestion",

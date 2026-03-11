@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sklearn.preprocessing import normalize
-from typing import Dict, List, Tuple
 import argparse
 import logging
 from pathlib import Path

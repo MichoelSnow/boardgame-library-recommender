@@ -67,7 +67,9 @@ def test_save_basic_info_writes_expected_columns_and_rank_zero_as_null(tmp_path)
     assert output_path.exists()
 
     saved = pd.read_csv(output_path, sep="|", escapechar="\\")
-    assert set(["id", "name", "thumbnail", "image", "description"]).issubset(saved.columns)
+    assert set(["id", "name", "thumbnail", "image", "description"]).issubset(
+        saved.columns
+    )
     assert pd.isna(saved.loc[saved["id"] == 1, "rank"]).all()
     assert int(saved.loc[saved["id"] == 2, "rank"].iloc[0]) == 10
 
@@ -98,10 +100,16 @@ def test_combine_crawler_data_applies_exclude_ids_before_save(monkeypatch, tmp_p
         captured["timestamp"] = timestamp
 
     monkeypatch.setattr(data_processor, "save_basic_info", _capture)
-    monkeypatch.setattr(data_processor, "save_dict_id_cols", lambda *args, **kwargs: None)
-    monkeypatch.setattr(data_processor, "save_suggested_num_players", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        data_processor, "save_dict_id_cols", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        data_processor, "save_suggested_num_players", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(data_processor, "save_versions", lambda *args, **kwargs: None)
-    monkeypatch.setattr(data_processor, "save_language_dependence", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        data_processor, "save_language_dependence", lambda *args, **kwargs: None
+    )
 
     data_processor.combine_crawler_data(
         ranks_file=str(ranks_path),

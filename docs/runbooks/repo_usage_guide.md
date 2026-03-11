@@ -224,3 +224,120 @@ python scripts/validate/validate_notebook_secrets.py
 scripts/deploy/fly_stack.sh dev down
 scripts/deploy/fly_stack.sh prod down
 ```
+
+## Workflow C: Quality Commands (Local)
+
+Use these commands before opening a PR when you change backend/frontend/runtime behavior.
+
+### C1. Python Quality
+
+Install/update toolchain:
+
+```bash
+poetry install --with dev
+```
+
+Format/lint/type-check:
+
+```bash
+poetry run black --check \
+  backend/tests/test_api_endpoints.py \
+  data_pipeline/src/features/create_embeddings.py \
+  data_pipeline/tests/test_create_embeddings.py \
+  data_pipeline/tests/test_data_processor.py
+poetry run ruff check \
+  backend/tests/test_api_endpoints.py \
+  data_pipeline/src/features/create_embeddings.py \
+  data_pipeline/tests/test_create_embeddings.py \
+  data_pipeline/tests/test_data_processor.py \
+  scripts/alerts/run_prod_health_alerts.py \
+  scripts/db/fly_postgres_backup.py \
+  scripts/db/fly_postgres_restore.py \
+  scripts/validation_common.py
+poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
+```
+
+Deterministic backend/pipeline test subset (matches CI):
+
+```bash
+poetry run pytest -q \
+  backend/tests/test_api_endpoints.py \
+  backend/tests/test_convention_kiosk.py \
+  backend/tests/test_crud_helpers.py \
+  backend/tests/test_db_config.py \
+  backend/tests/test_db_keepalive.py \
+  backend/tests/test_fly_postgres_backup.py \
+  backend/tests/test_fly_postgres_restore.py \
+  backend/tests/test_image_cache_fill.py \
+  backend/tests/test_player_filter.py \
+  backend/tests/test_recommendation_payload.py \
+  backend/tests/test_recommender_degraded_mode.py \
+  backend/tests/test_recommender_pax_only.py \
+  backend/tests/test_run_prod_health_alerts.py \
+  backend/tests/test_runtime_profile.py \
+  backend/tests/test_sqlite_to_postgres_migration.py \
+  backend/tests/test_sync_fly_images.py \
+  backend/tests/test_validate_prod_alert_path.py \
+  backend/tests/test_versioning.py \
+  data_pipeline/tests
+```
+
+### C2. Frontend Quality
+
+Install dependencies:
+
+```bash
+cd frontend
+npm ci
+```
+
+Lint/format/build/tests:
+
+```bash
+npm run lint
+npm run build
+npm run test:ci -- \
+  src/api/client.test.js \
+  src/api/auth.test.js \
+  src/hooks/useConventionUiState.test.js \
+  src/hooks/useRecommendationSessionState.test.js \
+  src/utils/imageUrls.test.js \
+  src/components/GameDetails.test.js \
+  src/integration/authFlow.test.js \
+  src/integration/gameFilteringFlow.test.js \
+  src/integration/recommendationFlow.test.js
+```
+
+### C3. CI Job Mapping
+
+- `python-quality`:
+  - `poetry check`
+  - targeted `black --check` on CI-owned Python quality files
+  - targeted `ruff check` on CI-owned Python quality files
+  - `compileall`
+  - critical-module `mypy`
+  - deterministic backend/pipeline pytest subset
+- `frontend-build`:
+  - `npm run lint`
+  - `npm run build`
+  - frontend targeted tests (unit + integration)
+- `frontend-audit`:
+  - `npm audit --omit=dev --json` validated via `scripts/validate/validate_frontend_audit.py`
+  - fails only on new high/critical packages beyond `.github/npm_audit_allowlist.json`
+
+### C4. Troubleshooting
+
+- `poetry.lock` / dependency drift:
+  - run `poetry lock && poetry install --with dev` and commit updated lockfile.
+- Frontend dependency drift:
+  - run `npm install` (or `npm ci` after lock update), then commit `frontend/package-lock.json`.
+- `mypy` import noise from third-party packages:
+  - keep checks scoped to listed critical modules unless we intentionally expand coverage.
+- Repo-wide formatting drift:
+  - current quality gate is intentionally scoped to CI-owned quality files to avoid mass reformat churn.
+  - if we later adopt repo-wide formatting, do it as a dedicated formatting-only PR.
+- Frontend audit fails due baseline drift:
+  - run `npm audit --omit=dev --json` in `frontend` and compare package names against `.github/npm_audit_allowlist.json`.
+  - only add allowlist entries intentionally with rationale in PR description.
+- React `act(...)` warnings in frontend tests:
+  - currently expected with existing testing-library version; scheduled for toolchain upgrade phase.

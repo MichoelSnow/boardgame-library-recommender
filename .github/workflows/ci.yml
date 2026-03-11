@@ -28,26 +28,21 @@ jobs:
           python scripts/validate/validate_notebook_secrets.py
 
   frontend-audit:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: npm audit (frontend)
+      - name: Install frontend dependencies
         run: |
-          if [ -f frontend/package-lock.json ]; then
-            cd frontend
-            npm audit --audit-level=high
-          else
-            echo "No frontend/package-lock.json found; skipping npm audit."
-          fi
+          cd frontend
+          npm ci
+      - name: npm audit baseline policy (frontend)
+        run: |
+          python scripts/validate/validate_frontend_audit.py
 
   python-quality:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,33 +61,74 @@ jobs:
           poetry check
       - name: Python format check
         run: |
-          poetry run black --check backend data_pipeline
+          poetry run black --check \
+            backend/tests/test_api_endpoints.py \
+            data_pipeline/src/features/create_embeddings.py \
+            data_pipeline/tests/test_create_embeddings.py \
+            data_pipeline/tests/test_data_processor.py
+      - name: Python lint check
+        run: |
+          poetry run ruff check \
+            backend/tests/test_api_endpoints.py \
+            data_pipeline/src/features/create_embeddings.py \
+            data_pipeline/tests/test_create_embeddings.py \
+            data_pipeline/tests/test_data_processor.py \
+            scripts/alerts/run_prod_health_alerts.py \
+            scripts/db/fly_postgres_backup.py \
+            scripts/db/fly_postgres_restore.py \
+            scripts/validation_common.py
       - name: Python import sanity check
         run: |
-          poetry run python -m compileall backend data_pipeline
-      - name: Python tests (if runnable in CI)
+          poetry run python -m compileall backend data_pipeline scripts
+      - name: Python type checks (critical modules)
         run: |
-          if poetry run python -c "import pytest" >/dev/null 2>&1 && [ -f backend/database/boardgames.db ]; then
-            poetry run pytest backend/tests data_pipeline/tests -q
-          else
-            echo "Skipping pytest (pytest missing or backend/database/boardgames.db not present in CI)."
-          fi
-  
+          poetry run mypy \
+            backend/app/db_config.py \
+            backend/app/db_keepalive.py \
+            backend/app/runtime_profile.py
+      - name: Python tests (deterministic CI subset)
+        run: |
+          poetry run pytest -q \
+            backend/tests/test_api_endpoints.py \
+            backend/tests/test_convention_kiosk.py \
+            backend/tests/test_crud_helpers.py \
+            backend/tests/test_db_config.py \
+            backend/tests/test_db_keepalive.py \
+            backend/tests/test_fly_postgres_backup.py \
+            backend/tests/test_fly_postgres_restore.py \
+            backend/tests/test_image_cache_fill.py \
+            backend/tests/test_player_filter.py \
+            backend/tests/test_recommendation_payload.py \
+            backend/tests/test_recommender_degraded_mode.py \
+            backend/tests/test_recommender_pax_only.py \
+            backend/tests/test_run_prod_health_alerts.py \
+            backend/tests/test_runtime_profile.py \
+            backend/tests/test_sqlite_to_postgres_migration.py \
+            backend/tests/test_sync_fly_images.py \
+            backend/tests/test_validate_prod_alert_path.py \
+            backend/tests/test_versioning.py \
+            data_pipeline/tests
+
   frontend-build:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Frontend build
+      - name: Frontend quality + build + tests
         run: |
-          if [ -f frontend/package-lock.json ]; then
-            cd frontend
-            npm ci
-            npm run build
-          else
-            echo "No frontend/package-lock.json found; skipping frontend build."
-          fi
+          cd frontend
+          npm ci
+          npm run lint
+          npm run build
+          npm run test:ci -- \
+            src/api/client.test.js \
+            src/api/auth.test.js \
+            src/hooks/useConventionUiState.test.js \
+            src/hooks/useRecommendationSessionState.test.js \
+            src/utils/imageUrls.test.js \
+            src/components/GameDetails.test.js \
+            src/integration/authFlow.test.js \
+            src/integration/gameFilteringFlow.test.js \
+            src/integration/recommendationFlow.test.js
