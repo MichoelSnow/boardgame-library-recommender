@@ -1,52 +1,50 @@
 # Backend Tests
 
-This directory contains test files for the backend application.
+## Scope
+- API contract/behavior tests
+- CRUD/recommender logic tests
+- runtime/deploy profile validation tests
+- script-level smoke tests for deploy/alert flows
 
-## Test Files
+## Prerequisites
+- From repo root: `poetry install`
+- No external network calls are required for core backend unit/API tests.
+- Keep test commands bounded when iterating locally:
+  - `timeout 10s poetry run pytest <path> -q`
 
-### `test_db_queries.py`
-Tests basic database queries to ensure they work without hanging.
-- **Purpose**: Verify database connectivity and query performance
-- **Usage**: `python tests/test_db_queries.py`
+## Common Commands
 
-### `test_performance.py`
-Tests API endpoint performance improvements.
-- **Purpose**: Measure response times and verify optimizations
-- **Usage**: `python tests/test_performance.py`
-- **Requirements**: FastAPI server must be running on localhost:8000
-
-### `create_indexes.py`
-Creates database indexes for better query performance.
-- **Purpose**: Add indexes to improve database query speed
-- **Usage**: `python tests/create_indexes.py`
-- **Note**: Run this after database setup to optimize performance
-
-## Running Tests
-
-From the backend directory:
+Run the focused API contract set:
 
 ```bash
-# Test database queries
-python tests/test_db_queries.py
-
-# Test API performance (requires server running)
-python tests/test_performance.py
-
-# Create database indexes
-python tests/create_indexes.py
+poetry run pytest backend/tests/test_api_endpoints.py -q
 ```
 
-## Test Results
+Run the full backend suite:
 
-Expected performance benchmarks:
-- Simple games query: ~60-100ms
-- Games with search: ~150-200ms
-- Games with filters: ~100-150ms
-- Mechanics query: ~50-100ms
+```bash
+poetry run pytest backend/tests -q
+```
+
+Run deploy/alert script tests:
+
+```bash
+poetry run pytest backend/tests/test_fly_postgres_backup.py backend/tests/test_fly_postgres_restore.py -q
+poetry run pytest backend/tests/test_run_prod_health_alerts.py backend/tests/test_validate_prod_alert_path.py -q
+```
+
+Run performance smoke test (requires local app server on `localhost:8000`):
+
+```bash
+poetry run pytest backend/tests/test_performance.py -q
+```
+
+## Runtime Expectations (Typical Local)
+- `test_api_endpoints.py`: ~1-5s
+- Targeted unit file: <2s
+- `backend/tests` full run: usually under a few minutes depending on machine load
+- `test_performance.py`: depends on running server state and local DB size
 
 ## Notes
-
-- All tests include timeout protection to prevent hanging
-- Tests are designed to be non-destructive (read-only operations)
-- Performance tests require a running FastAPI server
-- Database indexes should be created after initial data import 
+- `test_performance.py` is a smoke/perf check; run it after booting the app.
+- Legacy utility script `backend/tests/create_indexes.py` is not part of the pytest suite.

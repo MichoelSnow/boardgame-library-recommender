@@ -15,6 +15,25 @@ For a quick command lookup, use:
 - Scripts: [scripts/README.md](../../scripts/README.md)
 - Logs: [logs/README.md](../../logs/README.md)
 
+## Test Prerequisites and Runtime Expectations
+
+Minimum local prerequisites:
+- `poetry install`
+- `cd frontend && npm ci`
+- For backend performance smoke tests only: local backend server running on `localhost:8000`
+
+Recommended bounded test command pattern while iterating:
+
+```bash
+timeout 10s poetry run pytest <test-path> -q
+```
+
+Typical local runtime ranges:
+- Backend targeted test module: ~1-10s
+- Backend full suite: typically under a few minutes
+- Frontend unit/integration tests: typically under a few minutes
+- Data pipeline unit tests: usually seconds to low minutes
+
 ## Workflow A: Local Development (Complete Flow)
 
 Use this workflow when running entirely on your local machine.

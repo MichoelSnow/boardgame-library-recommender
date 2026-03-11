@@ -296,19 +296,19 @@ Related Phase 4 planning docs:
 - [x] [P1] Record major structure decisions in ADRs.
 
 ### Phase 6: Testing Foundation (4-7 days)
-- [ ] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.
-- [ ] [P0] Add backend API tests for `/api/recommendations` and `/api/recommendations/{id}`.
-- [ ] [P0] Add backend API tests for auth endpoints (`/api/token`, `/api/users/me`, password change).
-- [ ] [P1] Add backend API tests for suggestions endpoint.
-- [ ] [P0] Add backend edge-case tests (invalid params, unauthenticated access, empty results).
-- [ ] [P1] Add OpenAPI contract snapshot test.
-- [ ] [P1] Add frontend integration tests (auth flow, filtering, recommendation flow, API error states).
-- [ ] [P1] Add MSW-based API mocks for deterministic frontend tests.
-- [ ] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
-- [ ] [P1] Add fixture/golden tests for output shape and key fields.
+- [x] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.
+- [x] [P0] Add backend API tests for `/api/recommendations` and `/api/recommendations/{id}`.
+- [x] [P0] Add backend API tests for auth endpoints (`/api/token`, `/api/users/me`, password change).
+- [x] [P1] Add backend API tests for suggestions endpoint.
+- [x] [P0] Add backend edge-case tests (invalid params, unauthenticated access, empty results).
+- [x] [P1] Add OpenAPI contract test.
+- [x] [P1] Add frontend integration tests (auth flow, filtering, recommendation flow, API error states).
+- [x] [P1] Add MSW-based API mocks for deterministic frontend tests.
+- [x] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
+- [x] [P1] Add fixture/golden tests for output shape and key fields.
 - [ ] [P0] Ensure all tests run in CI on PR.
 - [x] [P1] Document test commands for backend, frontend, and pipeline in repo docs.
-- [ ] [P1] Document expected test runtime and minimum local prerequisites.
+- [x] [P1] Document expected test runtime and minimum local prerequisites.
 - [x] [P1] Add load/performance baseline tests and store reference results.
 - [x] [P1] Define performance regression thresholds and failure policy.
 
