@@ -23,6 +23,7 @@ from pathlib import Path
 import argparse
 import bs4
 import csv
+from typing import Any
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -71,7 +72,7 @@ def get_boardgame_data(
     save_path = data_dir / f"boardgame_data_{query_time}.parquet"
 
     boardgame_ids = boardgame_ranks["id"].tolist()
-    boardgame_master_dict = {}
+    boardgame_master_dict: dict[str, dict[str, Any]] = {}
     if boardgame_data is not None:
         logger.info("Using existing boardgame data as base")
         boardgame_master_dict = {
@@ -128,7 +129,7 @@ def get_boardgame_data(
 def extract_basic_game_info(game_xml: bs4.element.Tag):
     """Extract basic game information from BGG XML response."""
     logger.debug(f"Extracting basic game info for {game_xml['id']}")
-    game_dict = {
+    game_dict: dict[str, Any] = {
         "id": int(game_xml["id"]),
     }
     if game_xml.find("image") is not None:
@@ -186,9 +187,10 @@ def extract_basic_game_info(game_xml: bs4.element.Tag):
     return game_dict
 
 
-def extract_polls(game_dict: dict, game_xml: bs4.element.Tag):
+def extract_polls(game_dict: dict[str, Any], game_xml: bs4.element.Tag):
     """Extract poll data from BGG XML."""
     logger.debug(f"Extracting polls for {game_xml['id']}")
+    raw_value_col = "value"
     for poll_name in ["suggested_playerage", "language_dependence"]:
         if poll_name == "suggested_playerage":
             raw_value_col = "value"
@@ -197,7 +199,7 @@ def extract_polls(game_dict: dict, game_xml: bs4.element.Tag):
         poll = game_xml.find("poll", attrs={"name": poll_name})
         vote_count = int(poll.attrs["totalvotes"])
         if vote_count > 0:
-            result_dict = {"total_votes": vote_count}
+            result_dict: dict[str, Any] = {"total_votes": vote_count}
             cum_votes = 0
             suggested_prcnt = {}
             suggested_prcnt_col = "value"
@@ -229,11 +231,13 @@ def extract_polls(game_dict: dict, game_xml: bs4.element.Tag):
     return game_dict
 
 
-def extract_poll_player_count(game_dict: dict, game_xml: bs4.element.Tag):
+def extract_poll_player_count(game_dict: dict[str, Any], game_xml: bs4.element.Tag):
     """Extract player count recommendations from BGG XML."""
     logger.debug(f"Extracting player count poll for {game_xml['id']}")
     player_count_poll = game_xml.find("poll", attrs={"name": "suggested_numplayers"})
-    result_dict = {"total_votes": int(player_count_poll.attrs["totalvotes"])}
+    result_dict: dict[str, Any] = {
+        "total_votes": int(player_count_poll.attrs["totalvotes"])
+    }
     if result_dict["total_votes"] == 0:
         game_dict["player_count_recs"] = {}
         game_dict["suggested_numplayers"] = {}
@@ -243,11 +247,13 @@ def extract_poll_player_count(game_dict: dict, game_xml: bs4.element.Tag):
     game_dict["player_count_recs"] = {}
     for player_count in player_count_results:
         num_players = player_count.attrs["numplayers"]
-        player_count_values = {
+        player_count_values: dict[str, int] = {
             x.attrs["value"]: int(x.attrs["numvotes"])
             for x in player_count.find_all("result")
         }
-        play_count_rec = max(player_count_values, key=player_count_values.get)
+        play_count_rec = max(
+            player_count_values, key=lambda key: player_count_values[key]
+        )
         if play_count_rec in game_dict["player_count_recs"]:
             game_dict["player_count_recs"][play_count_rec].append(num_players)
         else:
@@ -333,7 +339,7 @@ def get_simple_game_data(
     save_path = data_dir / f"boardgame_simple_data_{query_time}.parquet"
 
     boardgame_ids = boardgame_ranks["id"].tolist()
-    boardgame_master_dict = {}
+    boardgame_master_dict: dict[str, dict[str, Any]] = {}
     if boardgame_data is not None:
         logger.info("Using existing boardgame data as base")
         boardgame_master_dict = {

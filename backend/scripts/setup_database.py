@@ -8,7 +8,7 @@ sys.path.insert(0, str(backend_dir))
 from app.database import engine  # noqa: E402
 from app.models import Base  # noqa: E402
 from alembic.config import Config  # noqa: E402
-from alembic import command  # noqa: E402
+import alembic.command as alembic_command  # noqa: E402
 
 
 def setup_database():
@@ -18,7 +18,7 @@ def setup_database():
 
     # Run migrations
     alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
+    alembic_command.upgrade(alembic_cfg, "head")
 
 
 if __name__ == "__main__":

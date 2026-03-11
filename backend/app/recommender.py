@@ -151,6 +151,8 @@ class ModelManager:
         """Get the current embeddings, loading them if necessary."""
         if self._game_embeddings is None:
             self.load_model()
+        if self._game_embeddings is None:
+            raise RuntimeError("Recommendation embeddings are unavailable")
         return self._game_embeddings
 
     def get_status(self):
@@ -311,10 +313,13 @@ def get_recommendations(
                 break
 
         # Sort by recommendation score before returning
-        result_games.sort(
-            key=lambda item: float(item.get("recommendation_score", 0.0)),
-            reverse=True,
-        )
+        def _score_value(item: dict[str, object]) -> float:
+            raw_value = item.get("recommendation_score", 0.0)
+            if isinstance(raw_value, (int, float)):
+                return float(raw_value)
+            return 0.0
+
+        result_games.sort(key=_score_value, reverse=True)
         timing["result_assembly_ms"] = (time.perf_counter() - stage_started) * 1000
         total_ms = (time.perf_counter() - started_total) * 1000
 

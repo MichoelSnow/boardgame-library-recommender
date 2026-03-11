@@ -7,7 +7,7 @@ It combines board game rankings and detailed game data into a format that matche
 
 import pandas as pd
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import logging
 import time
 import csv
@@ -321,7 +321,7 @@ def combine_crawler_data(
     data_file: str,
     output_file_base: str,
     timestamp: int,
-    exclude_ids: List[int] = None,
+    exclude_ids: Optional[List[int]] = None,
 ) -> None:
     """
     Combine board game rankings and detailed data into a format for backend import.
