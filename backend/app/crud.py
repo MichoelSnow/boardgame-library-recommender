@@ -170,11 +170,7 @@ def get_games(
                     )
                     .subquery()
                 )
-                # SQLAlchemy accepts Subquery in IN predicates, but basedpyright's stubs
-                # don't currently model this form.
-                query = query.filter(
-                    models.BoardGame.id.in_(subquery)  # pyright: ignore[reportArgumentType]
-                )
+                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying designer filter: {str(e)}")
                 # Continue without designer filter if it fails
@@ -192,11 +188,7 @@ def get_games(
                     )
                     .subquery()
                 )
-                # SQLAlchemy accepts Subquery in IN predicates, but basedpyright's stubs
-                # don't currently model this form.
-                query = query.filter(
-                    models.BoardGame.id.in_(subquery)  # pyright: ignore[reportArgumentType]
-                )
+                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying artist filter: {str(e)}")
                 # Continue without artist filter if it fails
@@ -215,11 +207,7 @@ def get_games(
                     )
                     .subquery()
                 )
-                # SQLAlchemy accepts Subquery in IN predicates, but basedpyright's stubs
-                # don't currently model this form.
-                query = query.filter(
-                    models.BoardGame.id.in_(subquery)  # pyright: ignore[reportArgumentType]
-                )
+                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying mechanics filter: {str(e)}")
                 # Continue without mechanics filter if it fails
@@ -238,11 +226,7 @@ def get_games(
                     )
                     .subquery()
                 )
-                # SQLAlchemy accepts Subquery in IN predicates, but basedpyright's stubs
-                # don't currently model this form.
-                query = query.filter(
-                    models.BoardGame.id.in_(subquery)  # pyright: ignore[reportArgumentType]
-                )
+                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying categories filter: {str(e)}")
                 # Continue without categories filter if it fails
@@ -656,9 +640,7 @@ def change_user_password(
     if not security.verify_password(old_password, user.hashed_password):
         return False
 
-    # SQLAlchemy model attributes are instrumented descriptors; assignment is valid
-    # at runtime even though static typing sees a Column descriptor type here.
-    user.hashed_password = security.get_password_hash(new_password)  # pyright: ignore[reportAttributeAccessIssue]
+    user.hashed_password = security.get_password_hash(new_password)
     db.commit()
     return True
 
@@ -668,8 +650,6 @@ def admin_reset_password(db: Session, username: str, new_password: str):
     if not user:
         return False
 
-    # SQLAlchemy model attributes are instrumented descriptors; assignment is valid
-    # at runtime even though static typing sees a Column descriptor type here.
-    user.hashed_password = security.get_password_hash(new_password)  # pyright: ignore[reportAttributeAccessIssue]
+    user.hashed_password = security.get_password_hash(new_password)
     db.commit()
     return True
