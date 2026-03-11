@@ -6,7 +6,6 @@ import argparse
 import logging
 from pathlib import Path
 import json
-from typing import Optional
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -38,8 +37,9 @@ class GameRecommender:
         self.reverse_game_mapping = {}  # Maps indices back to game IDs
         self.rating_matrix = None
         self.game_embeddings = None
-        # Set of valid game IDs (non-expansions if exclude_expansions is True)
-        self.valid_game_ids: Optional[set[str]] = None
+        self.valid_game_ids = (
+            None  # Set of valid game IDs (non-expansions if exclude_expansions is True)
+        )
 
     def _create_rating_matrix(self, df: pd.DataFrame) -> sparse.csr_matrix:
         """

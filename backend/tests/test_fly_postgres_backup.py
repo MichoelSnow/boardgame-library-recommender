@@ -8,9 +8,9 @@ if str(ROOT) not in sys.path:
 
 MODULE_PATH = ROOT / "scripts" / "db" / "fly_postgres_backup.py"
 SPEC = spec_from_file_location("fly_postgres_backup", MODULE_PATH)
+MODULE = module_from_spec(SPEC)
 assert SPEC is not None
 assert SPEC.loader is not None
-MODULE = module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 build_default_output_path = MODULE.build_default_output_path

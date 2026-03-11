@@ -343,7 +343,7 @@ Related Phase 4 planning docs:
 ### Phase 8: CI/CD and Quality Gates (2-4 days)
 - [x] [P0] Standardize Python formatting/linting (`ruff format`, `ruff check`).
 - [x] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
-- [x] [P2] Add Python type checks (`basedpyright`) for critical backend modules.
+- [x] [P2] Add Python type checks (`mypy`) for critical backend modules.
 - [ ] [P0] Add required status checks in branch protection for `main`.
 - [ ] [P0] Enforce merge blocking on failed lint/tests/security checks.
 - [x] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
@@ -354,7 +354,7 @@ Related Phase 4 planning docs:
 - [x] [P1] Add a `Quality Commands` section in docs with exact local commands:
 - [x] [P1] Python format/lint/fix commands (`ruff format`, `ruff check`).
 - [x] [P1] Frontend format/lint commands (`prettier`, `eslint`).
-- [x] [P1] Type-check commands (`basedpyright` and frontend type checks if enabled).
+- [x] [P1] Type-check commands (`mypy` and frontend type checks if enabled).
 - [x] [P1] Add CI mapping in docs (which command runs in which CI job).
 - [x] [P1] Add troubleshooting notes for common quality-check failures.
 

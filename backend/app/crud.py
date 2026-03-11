@@ -121,9 +121,6 @@ def get_games(
         # Start with a base query - only load main game fields initially
         query = db.query(models.BoardGame)
 
-        if sort_by is None:
-            sort_by = "rank"
-
         if sort_by == "recommendation_score":
             sort_by = "rank"
 
@@ -492,7 +489,7 @@ def get_recommendations(
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
     pax_only: Optional[bool] = False,
-) -> List[dict[str, object]]:
+) -> List[models.BoardGame]:
     """
     Get game recommendations based on liked and disliked games.
     """

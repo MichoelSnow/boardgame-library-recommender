@@ -24,7 +24,6 @@ import argparse
 import bs4
 import duckdb
 import csv
-from typing import Optional
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -298,8 +297,8 @@ def iterate_through_ratings_pages(
     ratings_count_dict: dict,
     start_page: int = 1,
     batch_saves: bool = False,
-    save_path: Optional[str | Path] = None,
-    duckdb_conn: Optional[duckdb.DuckDBPyConnection] = None,
+    save_path: str = None,
+    duckdb_conn: duckdb.DuckDBPyConnection = None,
 ):
     """
     Helper function to iterate through paginated rating data from BGG API.

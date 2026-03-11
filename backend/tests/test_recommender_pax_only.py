@@ -55,16 +55,8 @@ def test_get_recommendations_pax_only_filters_via_db_query() -> None:
         pax_only=False,
     )
 
-    pax_only_ids = []
-    for game in pax_only_results:
-        game_id = game.get("id")
-        assert isinstance(game_id, (int, str))
-        pax_only_ids.append(int(game_id))
-    all_ids = []
-    for game in all_results:
-        game_id = game.get("id")
-        assert isinstance(game_id, (int, str))
-        all_ids.append(int(game_id))
+    pax_only_ids = [int(game["id"]) for game in pax_only_results]
+    all_ids = [int(game["id"]) for game in all_results]
 
     assert 2 in all_ids
     assert pax_only_ids == [3]

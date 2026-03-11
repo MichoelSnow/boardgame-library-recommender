@@ -242,7 +242,7 @@ Format/lint/type-check:
 ```bash
 poetry run ruff format --check backend data_pipeline scripts
 poetry run ruff check backend data_pipeline scripts
-poetry run basedpyright backend data_pipeline scripts
+poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
 ```
 
 Full Python test suite (matches CI):
@@ -275,7 +275,7 @@ npm run test:ci
   - repo-wide `ruff format --check` on `backend`, `data_pipeline`, and `scripts`
   - repo-wide `ruff check` on `backend`, `data_pipeline`, and `scripts`
   - `compileall`
-  - critical-module `basedpyright`
+  - critical-module `mypy`
   - full `pytest -q` suite
 - `frontend-build`:
   - `npm run lint`
@@ -291,7 +291,7 @@ npm run test:ci
   - run `poetry lock && poetry install --with dev` and commit updated lockfile.
 - Frontend dependency drift:
   - run `npm install` (or `npm ci` after lock update), then commit `frontend/package-lock.json`.
-- `basedpyright` import/type noise from third-party packages:
+- `mypy` import noise from third-party packages:
   - keep checks scoped to listed critical modules unless we intentionally expand coverage.
 - Repo-wide formatting drift:
   - run `poetry run ruff format backend data_pipeline scripts` to apply formatting before re-running checks.

@@ -17,12 +17,11 @@ load_dotenv()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
-_SECRET_KEY = os.getenv("SECRET_KEY")
-if not _SECRET_KEY or len(_SECRET_KEY) < 32:
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
     raise RuntimeError(
         "SECRET_KEY must be set in the environment with at least 32 characters."
     )
-SECRET_KEY: str = _SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -66,15 +65,13 @@ async def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
-        if not isinstance(username, str):
+        username: str = payload.get("sub")
+        if username is None:
             raise credentials_exception
         token_data = schemas.TokenData(username=username)
     except JWTError:
         raise credentials_exception
 
-    if token_data.username is None:
-        raise credentials_exception
     user = crud.get_user_by_username(db, username=token_data.username)
     if user is None:
         raise credentials_exception

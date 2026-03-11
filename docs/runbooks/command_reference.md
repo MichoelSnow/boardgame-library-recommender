@@ -281,7 +281,7 @@ Python:
 ```bash
 poetry run ruff format --check backend data_pipeline scripts
 poetry run ruff check backend data_pipeline scripts
-poetry run basedpyright backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
+poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
 ```
 
 Frontend:

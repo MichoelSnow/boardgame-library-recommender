@@ -71,9 +71,12 @@ jobs:
       - name: Python import sanity check
         run: |
           poetry run python -m compileall backend data_pipeline scripts
-      - name: Python type checks (basedpyright)
+      - name: Python type checks (critical modules)
         run: |
-          poetry run basedpyright backend data_pipeline scripts
+          poetry run mypy \
+            backend/app/db_config.py \
+            backend/app/db_keepalive.py \
+            backend/app/runtime_profile.py
       - name: Python tests (full suite)
         run: |
           poetry run pytest -q

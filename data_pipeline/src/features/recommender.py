@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sklearn.preprocessing import normalize
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 import logging
 from pathlib import Path
 
@@ -156,7 +156,7 @@ class GameRecommender:
     def recommend_similar_games(
         self,
         game_ids: List[str],
-        disliked_games: Optional[List[str]] = None,
+        disliked_games: List[str] = None,
         n_recommendations: int = 5,
         anti_weight: float = 1.0,
     ) -> List[Tuple[str, float]]:
@@ -174,8 +174,6 @@ class GameRecommender:
         ]
 
         if not liked_indices:
-            return []
-        if self.item_embeddings is None:
             return []
 
         # Get mean embedding vector

@@ -8,13 +8,13 @@ SCRIPT_PATH = REPO_ROOT / "scripts" / "alerts" / "run_prod_health_alerts.py"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location("run_prod_health_alerts", SCRIPT_PATH)
-assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
+assert SPEC is not None and SPEC.loader is not None
 sys.modules["run_prod_health_alerts"] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
-def _healthy_snapshot(convention_mode_active: bool = True):
+def _healthy_snapshot(convention_mode_active: bool = True) -> MODULE.HealthSnapshot:
     return MODULE.HealthSnapshot(
         environment="prod",
         checked_at_utc="2026-03-07T00:00:00+00:00",
