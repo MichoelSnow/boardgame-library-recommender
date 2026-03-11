@@ -36,33 +36,13 @@ except ImportError:
         return loaded
 
 
-try:
-    from tenacity import (
-        retry,
-        retry_if_exception,
-        retry_if_exception_type,
-        stop_after_attempt,
-        wait_exponential,
-    )
-except ImportError:
-
-    def retry(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def retry_if_exception_type(*args, **kwargs):
-        return None
-
-    def retry_if_exception(*args, **kwargs):
-        return None
-
-    def stop_after_attempt(*args, **kwargs):
-        return None
-
-    def wait_exponential(*args, **kwargs):
-        return None
+from tenacity import (
+    retry,
+    retry_if_exception,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 
 load_dotenv()
@@ -100,10 +80,6 @@ RETRYABLE_EXCEPTIONS = (
 def _build_retry_condition():
     retry_on_exception_type = retry_if_exception_type(RETRYABLE_EXCEPTIONS)
     retry_on_retryable_http = retry_if_exception(_is_retryable_http_error)
-    if retry_on_exception_type is None:
-        return retry_on_retryable_http
-    if retry_on_retryable_http is None:
-        return retry_on_exception_type
     return retry_on_exception_type | retry_on_retryable_http
 
 
