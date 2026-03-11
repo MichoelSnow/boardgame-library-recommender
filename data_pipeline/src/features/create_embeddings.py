@@ -6,7 +6,7 @@ import argparse
 import logging
 from pathlib import Path
 import json
-from typing import Optional, cast
+from typing import Optional
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -98,10 +98,10 @@ class GameRecommender:
                     user_id = str(user)
                     if user_id in self.user_mapping:
                         user_idx = self.user_mapping[user_id]
-                        rating_matrix[user_idx, game_idx] = float(str(rating))
+                        rating_matrix[user_idx, game_idx] = float(rating)
 
         # Convert to CSR format for efficient operations
-        return cast(sparse.csr_matrix, rating_matrix.tocsr())
+        return rating_matrix.tocsr()
 
     def _filter_users(self, rating_matrix: sparse.csr_matrix) -> sparse.csr_matrix:
         """
@@ -156,10 +156,7 @@ class GameRecommender:
         self.rating_matrix = self._filter_users(self.rating_matrix)
 
         # Compute game similarity matrix
-        self.game_embeddings = cast(
-            sparse.csr_matrix,
-            normalize(self.rating_matrix.T, norm="l2", axis=1),
-        )
+        self.game_embeddings = normalize(self.rating_matrix.T, norm="l2", axis=1)
 
     # def recommend_similar_games(
     #     self,

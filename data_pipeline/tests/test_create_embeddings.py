@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from typing import Any, cast
 
 from data_pipeline.src.features.create_embeddings import GameRecommender
 
@@ -58,6 +57,5 @@ def test_fit_sets_embeddings_with_expected_game_axis():
 
     assert recommender.rating_matrix is not None
     assert recommender.game_embeddings is not None
-    embeddings = cast(Any, recommender.game_embeddings)
     # Embeddings are game vectors, so rows should match number of games.
-    assert embeddings.shape[0] == 3
+    assert recommender.game_embeddings.shape[0] == 3
