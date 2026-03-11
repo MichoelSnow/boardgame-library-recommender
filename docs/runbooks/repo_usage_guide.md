@@ -245,29 +245,10 @@ poetry run ruff check backend data_pipeline scripts
 poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
 ```
 
-Deterministic backend/pipeline test subset (matches CI):
+Full Python test suite (matches CI):
 
 ```bash
-poetry run pytest -q \
-  backend/tests/test_api_endpoints.py \
-  backend/tests/test_convention_kiosk.py \
-  backend/tests/test_crud_helpers.py \
-  backend/tests/test_db_config.py \
-  backend/tests/test_db_keepalive.py \
-  backend/tests/test_fly_postgres_backup.py \
-  backend/tests/test_fly_postgres_restore.py \
-  backend/tests/test_image_cache_fill.py \
-  backend/tests/test_player_filter.py \
-  backend/tests/test_recommendation_payload.py \
-  backend/tests/test_recommender_degraded_mode.py \
-  backend/tests/test_recommender_pax_only.py \
-  backend/tests/test_run_prod_health_alerts.py \
-  backend/tests/test_runtime_profile.py \
-  backend/tests/test_sqlite_to_postgres_migration.py \
-  backend/tests/test_sync_fly_images.py \
-  backend/tests/test_validate_prod_alert_path.py \
-  backend/tests/test_versioning.py \
-  data_pipeline/tests
+poetry run pytest -q
 ```
 
 ### C2. Frontend Quality
@@ -304,7 +285,7 @@ npm run test:ci -- \
   - repo-wide `ruff check` on `backend`, `data_pipeline`, and `scripts`
   - `compileall`
   - critical-module `mypy`
-  - deterministic backend/pipeline pytest subset
+  - full `pytest -q` suite
 - `frontend-build`:
   - `npm run lint`
   - `npm run build`
