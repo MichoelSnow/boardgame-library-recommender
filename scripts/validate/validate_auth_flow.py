@@ -39,7 +39,9 @@ def validate_unauthenticated_rejection(environment: str) -> None:
             f"Protected endpoint returned unexpected status: HTTP {exc.code}"
         ) from exc
 
-    raise RuntimeError("Protected endpoint unexpectedly allowed unauthenticated access.")
+    raise RuntimeError(
+        "Protected endpoint unexpectedly allowed unauthenticated access."
+    )
 
 
 def validate_login_success(environment: str, username: str, password: str) -> None:

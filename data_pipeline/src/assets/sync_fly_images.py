@@ -20,11 +20,19 @@ from typing import Optional
 import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from backend.app import models
 from backend.app.database import SessionLocal
-from backend.app.image_processing import build_thumbnail_relative_path, write_webp_thumbnail
+from backend.app.image_processing import (
+    build_thumbnail_relative_path,
+    write_webp_thumbnail,
+)
 from backend.app.logging_utils import build_log_handlers
 
 
@@ -38,9 +46,7 @@ CONTENT_TYPE_TO_EXTENSION = {
     "image/avif": "avif",
 }
 
-IMAGE_STORAGE_DIR = Path(
-    os.getenv("IMAGE_STORAGE_DIR", "/data/images")
-).resolve()
+IMAGE_STORAGE_DIR = Path(os.getenv("IMAGE_STORAGE_DIR", "/data/images")).resolve()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -207,6 +213,7 @@ async def seed_images(
     failed = 0
 
     async with httpx.AsyncClient() as client:
+
         async def process_one(game_id: int, image_url: str) -> None:
             nonlocal downloaded, skipped, failed
             existing_path = find_existing_image_path(game_id, image_root)
@@ -252,7 +259,9 @@ async def seed_images(
                 downloaded += 1
             except Exception as exc:  # pragma: no cover - safety net
                 failed += 1
-                logger.warning("Failed image seed for game_id=%s (%s): %s", game_id, image_url, exc)
+                logger.warning(
+                    "Failed image seed for game_id=%s (%s): %s", game_id, image_url, exc
+                )
 
         queue: asyncio.Queue[tuple[int, str] | None] = asyncio.Queue()
         for candidate in candidates:

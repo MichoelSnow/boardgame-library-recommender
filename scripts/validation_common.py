@@ -14,6 +14,7 @@ from typing import Any
 try:
     from dotenv import load_dotenv
 except ImportError:
+
     def load_dotenv(dotenv_path=None, *args, **kwargs):
         path = dotenv_path or ".env"
         env_path = Path(path)
@@ -34,6 +35,7 @@ except ImportError:
                 loaded = True
         return loaded
 
+
 try:
     from tenacity import (
         retry,
@@ -43,6 +45,7 @@ try:
         wait_exponential,
     )
 except ImportError:
+
     def retry(*args, **kwargs):
         def decorator(func):
             return func
@@ -80,6 +83,7 @@ APP_CONFIG = {
         "base_url": "https://pax-tt-app.fly.dev",
     },
 }
+
 
 def _is_retryable_http_error(exc: BaseException) -> bool:
     if not isinstance(exc, urllib.error.HTTPError):
@@ -172,14 +176,18 @@ def request_with_retry(
     )
 
 
-def fetch_json(url: str, *, headers: dict[str, str] | None = None) -> tuple[dict, dict[str, str]]:
+def fetch_json(
+    url: str, *, headers: dict[str, str] | None = None
+) -> tuple[dict, dict[str, str]]:
     payload, response_headers = request_with_retry(url, headers=headers)
     if not isinstance(payload, dict):
         raise RuntimeError(f"Expected JSON object response from {url}.")
     return payload, response_headers
 
 
-def fetch_json_once(url: str, *, headers: dict[str, str] | None = None) -> tuple[Any, dict[str, str]]:
+def fetch_json_once(
+    url: str, *, headers: dict[str, str] | None = None
+) -> tuple[Any, dict[str, str]]:
     payload, response_headers = request_once(url, headers=headers)
     return payload, response_headers
 
@@ -207,7 +215,9 @@ def post_form_json(
     return payload, response_headers
 
 
-def measure_json_request(url: str, *, headers: dict[str, str] | None = None) -> tuple[Any, float]:
+def measure_json_request(
+    url: str, *, headers: dict[str, str] | None = None
+) -> tuple[Any, float]:
     started = time.perf_counter()
     payload, _ = fetch_json_once(url, headers=headers)
     duration_ms = (time.perf_counter() - started) * 1000
@@ -230,7 +240,9 @@ def resolve_smoke_test_credentials(
 ) -> tuple[str | None, str | None]:
     env_key = environment.upper()
     resolved_username = username or os.getenv("SMOKE_TEST_USERNAME")
-    resolved_password = password or os.getenv(
-        f"SMOKE_TEST_PASSWORD_{env_key}"
-    ) or os.getenv("SMOKE_TEST_PASSWORD")
+    resolved_password = (
+        password
+        or os.getenv(f"SMOKE_TEST_PASSWORD_{env_key}")
+        or os.getenv("SMOKE_TEST_PASSWORD")
+    )
     return resolved_username, resolved_password

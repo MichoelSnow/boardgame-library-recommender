@@ -41,7 +41,9 @@ def get_latest_fly_release_version(app_name: str) -> str:
         if match:
             return match.group(1)
 
-    raise RuntimeError(f"Could not determine latest Fly release version for {app_name}.")
+    raise RuntimeError(
+        f"Could not determine latest Fly release version for {app_name}."
+    )
 
 
 def read_expected_sha(path_str: str | None) -> str | None:
@@ -70,7 +72,9 @@ def record_traceability(
     try:
         version_payload, _ = fetch_json(f"{base_url}/api/version")
     except Exception as exc:
-        raise RuntimeError(f"Failed to fetch /api/version for {environment}: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to fetch /api/version for {environment}: {exc}"
+        ) from exc
 
     deployed_sha = version_payload.get("git_sha")
     if expected_sha and deployed_sha != expected_sha:

@@ -53,7 +53,9 @@ def test_resolve_runtime_settings_invalid_workers() -> None:
 
 
 def test_build_server_command_uvicorn() -> None:
-    settings = RuntimeSettings(runtime_profile="standard", app_server="uvicorn", gunicorn_workers=1)
+    settings = RuntimeSettings(
+        runtime_profile="standard", app_server="uvicorn", gunicorn_workers=1
+    )
     assert build_server_command(settings) == [
         "uvicorn",
         "backend.app.main:app",
@@ -65,7 +67,9 @@ def test_build_server_command_uvicorn() -> None:
 
 
 def test_build_server_command_gunicorn() -> None:
-    settings = RuntimeSettings(runtime_profile="convention", app_server="gunicorn", gunicorn_workers=2)
+    settings = RuntimeSettings(
+        runtime_profile="convention", app_server="gunicorn", gunicorn_workers=2
+    )
     assert build_server_command(settings) == [
         "gunicorn",
         "-k",

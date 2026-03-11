@@ -1,7 +1,21 @@
-from fastapi import FastAPI, HTTPException, Query, Request, Depends, status, Response, Header
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    Depends,
+    status,
+    Response,
+    Header,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, RedirectResponse
+from fastapi.responses import (
+    JSONResponse,
+    StreamingResponse,
+    FileResponse,
+    RedirectResponse,
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
@@ -16,7 +30,12 @@ from sqlalchemy.orm import Session
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
 from . import convention_kiosk
-from .database import engine, SessionLocal, CORSAwareStaticFiles, SQLALCHEMY_DATABASE_URL
+from .database import (
+    engine,
+    SessionLocal,
+    CORSAwareStaticFiles,
+    SQLALCHEMY_DATABASE_URL,
+)
 from .db_keepalive import (
     resolve_keepalive_interval_seconds,
     run_db_keepalive_loop,
@@ -30,14 +49,19 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
 from pydantic import BaseModel
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from .logging_utils import build_log_handlers
 from .versioning import get_app_version
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=build_log_handlers("app.log"),
 )
 logger = logging.getLogger(__name__)
@@ -118,6 +142,7 @@ def apply_recommendation_status_to_http_exception(
     exc.headers = headers
     return exc
 
+
 def get_cors_origins() -> List[str]:
     """Resolve CORS origins from env with safe defaults."""
     env_value = os.getenv("CORS_ALLOWED_ORIGINS", "")
@@ -143,6 +168,7 @@ def get_cors_origins() -> List[str]:
             "Set explicit CORS_ALLOWED_ORIGINS (comma-separated)."
         )
     return origins
+
 
 # Resolve CORS config once at startup so invalid production config fails fast.
 cors_origins = get_cors_origins()
@@ -179,6 +205,7 @@ except Exception as exc:  # pragma: no cover - startup safety logging
 # else:
 #     logger.warning(f"Frontend build directory not found at {STATIC_DIR}")
 
+
 # Dependency to get database session
 def get_db():
     db = SessionLocal()
@@ -187,34 +214,32 @@ def get_db():
     finally:
         db.close()
 
+
 # Exception handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.error(f"Validation error: {exc.errors()}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors()}
-    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     logger.error(f"HTTP error: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unexpected error: {str(exc)}", exc_info=True)
     return JSONResponse(
-        status_code=500,
-        content={"detail": "An unexpected error occurred"}
+        status_code=500, content={"detail": "An unexpected error occurred"}
     )
+
 
 # Simple in-memory cache for frequently accessed data
 _cache = {}
 _cache_ttl = {}
+
 
 def get_cached_data(key: str, ttl_seconds: int = 300):
     """Get data from cache if not expired."""
@@ -227,24 +252,24 @@ def get_cached_data(key: str, ttl_seconds: int = 300):
             del _cache_ttl[key]
     return None
 
+
 def set_cached_data(key: str, data, ttl_seconds: int = 300):
     """Set data in cache with TTL."""
     _cache[key] = data
     _cache_ttl[key] = time.time() + ttl_seconds
+
 
 # Thread pool for database operations
 db_executor = ThreadPoolExecutor(max_workers=4)
 _db_keepalive_task: asyncio.Task | None = None
 _db_keepalive_stop_event: asyncio.Event | None = None
 
+
 async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
     """Run a function with a timeout to prevent hanging."""
     loop = asyncio.get_event_loop()
     try:
-        result = await loop.run_in_executor(
-            db_executor, 
-            lambda: func(*args, **kwargs)
-        )
+        result = await loop.run_in_executor(db_executor, lambda: func(*args, **kwargs))
         return result
     except asyncio.TimeoutError:
         raise HTTPException(status_code=408, detail="Request timeout")
@@ -366,6 +391,7 @@ async def run_image_io_task(task):
 async def api_root():
     return {"message": "Board Game Recommender API"}
 
+
 @app.get("/api/version")
 async def api_version():
     """Return runtime build metadata for release traceability."""
@@ -374,7 +400,8 @@ async def api_version():
         "git_sha": os.getenv("APP_GIT_SHA", "unknown"),
         "build_timestamp": os.getenv("APP_BUILD_TIMESTAMP", "unknown"),
         "environment": os.getenv("NODE_ENV", "development"),
-        "convention_mode": os.getenv("CONVENTION_MODE", "false").strip().lower() == "true",
+        "convention_mode": os.getenv("CONVENTION_MODE", "false").strip().lower()
+        == "true",
     }
 
 
@@ -403,12 +430,19 @@ async def convention_kiosk_enroll(
     payload: KioskEnrollRequest,
     x_convention_kiosk_key: Optional[str] = Header(default=None),
 ):
-    if not convention_kiosk.is_convention_mode_enabled() or not convention_kiosk.is_convention_guest_enabled():
-        raise HTTPException(status_code=404, detail="Convention kiosk enrollment is disabled.")
+    if (
+        not convention_kiosk.is_convention_mode_enabled()
+        or not convention_kiosk.is_convention_guest_enabled()
+    ):
+        raise HTTPException(
+            status_code=404, detail="Convention kiosk enrollment is disabled."
+        )
 
     expected_key = convention_kiosk.get_expected_kiosk_key()
     if not expected_key:
-        raise HTTPException(status_code=503, detail="Convention kiosk key is not configured.")
+        raise HTTPException(
+            status_code=503, detail="Convention kiosk key is not configured."
+        )
 
     provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
     if not provided_key or not hmac.compare_digest(provided_key, expected_key):
@@ -443,6 +477,7 @@ async def convention_kiosk_unenroll(response: Response):
     )
     return {"kiosk_mode": False}
 
+
 # Move the root endpoint to /api and keep this as a fallback for API requests
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
@@ -450,12 +485,13 @@ async def root(request: Request):
     accept_header = request.headers.get("accept", "")
     if "application/json" in accept_header:
         return {"message": "Board Game Recommender API"}
-    
+
     # Otherwise, serve the frontend index.html
     if os.path.exists(STATIC_DIR / "index.html"):
         return FileResponse(STATIC_DIR / "index.html")
     else:
         return {"message": "Board Game Recommender API"}
+
 
 # Keep the proxy-image endpoint for compatibility with development environment
 @app.get("/api/proxy-image/{url:path}")
@@ -464,15 +500,17 @@ async def proxy_image(url: str):
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             if response.status_code != 200:
-                raise HTTPException(status_code=response.status_code, detail="Failed to fetch image")
-            
+                raise HTTPException(
+                    status_code=response.status_code, detail="Failed to fetch image"
+                )
+
             return StreamingResponse(
                 response.iter_bytes(),
                 media_type=response.headers.get("content-type", "image/jpeg"),
                 headers={
                     "Cache-Control": "public, max-age=31536000",
-                    "Access-Control-Allow-Origin": "*"
-                }
+                    "Access-Control-Allow-Origin": "*",
+                },
             )
     except Exception as e:
         logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
@@ -513,14 +551,18 @@ async def get_cached_image(
                     status_code=status.HTTP_307_TEMPORARY_REDIRECT,
                 )
 
-            image_bytes, content_type = await download_origin_image_content(resolved_image_url)
+            image_bytes, content_type = await download_origin_image_content(
+                resolved_image_url
+            )
             relative_path = build_image_storage_relative_path(
                 game_id,
                 image_url=resolved_image_url,
                 content_type=content_type,
             )
             destination = IMAGE_STORAGE_DIR / relative_path
-            thumbnail_destination = IMAGE_STORAGE_DIR / build_thumbnail_relative_path(game_id)
+            thumbnail_destination = IMAGE_STORAGE_DIR / build_thumbnail_relative_path(
+                game_id
+            )
             await run_image_io_task(
                 lambda: persist_cached_image_bundle(
                     image_bytes=image_bytes,
@@ -547,7 +589,9 @@ async def get_cached_image(
     if image_backend == "r2_cdn":
         r2_public_base_url = get_r2_public_base_url()
         if r2_public_base_url:
-            key = build_image_storage_relative_path(game_id, image_url=resolved_image_url)
+            key = build_image_storage_relative_path(
+                game_id, image_url=resolved_image_url
+            )
             return RedirectResponse(
                 url=f"{r2_public_base_url}/{key}",
                 status_code=status.HTTP_307_TEMPORARY_REDIRECT,
@@ -564,6 +608,7 @@ async def get_cached_image(
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
         )
 
+
 @app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(
     db: Session = Depends(get_db),
@@ -578,7 +623,7 @@ async def list_games(
     weight: Optional[str] = None,
     mechanics: Optional[str] = None,
     categories: Optional[str] = None,
-    pax_only: Optional[bool] = False
+    pax_only: Optional[bool] = False,
 ):
     try:
         # Direct call - no thread pool overhead for better performance
@@ -596,7 +641,7 @@ async def list_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
-            pax_only=pax_only
+            pax_only=pax_only,
         )
         return {"games": games, "total": total}
     except HTTPException:
@@ -605,8 +650,11 @@ async def list_games(
         logger.error(f"Error fetching games: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching games")
 
+
 @app.get("/api/games/{game_id}", response_model=schemas.BoardGameOut)
-@app.get("/api/games/{game_id}/", response_model=schemas.BoardGameOut)  # Add endpoint with trailing slash
+@app.get(
+    "/api/games/{game_id}/", response_model=schemas.BoardGameOut
+)  # Add endpoint with trailing slash
 async def get_game(game_id: int, db: Session = Depends(get_db)):
     try:
         game = crud.get_game(db, game_id)
@@ -619,8 +667,14 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
         logger.error(f"Error fetching game {game_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching game")
 
-@app.get("/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut])
-@app.get("/api/recommendations/{game_id}/", response_model=List[schemas.RecommendationGameOut])  # Add endpoint with trailing slash
+
+@app.get(
+    "/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut]
+)
+@app.get(
+    "/api/recommendations/{game_id}/",
+    response_model=List[schemas.RecommendationGameOut],
+)  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,
     response: Response,
@@ -628,11 +682,11 @@ async def get_recommendations(
     limit: int = Query(10, ge=1, le=50),
     disliked_games: Optional[str] = None,
     anti_weight: float = Query(1.0, gt=0),
-    pax_only: Optional[bool] = False
+    pax_only: Optional[bool] = False,
 ):
     """
     Get game recommendations based on a game ID.
-    
+
     Args:
         game_id: ID of the game to get recommendations for
         db: Database session
@@ -646,30 +700,33 @@ async def get_recommendations(
         disliked_games_list = None
         if disliked_games:
             try:
-                disliked_games_list = [int(gid) for gid in disliked_games.split(',')]
+                disliked_games_list = [int(gid) for gid in disliked_games.split(",")]
             except ValueError:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid disliked_games format. Expected comma-separated list of game IDs."
+                    detail="Invalid disliked_games format. Expected comma-separated list of game IDs.",
                 )
-        
+
         recommendations = crud.get_recommendations(
             db=db,
             limit=limit,
             liked_games=[game_id],
             disliked_games=disliked_games_list,
             anti_weight=anti_weight,
-            pax_only=pax_only
+            pax_only=pax_only,
         )
         apply_recommendation_status_headers(response)
         return recommendations
     except HTTPException as exc:
         raise apply_recommendation_status_to_http_exception(exc)
     except Exception as e:
-        logger.error(f"Error getting recommendations for game {game_id}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error getting recommendations for game {game_id}: {str(e)}", exc_info=True
+        )
         raise apply_recommendation_status_to_http_exception(
             HTTPException(status_code=500, detail="Error getting recommendations")
         )
+
 
 @app.get("/api/recommendations/status")
 @app.get("/api/recommendations/status/")
@@ -688,23 +745,22 @@ async def get_filter_options(db: Session = Depends(get_db)):
         cached_result = get_cached_data(cache_key, ttl_seconds=1800)  # 30 minutes cache
         if cached_result:
             return cached_result
-        
+
         # Get from database
         options = crud.get_filter_options(db)
-        
+
         # Cache the result
         set_cached_data(cache_key, options, ttl_seconds=1800)
-        
+
         return options
     except Exception as e:
         logger.error(f"Error fetching filter options: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching filter options")
 
+
 @app.get("/api/mechanics/", response_model=List[schemas.MechanicBase])
 async def list_mechanics(
-    db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 500
+    db: Session = Depends(get_db), skip: int = 0, limit: int = 500
 ):
     try:
         # Check cache first
@@ -712,42 +768,54 @@ async def list_mechanics(
         cached_result = get_cached_data(cache_key, ttl_seconds=600)  # 10 minutes cache
         if cached_result:
             return cached_result
-        
+
         # Get from database
         mechanics = crud.get_mechanics_cached(db, skip=skip, limit=limit)
-        
+
         # Cache the result
         set_cached_data(cache_key, mechanics, ttl_seconds=600)
-        
+
         return mechanics
     except Exception as e:
         logger.error(f"Error fetching mechanics: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching mechanics")
 
+
 @app.get("/api/pax_games/with_board_game_links")
-def read_pax_games_with_board_game_links(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def read_pax_games_with_board_game_links(
+    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
+):
     return crud.get_pax_games_with_board_game_links(db=db, skip=skip, limit=limit)
+
 
 @app.get("/api/mechanics/by_frequency", response_model=List[schemas.MechanicFrequency])
 def read_mechanics_by_frequency(db: Session = Depends(get_db)):
     return crud.get_mechanics_by_frequency(db=db)
 
+
 @app.get("/api/categories/by_frequency", response_model=List[schemas.CategoryFrequency])
 def read_categories_by_frequency(db: Session = Depends(get_db)):
     return crud.get_categories_by_frequency(db=db)
+
 
 @app.get("/api/categories/", response_model=List[schemas.CategoryBase])
 def read_categories(db: Session = Depends(get_db)):
     categories = crud.get_categories_cached(db)
     return categories
 
+
 @app.get("/api/pax_game_ids", response_model=List[int])
-@app.get("/api/pax_game_ids/", response_model=List[int])  # Add endpoint with trailing slash
+@app.get(
+    "/api/pax_game_ids/", response_model=List[int]
+)  # Add endpoint with trailing slash
 async def get_pax_game_ids(db: Session = Depends(get_db)):
     """Return a list of all PAX game BGG IDs (integers)."""
-    pax_ids = db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()
+    pax_ids = (
+        db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()
+    )
     # pax_ids is a list of tuples, extract the first element from each
     return [pid[0] for pid in pax_ids if pid[0] is not None]
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -794,6 +862,7 @@ async def shutdown_event() -> None:
     _db_keepalive_task = None
     _db_keepalive_stop_event = None
 
+
 class RecommendationRequest(schemas.BaseModel):
     liked_games: Optional[List[int]] = None
     disliked_games: Optional[List[int]] = None
@@ -801,11 +870,10 @@ class RecommendationRequest(schemas.BaseModel):
     anti_weight: float = schemas.Field(1.0, gt=0)
     pax_only: bool = False
 
+
 @app.post("/api/recommendations", response_model=List[schemas.RecommendationGameOut])
 async def get_multi_game_recommendations(
-    request: RecommendationRequest,
-    response: Response,
-    db: Session = Depends(get_db)
+    request: RecommendationRequest, response: Response, db: Session = Depends(get_db)
 ):
     """
     Get game recommendations based on a list of liked and disliked games.
@@ -818,7 +886,7 @@ async def get_multi_game_recommendations(
             liked_games=request.liked_games,
             disliked_games=request.disliked_games,
             anti_weight=request.anti_weight,
-            pax_only=request.pax_only
+            pax_only=request.pax_only,
         )
         apply_recommendation_status_headers(response)
         return recommendations
@@ -830,9 +898,12 @@ async def get_multi_game_recommendations(
             HTTPException(status_code=500, detail="Error getting recommendations")
         )
 
+
 # Add a direct token endpoint at the root level
 @app.post("/token", response_model=schemas.Token)
-async def login_for_access_token_root(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token_root(
+    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+):
     """Legacy token endpoint for backward compatibility"""
     user = crud.authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -847,10 +918,14 @@ async def login_for_access_token_root(db: Session = Depends(get_db), form_data: 
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 # --- User and Auth Endpoints ---
 
+
 @app.post("/api/token", response_model=schemas.Token)
-async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(
+    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+):
     user = crud.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -863,49 +938,62 @@ async def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
-    
+
 
 @app.post("/api/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(security.get_current_active_user)):
+def create_user(
+    user: schemas.UserCreate,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
     if not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Only admin users can create new users.")
+        raise HTTPException(
+            status_code=403, detail="Only admin users can create new users."
+        )
     db_user = crud.get_user_by_username(db, username=user.username.lower())
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)
 
+
 @app.get("/api/users/me/", response_model=schemas.User)
-async def read_users_me(current_user: schemas.User = Depends(security.get_current_active_user)):
+async def read_users_me(
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
     return current_user
+
 
 @app.put("/api/users/me/password", response_model=schemas.PasswordChangeResponse)
 def change_password(
     password_request: schemas.PasswordChangeRequest,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(security.get_current_active_user)
+    current_user: schemas.User = Depends(security.get_current_active_user),
 ):
     success = crud.change_user_password(
-        db=db, 
-        user_id=current_user.id, 
+        db=db,
+        user_id=current_user.id,
         old_password=password_request.current_password,
-        new_password=password_request.new_password
+        new_password=password_request.new_password,
     )
     if not success:
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     return schemas.PasswordChangeResponse(message="Password changed successfully")
 
+
 @app.post("/api/suggestions/", response_model=schemas.UserSuggestionResponse)
 def create_suggestion(
-    suggestion: schemas.UserSuggestionCreate, 
-    db: Session = Depends(get_db), 
-    current_user: schemas.User = Depends(security.get_current_active_user)
+    suggestion: schemas.UserSuggestionCreate,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
 ):
     logger.info(
         "Creating suggestion for user_id=%s username=%s",
         current_user.id,
         current_user.username,
     )
-    db_suggestion = crud.create_user_suggestion(db=db, user_id=current_user.id, suggestion=suggestion)
+    db_suggestion = crud.create_user_suggestion(
+        db=db, user_id=current_user.id, suggestion=suggestion
+    )
     logger.info(
         "Created suggestion id=%s for user_id=%s",
         db_suggestion.id,
@@ -915,7 +1003,7 @@ def create_suggestion(
         id=db_suggestion.id,
         comment=db_suggestion.comment,
         timestamp=db_suggestion.timestamp.isoformat(),
-        username=current_user.username
+        username=current_user.username,
     )
 
 
@@ -928,13 +1016,20 @@ else:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Create user account.")
     parser.add_argument("--username", required=True, help="Username")
     parser.add_argument("--password", required=True, help="Password")
-    parser.add_argument("--admin", action="store_true", help="Create as admin user (default: regular user)")
-    parser.add_argument("--reset-password", action="store_true", help="Reset password for existing user")
+    parser.add_argument(
+        "--admin",
+        action="store_true",
+        help="Create as admin user (default: regular user)",
+    )
+    parser.add_argument(
+        "--reset-password", action="store_true", help="Reset password for existing user"
+    )
     args = parser.parse_args()
-    
+
     if args.reset_password:
         security.reset_password_cli(args.username, args.password)
     else:

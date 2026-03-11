@@ -6,6 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent.parent))
 from app.db_config import get_database_url
 from app.models import Base
@@ -29,6 +30,7 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
 
 def resolve_database_url():
     database_url = get_database_url()
@@ -71,7 +73,7 @@ def run_migrations_online() -> None:
     # Get configuration and override database URL if environment variable is set
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = resolve_database_url()
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -79,9 +81,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

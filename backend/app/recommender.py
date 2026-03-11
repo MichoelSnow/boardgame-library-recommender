@@ -6,7 +6,6 @@ from typing import List, Optional
 from sqlalchemy import exists
 from sqlalchemy.orm import Session
 from . import models
-import pandas as pd
 import numpy as np
 from scipy import sparse
 from sklearn.preprocessing import normalize
@@ -15,7 +14,9 @@ import os
 
 logger = logging.getLogger(__name__)
 
-BOARD_GAME_COLUMN_NAMES = tuple(column.name for column in models.BoardGame.__table__.columns)
+BOARD_GAME_COLUMN_NAMES = tuple(
+    column.name for column in models.BoardGame.__table__.columns
+)
 BOARD_GAME_SCALAR_COLUMNS = tuple(
     getattr(models.BoardGame, column_name) for column_name in BOARD_GAME_COLUMN_NAMES
 )
@@ -53,7 +54,7 @@ class ModelManager:
         expected_prefix = f"{prefix}_"
         if not stem.startswith(expected_prefix):
             return None
-        return stem[len(expected_prefix):]
+        return stem[len(expected_prefix) :]
 
     @classmethod
     def _extract_timestamp_int(cls, file_path: Path, prefix: str) -> Optional[int]:
@@ -75,10 +76,14 @@ class ModelManager:
             try:
                 # Use environment variable for database directory in production
                 database_dir = Path(
-                    os.getenv("DATABASE_DIR", str(Path(__file__).parent.parent / "database"))
+                    os.getenv(
+                        "DATABASE_DIR", str(Path(__file__).parent.parent / "database")
+                    )
                 )
                 game_embeddings_files = list(database_dir.glob("game_embeddings_*.npz"))
-                reverse_mappings_files = list(database_dir.glob("reverse_mappings_*.json"))
+                reverse_mappings_files = list(
+                    database_dir.glob("reverse_mappings_*.json")
+                )
 
                 if not game_embeddings_files:
                     raise FileNotFoundError("No embeddings files found")
@@ -164,17 +169,18 @@ class ModelManager:
             "detail": detail,
         }
 
+
 def get_recommendations(
     db: Session,
     limit: int = 20,
     liked_games: Optional[List[int]] = None,
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
-    pax_only: Optional[bool] = False
+    pax_only: Optional[bool] = False,
 ) -> List[dict[str, object]]:
     """
     Get game recommendations using the game embeddings.
-    
+
     Args:
         db: Database session
         limit: Maximum number of recommendations to return
@@ -182,7 +188,7 @@ def get_recommendations(
         disliked_games: Optional list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations
         pax_only: If true, only recommend games that are in the PAX games table
-        
+
     Returns:
         List of recommended game payloads
     """
@@ -196,30 +202,42 @@ def get_recommendations(
         game_mapping = model_manager._game_mapping
         reverse_game_mapping = model_manager._reverse_game_mapping
         timing["model_load_ms"] = (time.perf_counter() - stage_started) * 1000
-        
+
         if not liked_games and not disliked_games:
             return []
-        
+
         stage_started = time.perf_counter()
-        liked_indices = [game_mapping[g_id] for g_id in liked_games if g_id in game_mapping] if liked_games else []
-        disliked_indices = [game_mapping[dg_id] for dg_id in disliked_games if dg_id in game_mapping] if disliked_games else []
+        liked_indices = (
+            [game_mapping[g_id] for g_id in liked_games if g_id in game_mapping]
+            if liked_games
+            else []
+        )
+        disliked_indices = (
+            [game_mapping[dg_id] for dg_id in disliked_games if dg_id in game_mapping]
+            if disliked_games
+            else []
+        )
         timing["mapping_ms"] = (time.perf_counter() - stage_started) * 1000
-        
+
         if not liked_indices and not disliked_indices:
-            logger.warning("None of the provided liked/disliked games were found in embeddings.")
+            logger.warning(
+                "None of the provided liked/disliked games were found in embeddings."
+            )
             return []
 
         # Compute mean of liked and disliked games
         stage_started = time.perf_counter()
         pos_vec = game_embeddings[liked_indices].mean(axis=0) if liked_indices else 0
-        neg_vec = game_embeddings[disliked_indices].mean(axis=0) if disliked_indices else 0
-        
+        neg_vec = (
+            game_embeddings[disliked_indices].mean(axis=0) if disliked_indices else 0
+        )
+
         query_vec = pos_vec - anti_weight * neg_vec
-        
+
         if isinstance(query_vec, int):
             return []
 
-        query_vec = normalize(np.asarray(query_vec), norm='l2')
+        query_vec = normalize(np.asarray(query_vec), norm="l2")
         timing["query_vector_ms"] = (time.perf_counter() - stage_started) * 1000
 
         # Compute cosine similarity between query vector and all game embeddings
@@ -230,11 +248,13 @@ def get_recommendations(
 
         # Zero out scores for input items
         stage_started = time.perf_counter()
-        excluded_indices = np.unique(np.asarray(liked_indices + disliked_indices, dtype=int))
+        excluded_indices = np.unique(
+            np.asarray(liked_indices + disliked_indices, dtype=int)
+        )
         if excluded_indices.size > 0:
             scores[excluded_indices] = -1
         timing["exclude_inputs_ms"] = (time.perf_counter() - stage_started) * 1000
-        
+
         # Get top N similar games without sorting all scores.
         # Fetch more than limit to account for games not in DB/filtering losses.
         stage_started = time.perf_counter()
@@ -243,10 +263,12 @@ def get_recommendations(
             top_indices = np.argsort(scores)[::-1]
         else:
             partition_start = scores.shape[0] - candidate_count
-            candidate_indices = np.argpartition(scores, partition_start)[partition_start:]
+            candidate_indices = np.argpartition(scores, partition_start)[
+                partition_start:
+            ]
             top_indices = candidate_indices[np.argsort(scores[candidate_indices])[::-1]]
         timing["topk_selection_ms"] = (time.perf_counter() - stage_started) * 1000
-        
+
         stage_started = time.perf_counter()
         recommended_games_with_scores = []
         for idx in top_indices:
@@ -254,10 +276,12 @@ def get_recommendations(
                 recommended_games_with_scores.append(
                     (int(reverse_game_mapping[idx]), scores[idx])
                 )
-        timing["candidate_materialization_ms"] = (time.perf_counter() - stage_started) * 1000
+        timing["candidate_materialization_ms"] = (
+            time.perf_counter() - stage_started
+        ) * 1000
 
         recommended_ids = [game[0] for game in recommended_games_with_scores]
-        
+
         stage_started = time.perf_counter()
         # Fetch scalar columns only to avoid relationship loading/serialization overhead.
         game_query = db.query(*BOARD_GAME_SCALAR_COLUMNS).filter(
@@ -273,9 +297,9 @@ def get_recommendations(
             row_data = dict(zip(BOARD_GAME_COLUMN_NAMES, row))
             game_map[row_data["id"]] = row_data
         timing["db_fetch_ms"] = (time.perf_counter() - stage_started) * 1000
-        
+
         stage_started = time.perf_counter()
-        
+
         # Build the final list, sorted by score
         result_games: list[dict[str, object]] = []
         for game_id, score in recommended_games_with_scores:
@@ -285,7 +309,7 @@ def get_recommendations(
                 )
             if len(result_games) >= limit:
                 break
-        
+
         # Sort by recommendation score before returning
         result_games.sort(
             key=lambda item: float(item.get("recommendation_score", 0.0)),
@@ -314,7 +338,7 @@ def get_recommendations(
         )
 
         return result_games
-        
+
     except Exception as e:
         logger.error(f"Error getting recommendations: {str(e)}", exc_info=True)
         return []

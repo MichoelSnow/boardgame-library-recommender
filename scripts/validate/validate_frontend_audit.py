@@ -69,7 +69,9 @@ def load_allowlist(path: Path) -> set[str]:
     payload = json.loads(path.read_text())
     values = payload.get("allowed_high_or_critical_packages", [])
     if not isinstance(values, list):
-        raise RuntimeError("Allowlist key allowed_high_or_critical_packages must be a list.")
+        raise RuntimeError(
+            "Allowlist key allowed_high_or_critical_packages must be a list."
+        )
     return {str(item) for item in values}
 
 
@@ -83,7 +85,9 @@ def main() -> int:
         if frontend_input.is_absolute()
         else [Path.cwd() / frontend_input, repo_root / frontend_input]
     )
-    frontend_dir = next((path.resolve() for path in frontend_candidates if path.exists()), None)
+    frontend_dir = next(
+        (path.resolve() for path in frontend_candidates if path.exists()), None
+    )
     if frontend_dir is None:
         cwd_frontend = Path.cwd()
         if (cwd_frontend / "package.json").exists():
@@ -97,7 +101,9 @@ def main() -> int:
         if allowlist_input.is_absolute()
         else [Path.cwd() / allowlist_input, repo_root / allowlist_input]
     )
-    allowlist_path = next((path.resolve() for path in allowlist_candidates if path.exists()), None)
+    allowlist_path = next(
+        (path.resolve() for path in allowlist_candidates if path.exists()), None
+    )
     if allowlist_path is None:
         raise RuntimeError(f"Allowlist file not found: {args.allowlist}")
 
@@ -111,7 +117,9 @@ def main() -> int:
         for package_name in unexpected:
             print(f"- {package_name}")
         print("")
-        print("Update dependencies or intentionally add packages to allowlist with rationale.")
+        print(
+            "Update dependencies or intentionally add packages to allowlist with rationale."
+        )
         return 1
 
     print(

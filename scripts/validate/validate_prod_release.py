@@ -60,7 +60,12 @@ def main() -> int:
         ),
         (
             "Fly health checks",
-            [*POETRY_PYTHON, "scripts/validate/validate_fly_health_checks.py", "--env", "prod"],
+            [
+                *POETRY_PYTHON,
+                "scripts/validate/validate_fly_health_checks.py",
+                "--env",
+                "prod",
+            ],
         ),
         (
             "Auth flow smoke test",
@@ -68,7 +73,12 @@ def main() -> int:
         ),
         (
             "Recommendation artifact files",
-            [*POETRY_PYTHON, "scripts/validate/validate_recommendation_artifacts.py", "--env", "prod"],
+            [
+                *POETRY_PYTHON,
+                "scripts/validate/validate_recommendation_artifacts.py",
+                "--env",
+                "prod",
+            ],
         ),
         (
             "Recommendation endpoint smoke test",

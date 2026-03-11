@@ -38,6 +38,7 @@ def build_default_sqlite_url() -> str:
 def get_table_copy_order() -> list[str]:
     return [table.name for table in Base.metadata.sorted_tables]
 
+
 def reflect_tables(engine: Engine) -> dict[str, Table]:
     metadata = MetaData()
     metadata.reflect(bind=engine)
@@ -219,7 +220,10 @@ def migrate_sqlite_to_postgres(
     anomaly_counts: dict[str, int] = {}
     ensure_target_tables_exist(table_order, source_tables, target_tables)
 
-    with source_engine.connect() as source_connection, target_engine.begin() as target_connection:
+    with (
+        source_engine.connect() as source_connection,
+        target_engine.begin() as target_connection,
+    ):
         ensure_target_is_empty(table_order, target_connection, target_tables)
         valid_game_ids = get_valid_game_ids(source_connection, source_tables["games"])
 

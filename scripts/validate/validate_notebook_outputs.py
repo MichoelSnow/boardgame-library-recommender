@@ -55,9 +55,7 @@ def main() -> int:
                 )
 
     for path in _iter_unexpected_files():
-        failures.append(
-            f"{path}: unexpected non-notebook file in notebooks directory"
-        )
+        failures.append(f"{path}: unexpected non-notebook file in notebooks directory")
 
     if failures:
         print("Notebook output/layout validation failed:")

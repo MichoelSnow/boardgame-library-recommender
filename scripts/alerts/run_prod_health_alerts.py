@@ -107,7 +107,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
         )
 
     try:
-        rec_status_payload, _ = fetch_json(build_url(environment, "/api/recommendations/status"))
+        rec_status_payload, _ = fetch_json(
+            build_url(environment, "/api/recommendations/status")
+        )
         recommendation_state = str(rec_status_payload.get("state", "unknown"))
         recommendation_ok = bool(rec_status_payload.get("available", False))
         if not recommendation_ok:

@@ -27,7 +27,9 @@ def build_default_output_path(environment: str, output_dir: str = "/tmp") -> Pat
     return Path(output_dir) / f"pax-tt-{environment}-postgres-backup-{timestamp}.sql"
 
 
-def build_pg_dump_command(environment: str, postgres_user: str, postgres_db: str) -> list[str]:
+def build_pg_dump_command(
+    environment: str, postgres_user: str, postgres_db: str
+) -> list[str]:
     remote_command = (
         f"pg_dump -U {postgres_user} -d {postgres_db} "
         "--clean --if-exists --no-owner --no-privileges"
@@ -80,7 +82,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     configure_logging()
     args = parse_args()
-    output_path = Path(args.output) if args.output else build_default_output_path(args.env)
+    output_path = (
+        Path(args.output) if args.output else build_default_output_path(args.env)
+    )
     command = build_pg_dump_command(args.env, args.postgres_user, args.postgres_db)
     write_backup(command, output_path)
     return 0

@@ -55,7 +55,7 @@ def extract_timestamp(path_str: str, prefix: str) -> str | None:
     expected_prefix = f"{prefix}_"
     if not stem.startswith(expected_prefix):
         return None
-    return stem[len(expected_prefix):]
+    return stem[len(expected_prefix) :]
 
 
 def format_timestamp(timestamp: str) -> str:
@@ -74,10 +74,14 @@ def validate_artifacts(environment: str) -> int:
     paths = run_fly_ls(app_name)
 
     embedding_paths = sorted(
-        path for path in paths if PurePosixPath(path).name.startswith("game_embeddings_")
+        path
+        for path in paths
+        if PurePosixPath(path).name.startswith("game_embeddings_")
     )
     mapping_paths = sorted(
-        path for path in paths if PurePosixPath(path).name.startswith("reverse_mappings_")
+        path
+        for path in paths
+        if PurePosixPath(path).name.startswith("reverse_mappings_")
     )
 
     if not embedding_paths:
@@ -114,7 +118,9 @@ def validate_artifacts(environment: str) -> int:
     latest_timestamp, latest_embedding_path, latest_mapping_path = matched_pairs[-1]
     logger.info("Matched pairs found: %d", len(matched_pairs))
     logger.info("Newest matched timestamp: %s", latest_timestamp)
-    logger.info("Newest matched timestamp (UTC): %s", format_timestamp(latest_timestamp))
+    logger.info(
+        "Newest matched timestamp (UTC): %s", format_timestamp(latest_timestamp)
+    )
     logger.info("Embedding: %s", latest_embedding_path)
     logger.info("Mapping: %s", latest_mapping_path)
     logger.info(

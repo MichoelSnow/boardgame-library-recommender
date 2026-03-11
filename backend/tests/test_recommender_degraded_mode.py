@@ -16,7 +16,9 @@ def reset_model_manager():
     return manager
 
 
-def test_get_recommendations_returns_empty_when_embeddings_missing(monkeypatch, tmp_path):
+def test_get_recommendations_returns_empty_when_embeddings_missing(
+    monkeypatch, tmp_path
+):
     manager = reset_model_manager()
 
     monkeypatch.setenv("DATABASE_DIR", str(tmp_path))

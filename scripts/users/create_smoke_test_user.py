@@ -90,7 +90,9 @@ def create_smoke_test_user(
     if not isinstance(user_payload, dict):
         raise RuntimeError("Smoke-test user creation did not return a JSON object.")
 
-    logger.info("Created smoke-test user in %s: %s", environment, user_payload.get("username"))
+    logger.info(
+        "Created smoke-test user in %s: %s", environment, user_payload.get("username")
+    )
     return 0
 
 

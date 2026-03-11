@@ -14,7 +14,9 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def fetch_recommendations(environment: str, game_id: int, limit: int) -> tuple[list, dict[str, str]]:
+def fetch_recommendations(
+    environment: str, game_id: int, limit: int
+) -> tuple[list, dict[str, str]]:
     url = build_url(
         environment,
         f"/api/recommendations/{game_id}",
@@ -23,7 +25,9 @@ def fetch_recommendations(environment: str, game_id: int, limit: int) -> tuple[l
     try:
         payload, response_headers = request_with_retry(url)
     except Exception as exc:
-        raise RuntimeError(f"Recommendation endpoint failed for {environment}: {exc}") from exc
+        raise RuntimeError(
+            f"Recommendation endpoint failed for {environment}: {exc}"
+        ) from exc
 
     if not isinstance(payload, list):
         raise RuntimeError("Recommendation endpoint did not return a JSON list.")

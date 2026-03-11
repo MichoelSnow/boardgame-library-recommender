@@ -16,8 +16,8 @@ backend_dir = Path(__file__).parent.parent
 sys.path.append(str(backend_dir))
 
 # Import SQL runner
-from sql_runner import run_all_scripts, run_specific_scripts
-from app.logging_utils import build_log_handlers
+from sql_runner import run_all_scripts, run_specific_scripts  # noqa: E402
+from app.logging_utils import build_log_handlers  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -27,29 +27,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
 def main():
     """Run post-import SQL scripts."""
-    parser = argparse.ArgumentParser(description='Run post-import SQL scripts for the Board Game Recommender')
-    parser.add_argument('--script', help='Run a specific SQL script (without .sql extension)')
-    parser.add_argument('--list', action='store_true', help='List available SQL scripts')
-    
+    parser = argparse.ArgumentParser(
+        description="Run post-import SQL scripts for the Board Game Recommender"
+    )
+    parser.add_argument(
+        "--script", help="Run a specific SQL script (without .sql extension)"
+    )
+    parser.add_argument(
+        "--list", action="store_true", help="List available SQL scripts"
+    )
+
     args = parser.parse_args()
-    
+
     # Path to SQL scripts directory
     sql_dir = Path(__file__).parent / "sql"
-    
+
     if args.list:
         # List available SQL scripts
         sql_files = sorted([f.name for f in sql_dir.glob("*.sql")])
         if not sql_files:
-            print("No SQL scripts found.")
+            logger.info("No SQL scripts found.")
             return
-        
-        print("Available SQL scripts:")
+
+        logger.info("Available SQL scripts:")
         for i, script in enumerate(sql_files, 1):
-            print(f"{i}. {script}")
+            logger.info("%d. %s", i, script)
         return
-    
+
     if args.script:
         # Run a specific SQL script
         logger.info(f"Running SQL script: {args.script}")
@@ -68,6 +75,7 @@ def main():
         except Exception as e:
             logger.error(f"Error running SQL scripts: {str(e)}")
             sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

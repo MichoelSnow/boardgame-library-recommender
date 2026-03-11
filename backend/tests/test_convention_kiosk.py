@@ -8,8 +8,12 @@ def test_convention_mode_enabled_parsing() -> None:
 
 
 def test_guest_mode_enabled_parsing() -> None:
-    assert convention_kiosk.is_convention_guest_enabled({"CONVENTION_GUEST_ENABLED": "yes"})
-    assert not convention_kiosk.is_convention_guest_enabled({"CONVENTION_GUEST_ENABLED": "0"})
+    assert convention_kiosk.is_convention_guest_enabled(
+        {"CONVENTION_GUEST_ENABLED": "yes"}
+    )
+    assert not convention_kiosk.is_convention_guest_enabled(
+        {"CONVENTION_GUEST_ENABLED": "0"}
+    )
 
 
 def test_kiosk_cookie_token_issue_and_validate_roundtrip() -> None:

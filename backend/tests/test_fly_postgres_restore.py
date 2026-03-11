@@ -6,9 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MODULE_PATH = (
-    ROOT / "scripts" / "db" / "fly_postgres_restore.py"
-)
+MODULE_PATH = ROOT / "scripts" / "db" / "fly_postgres_restore.py"
 SPEC = spec_from_file_location("fly_postgres_restore", MODULE_PATH)
 MODULE = module_from_spec(SPEC)
 assert SPEC is not None
@@ -32,7 +30,7 @@ def test_build_create_database_command_for_prod():
     command = build_create_database_command("prod", "pax_tt_app", "restore_db")
 
     assert command[:5] == ["fly", "ssh", "console", "-a", "pax-tt-db-prod"]
-    assert 'CREATE DATABASE restore_db;' in command[6]
+    assert "CREATE DATABASE restore_db;" in command[6]
 
 
 def test_build_restore_and_verify_commands():

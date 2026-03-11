@@ -26,11 +26,7 @@ def _parse_version_from_pyproject_text(pyproject_text: str) -> str:
         except Exception:
             pyproject_data = None
         else:
-            version = (
-                pyproject_data.get("tool", {})
-                .get("poetry", {})
-                .get("version")
-            )
+            version = pyproject_data.get("tool", {}).get("poetry", {}).get("version")
             if isinstance(version, str) and version.strip():
                 return version.strip()
 

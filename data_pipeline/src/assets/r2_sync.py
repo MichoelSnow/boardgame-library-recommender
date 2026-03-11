@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import requests
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -61,7 +66,9 @@ class R2Config:
             missing.append("R2_BUCKET_NAME")
 
         if missing:
-            raise ValueError(f"Missing required R2 environment variables: {', '.join(missing)}")
+            raise ValueError(
+                f"Missing required R2 environment variables: {', '.join(missing)}"
+            )
 
         return R2Config(
             endpoint_url=endpoint_url,
