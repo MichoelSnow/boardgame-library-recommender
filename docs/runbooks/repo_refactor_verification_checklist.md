@@ -18,7 +18,7 @@ poetry run python -m compileall backend data_pipeline
 ```
 
 ## 3. Workflow and CI References
-- [ ] CI paths (`black`, `compileall`, `pytest`) use current directory/package names.
+- [ ] CI paths (`ruff format`, `compileall`, `pytest`) use current directory/package names.
 - [ ] Any deploy/ops workflows referencing moved files are updated.
 
 Validation command:

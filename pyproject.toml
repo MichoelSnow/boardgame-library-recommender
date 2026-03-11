@@ -41,7 +41,6 @@ pillow = "^11.3.0"
 [tool.poetry.group.dev.dependencies]
 notebook = "==6.*"
 jupyter-contrib-nbextensions = "^0.7.0"
-black = "^25.1.0"
 jupyter-nbextensions-configurator = "0.6.3"
 rapidfuzz = "^3.13.0"
 pytest = "^9.0.2"
@@ -51,6 +50,7 @@ mypy = "^1.18.2"
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+extend-exclude = ["data_pipeline/notebooks"]
 
 [tool.ruff.lint]
 select = ["E", "F"]

@@ -341,7 +341,7 @@ Related Phase 4 planning docs:
 - [ ] [P0] Add automated security-misconfiguration tests (for example fail if insecure auth/CORS settings are used in production config).
 
 ### Phase 8: CI/CD and Quality Gates (2-4 days)
-- [x] [P0] Standardize Python formatting/linting (`black`, `ruff`).
+- [x] [P0] Standardize Python formatting/linting (`ruff format`, `ruff check`).
 - [x] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
 - [x] [P2] Add Python type checks (`mypy`) for critical backend modules.
 - [ ] [P0] Add required status checks in branch protection for `main`.
@@ -352,7 +352,7 @@ Related Phase 4 planning docs:
 - [x] [P1] Re-enable `frontend-audit` CI job with agreed vulnerability policy (baseline/allowlist/threshold).
 - [x] [P0] Make Python CI tests deterministic (CI DB fixture/setup step or deterministic subset; no silent test skips allowed).
 - [x] [P1] Add a `Quality Commands` section in docs with exact local commands:
-- [x] [P1] Python format/lint/fix commands (`black`, `ruff`).
+- [x] [P1] Python format/lint/fix commands (`ruff format`, `ruff check`).
 - [x] [P1] Frontend format/lint commands (`prettier`, `eslint`).
 - [x] [P1] Type-check commands (`mypy` and frontend type checks if enabled).
 - [x] [P1] Add CI mapping in docs (which command runs in which CI job).

@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SECRET_KEY: "DUMMY_CI_ONLY_SECRET_KEY_NOT_FOR_PRODUCTION_12345"
+      DATABASE_PATH: "/tmp/pax_tt_ci.db"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -63,22 +64,10 @@ jobs:
           poetry check
       - name: Python format check
         run: |
-          poetry run black --check \
-            backend/tests/test_api_endpoints.py \
-            data_pipeline/src/features/create_embeddings.py \
-            data_pipeline/tests/test_create_embeddings.py \
-            data_pipeline/tests/test_data_processor.py
+          poetry run ruff format --check backend data_pipeline scripts
       - name: Python lint check
         run: |
-          poetry run ruff check \
-            backend/tests/test_api_endpoints.py \
-            data_pipeline/src/features/create_embeddings.py \
-            data_pipeline/tests/test_create_embeddings.py \
-            data_pipeline/tests/test_data_processor.py \
-            scripts/alerts/run_prod_health_alerts.py \
-            scripts/db/fly_postgres_backup.py \
-            scripts/db/fly_postgres_restore.py \
-            scripts/validation_common.py
+          poetry run ruff check backend data_pipeline scripts
       - name: Python import sanity check
         run: |
           poetry run python -m compileall backend data_pipeline scripts

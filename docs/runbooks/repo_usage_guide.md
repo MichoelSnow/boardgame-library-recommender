@@ -240,20 +240,8 @@ poetry install --with dev
 Format/lint/type-check:
 
 ```bash
-poetry run black --check \
-  backend/tests/test_api_endpoints.py \
-  data_pipeline/src/features/create_embeddings.py \
-  data_pipeline/tests/test_create_embeddings.py \
-  data_pipeline/tests/test_data_processor.py
-poetry run ruff check \
-  backend/tests/test_api_endpoints.py \
-  data_pipeline/src/features/create_embeddings.py \
-  data_pipeline/tests/test_create_embeddings.py \
-  data_pipeline/tests/test_data_processor.py \
-  scripts/alerts/run_prod_health_alerts.py \
-  scripts/db/fly_postgres_backup.py \
-  scripts/db/fly_postgres_restore.py \
-  scripts/validation_common.py
+poetry run ruff format --check backend data_pipeline scripts
+poetry run ruff check backend data_pipeline scripts
 poetry run mypy backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
 ```
 
@@ -312,8 +300,8 @@ npm run test:ci -- \
 
 - `python-quality`:
   - `poetry check`
-  - targeted `black --check` on CI-owned Python quality files
-  - targeted `ruff check` on CI-owned Python quality files
+  - repo-wide `ruff format --check` on `backend`, `data_pipeline`, and `scripts`
+  - repo-wide `ruff check` on `backend`, `data_pipeline`, and `scripts`
   - `compileall`
   - critical-module `mypy`
   - deterministic backend/pipeline pytest subset
@@ -334,8 +322,7 @@ npm run test:ci -- \
 - `mypy` import noise from third-party packages:
   - keep checks scoped to listed critical modules unless we intentionally expand coverage.
 - Repo-wide formatting drift:
-  - current quality gate is intentionally scoped to CI-owned quality files to avoid mass reformat churn.
-  - if we later adopt repo-wide formatting, do it as a dedicated formatting-only PR.
+  - run `poetry run ruff format backend data_pipeline scripts` to apply formatting before re-running checks.
 - Frontend audit fails due baseline drift:
   - run `npm audit --omit=dev --json` in `frontend` and compare package names against `.github/npm_audit_allowlist.json`.
   - only add allowlist entries intentionally with rationale in PR description.
