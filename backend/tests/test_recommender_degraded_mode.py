@@ -24,7 +24,7 @@ def test_get_recommendations_returns_empty_when_embeddings_missing(
     monkeypatch.setenv("DATABASE_DIR", str(tmp_path))
 
     result = recommender.get_recommendations(
-        db=None,  # pyright: ignore[reportArgumentType]
+        db=None,
         liked_games=[1],
     )
 
