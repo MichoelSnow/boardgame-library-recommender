@@ -242,7 +242,7 @@ Format/lint/type-check:
 ```bash
 poetry run ruff format --check backend data_pipeline scripts
 poetry run ruff check backend data_pipeline scripts
-poetry run basedpyright backend/app/db_config.py backend/app/db_keepalive.py backend/app/runtime_profile.py
+poetry run basedpyright backend data_pipeline scripts
 ```
 
 Full Python test suite (matches CI):
@@ -265,16 +265,7 @@ Lint/format/build/tests:
 ```bash
 npm run lint
 npm run build
-npm run test:ci -- \
-  src/api/client.test.js \
-  src/api/auth.test.js \
-  src/hooks/useConventionUiState.test.js \
-  src/hooks/useRecommendationSessionState.test.js \
-  src/utils/imageUrls.test.js \
-  src/components/GameDetails.test.js \
-  src/integration/authFlow.test.js \
-  src/integration/gameFilteringFlow.test.js \
-  src/integration/recommendationFlow.test.js
+npm run test:ci
 ```
 
 ### C3. CI Job Mapping
@@ -289,7 +280,7 @@ npm run test:ci -- \
 - `frontend-build`:
   - `npm run lint`
   - `npm run build`
-  - frontend targeted tests (unit + integration)
+  - full frontend test suite via `npm run test:ci`
 - `frontend-audit`:
   - `npm audit --omit=dev --json` validated via `scripts/validate/validate_frontend_audit.py`
   - fails only on new high/critical packages beyond `.github/npm_audit_allowlist.json`

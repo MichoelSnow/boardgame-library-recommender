@@ -91,13 +91,4 @@ jobs:
           npm ci
           npm run lint
           npm run build
-          npm run test:ci -- \
-            src/api/client.test.js \
-            src/api/auth.test.js \
-            src/hooks/useConventionUiState.test.js \
-            src/hooks/useRecommendationSessionState.test.js \
-            src/utils/imageUrls.test.js \
-            src/components/GameDetails.test.js \
-            src/integration/authFlow.test.js \
-            src/integration/gameFilteringFlow.test.js \
-            src/integration/recommendationFlow.test.js
+          npm run test:ci
