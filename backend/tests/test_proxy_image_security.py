@@ -68,4 +68,3 @@ def test_proxy_image_rejects_large_content_length(monkeypatch):
     with pytest.raises(main.HTTPException) as exc:
         asyncio.run(main.proxy_image("https://example.com/image.jpg"))
     assert exc.value.status_code == 413
-

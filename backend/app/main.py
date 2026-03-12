@@ -176,12 +176,16 @@ def validate_proxy_image_url(raw_url: str) -> str:
             type=socket.SOCK_STREAM,
         )
     except OSError:
-        raise HTTPException(status_code=400, detail="Image URL host could not be resolved.")
+        raise HTTPException(
+            status_code=400, detail="Image URL host could not be resolved."
+        )
 
     for addrinfo in addrinfos:
         ip_text = addrinfo[4][0]
         if _is_disallowed_ip_address(ip_text):
-            raise HTTPException(status_code=400, detail="Image URL host is not allowed.")
+            raise HTTPException(
+                status_code=400, detail="Image URL host is not allowed."
+            )
 
     return raw_url
 
@@ -602,7 +606,9 @@ async def proxy_image(url: str):
             if content_length is not None:
                 try:
                     if int(content_length) > MAX_PROXY_IMAGE_BYTES:
-                        raise HTTPException(status_code=413, detail="Image is too large.")
+                        raise HTTPException(
+                            status_code=413, detail="Image is too large."
+                        )
                 except ValueError:
                     pass
 
