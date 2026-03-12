@@ -17,7 +17,9 @@ def _is_truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def should_enable_db_keepalive(database_url: str, env: dict[str, str] | None = None) -> bool:
+def should_enable_db_keepalive(
+    database_url: str, env: dict[str, str] | None = None
+) -> bool:
     environment = env or os.environ
     if not database_url.startswith("postgresql://"):
         return False

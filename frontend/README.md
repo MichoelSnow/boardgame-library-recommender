@@ -38,6 +38,11 @@ npm run build
 npm test
 ```
 
+MSW-backed integration tests live in `src/integration/` and use shared handlers from:
+- `src/test/msw/handlers.js`
+- `src/test/msw/server.js`
+- `src/setupTests.js`
+
 ## Environment Notes
 - API base behavior is configured in frontend code and deployment config.
 - For deployed environments, verify requests resolve to the expected app host (`dev` vs `prod`) before smoke testing.

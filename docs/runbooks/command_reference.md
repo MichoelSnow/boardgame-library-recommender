@@ -274,3 +274,20 @@ export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
 aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
   --endpoint-url "$R2_ENDPOINT_URL"
 ```
+
+## 13. Quality Gates
+
+Python:
+```bash
+poetry run ruff format --check backend data_pipeline scripts
+poetry run ruff check backend data_pipeline scripts
+```
+
+Frontend:
+```bash
+cd frontend
+npm run lint
+npm run build
+npm audit --omit=dev --json > /tmp/npm_audit.json
+python ../scripts/validate/validate_frontend_audit.py
+```

@@ -102,7 +102,9 @@ def iter_sync_candidates(
     required_columns = {"id", "image"}
     missing = required_columns - set(games_df.columns)
     if missing:
-        raise ValueError(f"Missing required columns in processed games data: {sorted(missing)}")
+        raise ValueError(
+            f"Missing required columns in processed games data: {sorted(missing)}"
+        )
 
     filtered_df = games_df[games_df["image"].notna()].copy()
 
@@ -140,7 +142,9 @@ def iter_sync_candidates(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Sync qualifying game images to Cloudflare R2.")
+    parser = argparse.ArgumentParser(
+        description="Sync qualifying game images to Cloudflare R2."
+    )
     parser.add_argument(
         "--processed-file",
         type=Path,
@@ -198,7 +202,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
 
-    processed_file = args.processed_file or find_latest_processed_games_file(DEFAULT_PROCESSED_DIR)
+    processed_file = args.processed_file or find_latest_processed_games_file(
+        DEFAULT_PROCESSED_DIR
+    )
     pax_file = args.pax_file or find_latest_pax_file(DEFAULT_PAX_DIR)
 
     games_df = pd.read_csv(processed_file, sep="|", escapechar="\\")
@@ -232,7 +238,9 @@ def main() -> int:
         return 0
 
     if not r2_config_available():
-        logger.error("R2 config is incomplete. Set R2_ENDPOINT_URL/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_NAME.")
+        logger.error(
+            "R2 config is incomplete. Set R2_ENDPOINT_URL/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_NAME."
+        )
         return 1
 
     syncer = R2ImageSyncer.from_env()
@@ -261,7 +269,11 @@ def main() -> int:
 
     for game_id, image_url in tqdm(candidates, desc="Syncing images to R2"):
         try:
-            if prefetch_enabled and not args.overwrite_existing and game_id in existing_key_map:
+            if (
+                prefetch_enabled
+                and not args.overwrite_existing
+                and game_id in existing_key_map
+            ):
                 skipped_count += 1
                 continue
             _, status = syncer.sync_image_url(

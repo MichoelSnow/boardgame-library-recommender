@@ -34,9 +34,9 @@ def test_get_recommendations_pax_only_filters_via_db_query() -> None:
     manager = _reset_model_manager()
     manager._game_embeddings = sparse.csr_matrix(
         [
-            [1.0, 0.0],   # game 1 (liked seed)
-            [0.95, 0.05], # game 2 (higher score, non-PAX)
-            [0.90, 0.10], # game 3 (slightly lower score, PAX)
+            [1.0, 0.0],  # game 1 (liked seed)
+            [0.95, 0.05],  # game 2 (higher score, non-PAX)
+            [0.90, 0.10],  # game 3 (slightly lower score, PAX)
         ]
     )
     manager._game_mapping = {1: 0, 2: 1, 3: 2}

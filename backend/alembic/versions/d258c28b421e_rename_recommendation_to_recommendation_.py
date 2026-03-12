@@ -1,10 +1,11 @@
 """rename recommendation to recommendation_level
 
 Revision ID: d258c28b421e
-Revises: 
+Revises:
 Create Date: 2025-06-08 21:16:26.277120
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,7 +13,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'd258c28b421e'
+revision: str = "d258c28b421e"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -108,7 +109,11 @@ def _bootstrap_base_schema() -> None:
 
     for table_name, id_column, name_column in (
         ("integrations", "boardgameintegration_id", "boardgameintegration_name"),
-        ("implementations", "boardgameimplementation_id", "boardgameimplementation_name"),
+        (
+            "implementations",
+            "boardgameimplementation_id",
+            "boardgameimplementation_name",
+        ),
         ("compilations", "boardgamecompilation_id", "boardgamecompilation_name"),
         ("expansions", "boardgameexpansion_id", "boardgameexpansion_name"),
         ("families", "boardgamefamily_id", "boardgamefamily_name"),
@@ -197,7 +202,11 @@ def _bootstrap_base_schema() -> None:
         ("idx_artists_boardgameartist_id", "artists", ["boardgameartist_id"]),
         ("idx_suggested_players_game_id", "suggested_players", ["game_id"]),
         ("idx_suggested_players_player_count", "suggested_players", ["player_count"]),
-        ("idx_suggested_players_recommendation_level", "suggested_players", ["recommendation_level"]),
+        (
+            "idx_suggested_players_recommendation_level",
+            "suggested_players",
+            ["recommendation_level"],
+        ),
         ("idx_pax_games_bgg_id", "pax_games", ["bgg_id"]),
     ):
         op.create_index(index_name, table_name, columns, unique=False)

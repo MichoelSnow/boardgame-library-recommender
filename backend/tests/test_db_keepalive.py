@@ -26,7 +26,10 @@ def test_resolve_keepalive_interval_default() -> None:
 
 
 def test_resolve_keepalive_interval_custom() -> None:
-    assert resolve_keepalive_interval_seconds({"DB_KEEPALIVE_INTERVAL_SECONDS": "120"}) == 120
+    assert (
+        resolve_keepalive_interval_seconds({"DB_KEEPALIVE_INTERVAL_SECONDS": "120"})
+        == 120
+    )
 
 
 def test_resolve_keepalive_interval_rejects_invalid() -> None:
@@ -51,7 +54,9 @@ def test_run_db_keepalive_loop_invokes_ping(monkeypatch: pytest.MonkeyPatch) -> 
             calls.append(1)
             stop_event.set()
 
-        monkeypatch.setattr("backend.app.db_keepalive.asyncio.to_thread", fake_to_thread)
+        monkeypatch.setattr(
+            "backend.app.db_keepalive.asyncio.to_thread", fake_to_thread
+        )
 
         await asyncio.wait_for(
             run_db_keepalive_loop(
@@ -67,14 +72,18 @@ def test_run_db_keepalive_loop_invokes_ping(monkeypatch: pytest.MonkeyPatch) -> 
     asyncio.run(runner())
 
 
-def test_run_db_keepalive_loop_respects_cancellation(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_db_keepalive_loop_respects_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def runner() -> None:
         stop_event = asyncio.Event()
 
         async def fake_to_thread(fn, *args):  # type: ignore[no-untyped-def]
             await asyncio.sleep(10)
 
-        monkeypatch.setattr("backend.app.db_keepalive.asyncio.to_thread", fake_to_thread)
+        monkeypatch.setattr(
+            "backend.app.db_keepalive.asyncio.to_thread", fake_to_thread
+        )
 
         def fake_ping(_: object) -> None:
             return

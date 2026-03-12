@@ -30,13 +30,21 @@ def _healthy_snapshot(convention_mode_active: bool = True) -> MODULE.HealthSnaps
 
 def test_main_returns_zero_when_convention_mode_is_off(monkeypatch) -> None:
     monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(False))
-    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    monkeypatch.setattr(
+        MODULE,
+        "parse_args",
+        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+    )
     assert MODULE.main() == 0
 
 
 def test_main_returns_zero_when_no_alert_conditions(monkeypatch) -> None:
     monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(True))
-    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    monkeypatch.setattr(
+        MODULE,
+        "parse_args",
+        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+    )
     assert MODULE.main() == 0
 
 
@@ -59,5 +67,9 @@ def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
         ],
     )
     monkeypatch.setattr(MODULE, "check_prod_health", lambda _: snapshot)
-    monkeypatch.setattr(MODULE, "parse_args", lambda: MODULE.argparse.Namespace(env="prod", dry_run=False))
+    monkeypatch.setattr(
+        MODULE,
+        "parse_args",
+        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+    )
     assert MODULE.main() == 1

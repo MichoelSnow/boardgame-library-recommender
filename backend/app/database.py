@@ -18,15 +18,13 @@ engine = create_engine(
 )
 
 # Create session factory
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 # Base class for models
 class Base(DeclarativeBase):
     pass
+
 
 # Dependency to get DB session
 def get_db():
@@ -35,6 +33,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 class CORSAwareStaticFiles(StaticFiles):
     async def get_response(self, path, scope):

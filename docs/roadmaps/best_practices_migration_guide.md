@@ -296,19 +296,19 @@ Related Phase 4 planning docs:
 - [x] [P1] Record major structure decisions in ADRs.
 
 ### Phase 6: Testing Foundation (4-7 days)
-- [ ] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.
-- [ ] [P0] Add backend API tests for `/api/recommendations` and `/api/recommendations/{id}`.
-- [ ] [P0] Add backend API tests for auth endpoints (`/api/token`, `/api/users/me`, password change).
-- [ ] [P1] Add backend API tests for suggestions endpoint.
-- [ ] [P0] Add backend edge-case tests (invalid params, unauthenticated access, empty results).
-- [ ] [P1] Add OpenAPI contract snapshot test.
-- [ ] [P1] Add frontend integration tests (auth flow, filtering, recommendation flow, API error states).
-- [ ] [P1] Add MSW-based API mocks for deterministic frontend tests.
-- [ ] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
-- [ ] [P1] Add fixture/golden tests for output shape and key fields.
-- [ ] [P0] Ensure all tests run in CI on PR.
+- [x] [P0] Add backend API tests for `/api/games` filtering/pagination/sort.
+- [x] [P0] Add backend API tests for `/api/recommendations` and `/api/recommendations/{id}`.
+- [x] [P0] Add backend API tests for auth endpoints (`/api/token`, `/api/users/me`, password change).
+- [x] [P1] Add backend API tests for suggestions endpoint.
+- [x] [P0] Add backend edge-case tests (invalid params, unauthenticated access, empty results).
+- [x] [P1] Add OpenAPI contract test.
+- [x] [P1] Add frontend integration tests (auth flow, filtering, recommendation flow, API error states).
+- [x] [P1] Add MSW-based API mocks for deterministic frontend tests.
+- [x] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
+- [x] [P1] Add fixture/golden tests for output shape and key fields.
+- [x] [P0] Ensure all tests run in CI on PR.
 - [x] [P1] Document test commands for backend, frontend, and pipeline in repo docs.
-- [ ] [P1] Document expected test runtime and minimum local prerequisites.
+- [x] [P1] Document expected test runtime and minimum local prerequisites.
 - [x] [P1] Add load/performance baseline tests and store reference results.
 - [x] [P1] Define performance regression thresholds and failure policy.
 
@@ -341,22 +341,20 @@ Related Phase 4 planning docs:
 - [ ] [P0] Add automated security-misconfiguration tests (for example fail if insecure auth/CORS settings are used in production config).
 
 ### Phase 8: CI/CD and Quality Gates (2-4 days)
-- [ ] [P0] Standardize Python formatting/linting (`black`, `ruff`).
-- [ ] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
-- [ ] [P2] Add Python type checks (`mypy`) for critical backend modules.
+- [x] [P0] Standardize Python formatting/linting (`ruff format`, `ruff check`).
+- [x] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
 - [ ] [P0] Add required status checks in branch protection for `main`.
 - [ ] [P0] Enforce merge blocking on failed lint/tests/security checks.
-- [ ] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
-- [ ] [P0] Re-enable `python-quality` CI job and require it to pass.
-- [ ] [P0] Re-enable `frontend-build` CI job and require it to pass.
-- [ ] [P1] Re-enable `frontend-audit` CI job with agreed vulnerability policy (baseline/allowlist/threshold).
-- [ ] [P0] Make Python CI tests deterministic by creating a CI test DB fixture/setup step (no silent test skips allowed).
-- [ ] [P1] Add a `Quality Commands` section in docs with exact local commands:
-- [ ] [P1] Python format/lint/fix commands (`black`, `ruff`).
-- [ ] [P1] Frontend format/lint commands (`prettier`, `eslint`).
-- [ ] [P1] Type-check commands (`mypy` and frontend type checks if enabled).
-- [ ] [P1] Add CI mapping in docs (which command runs in which CI job).
-- [ ] [P1] Add troubleshooting notes for common quality-check failures.
+- [x] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
+- [x] [P0] Re-enable `python-quality` CI job and require it to pass.
+- [x] [P0] Re-enable `frontend-build` CI job and require it to pass.
+- [x] [P1] Re-enable `frontend-audit` CI job with agreed vulnerability policy (baseline/allowlist/threshold).
+- [x] [P0] Make Python CI tests deterministic (CI DB fixture/setup step or deterministic subset; no silent test skips allowed).
+- [x] [P1] Add a `Quality Commands` section in docs with exact local commands:
+- [x] [P1] Python format/lint/fix commands (`ruff format`, `ruff check`).
+- [x] [P1] Frontend format/lint commands (`prettier`, `eslint`).
+- [x] [P1] Add CI mapping in docs (which command runs in which CI job).
+- [x] [P1] Add troubleshooting notes for common quality-check failures.
 
 ### Phase 9: Toolchain Modernization (Poetry + Python) (2-4 days)
 - [ ] [P1] Upgrade project tooling to Poetry `2.3.x`.

@@ -22,24 +22,32 @@ def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def build_drop_database_command(environment: str, postgres_user: str, restore_db: str) -> list[str]:
+def build_drop_database_command(
+    environment: str, postgres_user: str, restore_db: str
+) -> list[str]:
+    remote_command = f'psql -U {postgres_user} -d postgres -c "DROP DATABASE IF EXISTS {restore_db} WITH (FORCE);"'
+    return build_ssh_console_command(environment, remote_command)
+
+
+def build_create_database_command(
+    environment: str, postgres_user: str, restore_db: str
+) -> list[str]:
     remote_command = (
-        f'psql -U {postgres_user} -d postgres -c "DROP DATABASE IF EXISTS {restore_db} WITH (FORCE);"'
+        f'psql -U {postgres_user} -d postgres -c "CREATE DATABASE {restore_db};"'
     )
     return build_ssh_console_command(environment, remote_command)
 
 
-def build_create_database_command(environment: str, postgres_user: str, restore_db: str) -> list[str]:
-    remote_command = f'psql -U {postgres_user} -d postgres -c "CREATE DATABASE {restore_db};"'
-    return build_ssh_console_command(environment, remote_command)
-
-
-def build_restore_command(environment: str, postgres_user: str, restore_db: str) -> list[str]:
+def build_restore_command(
+    environment: str, postgres_user: str, restore_db: str
+) -> list[str]:
     remote_command = f"psql -U {postgres_user} -d {restore_db}"
     return build_ssh_console_command(environment, remote_command)
 
 
-def build_verify_command(environment: str, postgres_user: str, restore_db: str) -> list[str]:
+def build_verify_command(
+    environment: str, postgres_user: str, restore_db: str
+) -> list[str]:
     remote_command = (
         "psql "
         f"-U {postgres_user} -d {restore_db} "
@@ -115,7 +123,9 @@ def main() -> int:
     )
 
     LOGGER.info("Restoring %s into %s", input_path, args.restore_db)
-    run_restore(input_path, build_restore_command(args.env, args.postgres_user, args.restore_db))
+    run_restore(
+        input_path, build_restore_command(args.env, args.postgres_user, args.restore_db)
+    )
     verify_restore(build_verify_command(args.env, args.postgres_user, args.restore_db))
     LOGGER.info("Restore completed successfully.")
     return 0

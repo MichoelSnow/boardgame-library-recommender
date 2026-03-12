@@ -133,7 +133,10 @@ def test_migrate_table_streams_rows_in_batches():
             ],
         )
 
-    with source_engine.connect() as source_connection, target_engine.begin() as target_connection:
+    with (
+        source_engine.connect() as source_connection,
+        target_engine.begin() as target_connection,
+    ):
         source_count, target_count = migrate_table(
             table_name="sample_rows",
             source_connection=source_connection,
@@ -148,7 +151,9 @@ def test_migrate_table_streams_rows_in_batches():
 
     with target_engine.connect() as connection:
         rows = connection.execute(
-            sa.select(target_table.c.id, target_table.c.name).order_by(target_table.c.id)
+            sa.select(target_table.c.id, target_table.c.name).order_by(
+                target_table.c.id
+            )
         ).fetchall()
 
     assert rows == [

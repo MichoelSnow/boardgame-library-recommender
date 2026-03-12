@@ -6,9 +6,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MODULE_PATH = (
-    ROOT / "scripts" / "fly_postgres_backup.py"
-)
+MODULE_PATH = ROOT / "scripts" / "db" / "fly_postgres_backup.py"
 SPEC = spec_from_file_location("fly_postgres_backup", MODULE_PATH)
 MODULE = module_from_spec(SPEC)
 assert SPEC is not None

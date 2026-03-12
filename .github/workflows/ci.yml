@@ -28,27 +28,25 @@ jobs:
           python scripts/validate/validate_notebook_secrets.py
 
   frontend-audit:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: npm audit (frontend)
+      - name: Install frontend dependencies
         run: |
-          if [ -f frontend/package-lock.json ]; then
-            cd frontend
-            npm audit --audit-level=high
-          else
-            echo "No frontend/package-lock.json found; skipping npm audit."
-          fi
+          cd frontend
+          npm ci
+      - name: npm audit baseline policy (frontend)
+        run: |
+          python scripts/validate/validate_frontend_audit.py
 
   python-quality:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "DUMMY_CI_ONLY_SECRET_KEY_NOT_FOR_PRODUCTION_12345"
+      DATABASE_PATH: "/tmp/pax_tt_ci.db"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -66,33 +64,28 @@ jobs:
           poetry check
       - name: Python format check
         run: |
-          poetry run black --check backend data_pipeline
+          poetry run ruff format --check backend data_pipeline scripts
+      - name: Python lint check
+        run: |
+          poetry run ruff check backend data_pipeline scripts
       - name: Python import sanity check
         run: |
-          poetry run python -m compileall backend data_pipeline
-      - name: Python tests (if runnable in CI)
+          poetry run python -m compileall backend data_pipeline scripts
+      - name: Python tests (full suite)
         run: |
-          if poetry run python -c "import pytest" >/dev/null 2>&1 && [ -f backend/database/boardgames.db ]; then
-            poetry run pytest backend/tests data_pipeline/tests -q
-          else
-            echo "Skipping pytest (pytest missing or backend/database/boardgames.db not present in CI)."
-          fi
-  
+          poetry run pytest -q
+
   frontend-build:
-    # Temporarily disabled during early migration phases; re-enable in Phase 8.
-    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Frontend build
+      - name: Frontend quality + build + tests
         run: |
-          if [ -f frontend/package-lock.json ]; then
-            cd frontend
-            npm ci
-            npm run build
-          else
-            echo "No frontend/package-lock.json found; skipping frontend build."
-          fi
+          cd frontend
+          npm ci
+          npm run lint
+          npm run build
+          npm run test:ci

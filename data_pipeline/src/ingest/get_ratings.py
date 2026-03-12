@@ -91,9 +91,9 @@ def get_boardgame_ratings(
     )
 
     boardgame_master_dict = {}
-    boardgame_data_ratings = boardgame_data.loc[boardgame_data["numratings"] > 100].sort_values(
-        by="numratings", ascending=True
-    )
+    boardgame_data_ratings = boardgame_data.loc[
+        boardgame_data["numratings"] > 100
+    ].sort_values(by="numratings", ascending=True)
     boardgame_ids = boardgame_data_ratings["id"].tolist()
     # Check if there are any ids which have not had all their ratings pulled down yet
     if boardgame_ratings is not None:
@@ -108,9 +108,14 @@ def get_boardgame_ratings(
                 "ratings_pulled": df_ratings_len.sum(axis=1).tolist(),
             }
         )
-        boardgame_data_ratings = boardgame_data_ratings.merge(df_ratings_pulled, on="id", how="left")
+        boardgame_data_ratings = boardgame_data_ratings.merge(
+            df_ratings_pulled, on="id", how="left"
+        )
         completed_ids = boardgame_data_ratings.loc[
-            (boardgame_data_ratings["ratings_pulled"] - boardgame_data_ratings["numratings"])
+            (
+                boardgame_data_ratings["ratings_pulled"]
+                - boardgame_data_ratings["numratings"]
+            )
             / (boardgame_data_ratings["numratings"])
             >= -0.1,
             "id",
@@ -120,9 +125,14 @@ def get_boardgame_ratings(
         )
         boardgame_ids = list(set(boardgame_ids).difference(set(completed_ids)))
         # reorder boardgame_ids to match boardgame_data_ratings
-        boardgame_ids = boardgame_data_ratings.loc[boardgame_data_ratings["id"].isin(boardgame_ids), "id"].tolist()
+        boardgame_ids = boardgame_data_ratings.loc[
+            boardgame_data_ratings["id"].isin(boardgame_ids), "id"
+        ].tolist()
         df_missing_ratings = boardgame_data_ratings.loc[
-            (boardgame_data_ratings["ratings_pulled"] - boardgame_data_ratings["numratings"])
+            (
+                boardgame_data_ratings["ratings_pulled"]
+                - boardgame_data_ratings["numratings"]
+            )
             / (boardgame_data_ratings["numratings"])
             < -0.1
         ]
@@ -137,9 +147,7 @@ def get_boardgame_ratings(
             # Also remove any partial rows for these games from the DuckDB snapshot
             # so interim exports built from DuckDB cannot include half-complete data
             if df_missing_ratings.shape[0] > 0:
-                ids_to_drop = (
-                    df_missing_ratings["id"].dropna().astype("int64").tolist()
-                )
+                ids_to_drop = df_missing_ratings["id"].dropna().astype("int64").tolist()
                 if len(ids_to_drop) > 0:
                     try:
                         con.register(
@@ -226,17 +234,18 @@ def get_boardgame_ratings(
                 if batch_saves and (batch_num + 1) % 20 == 0:
                     logger.info(f"Saving batch {batch_num} data")
                     boardgame_data.to_parquet(game_data_save_path)
-                    logger.info(f"Saved batch {batch_num} data to {game_data_save_path}")
+                    logger.info(
+                        f"Saved batch {batch_num} data to {game_data_save_path}"
+                    )
 
                 sleep(1)
 
-            # Save updated game data            
+            # Save updated game data
             boardgame_data.to_parquet(game_data_save_path)
             logger.info(f"Saved updated game data to {game_data_save_path}")
-            boardgame_data_ratings = boardgame_data.loc[boardgame_data["numratings"] > 100].sort_values(
-                by="numratings", ascending=False
-            )
-            
+            boardgame_data_ratings = boardgame_data.loc[
+                boardgame_data["numratings"] > 100
+            ].sort_values(by="numratings", ascending=False)
 
     logger.info(f"Starting to fetch ratings for {len(boardgame_ids)} boardgames")
 
@@ -245,7 +254,9 @@ def get_boardgame_ratings(
             f"Processing batch {batch_num + 1} of {math.ceil(len(boardgame_ids) / batch_size)}"
         )
         batch_ids = boardgame_ids[batch_num * batch_size : (batch_num + 1) * batch_size]
-        df_batch_games = boardgame_data_ratings.loc[boardgame_data_ratings["id"].isin(batch_ids)]
+        df_batch_games = boardgame_data_ratings.loc[
+            boardgame_data_ratings["id"].isin(batch_ids)
+        ]
         ratings_count_dict = pd.Series(
             df_batch_games["numratings"].values,
             index=df_batch_games["id"],
@@ -266,7 +277,9 @@ def get_boardgame_ratings(
         # Ratings are persisted to DuckDB incrementally; skip interim Parquet writes
 
     if len(boardgame_ids) > 0:
-        logger.info("Successfully completed fetching all ratings. Exporting snapshot to Parquet...")
+        logger.info(
+            "Successfully completed fetching all ratings. Exporting snapshot to Parquet..."
+        )
         df_ratings_wide = build_wide_ratings_df_from_duckdb(con)
         df_ratings_wide.to_parquet(save_path)
         logger.info(f"Saved final data to {save_path}")
@@ -329,7 +342,9 @@ def iterate_through_ratings_pages(
                     rows_for_page.append((game_id, float(rating_round), username))
 
         if duckdb_conn is not None and len(rows_for_page) > 0:
-            df_insert = pd.DataFrame(rows_for_page, columns=["game_id", "rating_round", "username"])
+            df_insert = pd.DataFrame(
+                rows_for_page, columns=["game_id", "rating_round", "username"]
+            )
             df_insert = df_insert.drop_duplicates()
             duckdb_conn.register("ratings_tmp", df_insert)
             duckdb_conn.execute(
@@ -413,7 +428,6 @@ def build_wide_ratings_df_from_duckdb(con: duckdb.DuckDBPyConnection) -> pd.Data
     return df_wide
 
 
-    
 def main():
     """Main function to get board game ratings."""
     try:
@@ -435,7 +449,6 @@ def main():
         )
         args = parser.parse_args()
 
-
         # Get the most recent game_ranks file
         data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
         game_ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
@@ -443,10 +456,16 @@ def main():
             raise FileNotFoundError("No game ranks files found")
         latest_ranks = max(game_ranks_files, key=lambda x: x.stat().st_mtime)
         logger.info(f"Using game ranks file: {latest_ranks}")
-        df_ranks = pd.read_csv(latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE, usecols=["id", "is_expansion"])
+        df_ranks = pd.read_csv(
+            latest_ranks,
+            sep="|",
+            escapechar="\\",
+            quoting=csv.QUOTE_NONE,
+            usecols=["id", "is_expansion"],
+        )
         non_expansion_ids = df_ranks.loc[df_ranks["is_expansion"] == 0, "id"].tolist()
 
-        # Get the most recent game data file        
+        # Get the most recent game data file
         game_files = list(data_dir.glob("boardgame_data_*.parquet"))
         if not game_files:
             raise FileNotFoundError("No game data files found")
@@ -457,8 +476,6 @@ def main():
         # Read game data
         df_games = pd.read_parquet(latest_games)
         df_games = df_games.loc[df_games["id"].isin(non_expansion_ids)]
-
-        
 
         # Get existing ratings if continuing (prefer DuckDB snapshot if present)
         existing_ratings = None

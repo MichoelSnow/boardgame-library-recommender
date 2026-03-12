@@ -15,6 +15,25 @@ For a quick command lookup, use:
 - Scripts: [scripts/README.md](../../scripts/README.md)
 - Logs: [logs/README.md](../../logs/README.md)
 
+## Test Prerequisites and Runtime Expectations
+
+Minimum local prerequisites:
+- `poetry install`
+- `cd frontend && npm ci`
+- For backend performance smoke tests only: local backend server running on `localhost:8000`
+
+Recommended bounded test command pattern while iterating:
+
+```bash
+timeout 10s poetry run pytest <test-path> -q
+```
+
+Typical local runtime ranges:
+- Backend targeted test module: ~1-10s
+- Backend full suite: typically under a few minutes
+- Frontend unit/integration tests: typically under a few minutes
+- Data pipeline unit tests: usually seconds to low minutes
+
 ## Workflow A: Local Development (Complete Flow)
 
 Use this workflow when running entirely on your local machine.
@@ -205,3 +224,75 @@ python scripts/validate/validate_notebook_secrets.py
 scripts/deploy/fly_stack.sh dev down
 scripts/deploy/fly_stack.sh prod down
 ```
+
+## Workflow C: Quality Commands (Local)
+
+Use these commands before opening a PR when you change backend/frontend/runtime behavior.
+
+### C1. Python Quality
+
+Install/update toolchain:
+
+```bash
+poetry install --with dev
+```
+
+Format/lint:
+
+```bash
+poetry run ruff format --check backend data_pipeline scripts
+poetry run ruff check backend data_pipeline scripts
+```
+
+Full Python test suite (matches CI):
+
+```bash
+poetry run pytest -q
+```
+
+### C2. Frontend Quality
+
+Install dependencies:
+
+```bash
+cd frontend
+npm ci
+```
+
+Lint/format/build/tests:
+
+```bash
+npm run lint
+npm run build
+npm run test:ci
+```
+
+### C3. CI Job Mapping
+
+- `python-quality`:
+  - `poetry check`
+  - repo-wide `ruff format --check` on `backend`, `data_pipeline`, and `scripts`
+  - repo-wide `ruff check` on `backend`, `data_pipeline`, and `scripts`
+  - `compileall`
+  - full `pytest -q` suite
+- `frontend-build`:
+  - `npm run lint`
+  - `npm run build`
+  - full frontend test suite via `npm run test:ci`
+- `frontend-audit`:
+  - `npm audit --omit=dev --json` validated via `scripts/validate/validate_frontend_audit.py`
+  - fails only on new high/critical packages beyond `.github/npm_audit_allowlist.json`
+
+### C4. Troubleshooting
+
+- `poetry.lock` / dependency drift:
+  - run `poetry lock && poetry install --with dev` and commit updated lockfile.
+- Frontend dependency drift:
+  - run `npm install` (or `npm ci` after lock update), then commit `frontend/package-lock.json`.
+- Repo-wide formatting drift:
+  - run `poetry run ruff format backend data_pipeline scripts` to apply formatting before re-running checks.
+- Frontend audit fails due baseline drift:
+  - run `npm audit --omit=dev --json` in `frontend` and compare package names against `.github/npm_audit_allowlist.json`.
+  - only add allowlist entries intentionally with rationale in PR description.
+- React `act(...)` warnings in frontend tests:
+  - currently expected with existing testing-library version; scheduled for toolchain upgrade phase.

@@ -20,10 +20,8 @@ import logging
 import math
 from time import sleep, time
 from pathlib import Path
-import json
 import argparse
 import bs4
-import html
 import csv
 
 try:
@@ -355,7 +353,7 @@ def get_simple_game_data(
         batch_ids = boardgame_ids[batch_num * batch_size : (batch_num + 1) * batch_size]
         batch_ids = [str(x) for x in batch_ids]
         logger.debug(f"Processing boardgame IDs: {batch_ids}")
-        
+
         bg_info_url = f"https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame,boardgameexpansion&stats=1&ratingcomments=1&pagesize=10&page=1&id={','.join(batch_ids)}"
         bgg_response = requests.get(bg_info_url)
         soup_xml = BeautifulSoup(bgg_response.content, "xml")
@@ -418,13 +416,19 @@ def main():
         logger.info(f"Using rankings file: {latest_ranks}")
 
         # Read rankings
-        df_ranks = pd.read_csv(latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE)  
+        df_ranks = pd.read_csv(
+            latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE
+        )
 
         # Get existing game data if continuing
         existing_data = None
         if args.continue_from_last:
             # Choose the correct file pattern based on whether we're using simple mode
-            file_pattern = "boardgame_simple_data_*.parquet" if args.simple else "boardgame_data_*.parquet"
+            file_pattern = (
+                "boardgame_simple_data_*.parquet"
+                if args.simple
+                else "boardgame_data_*.parquet"
+            )
             game_files = list(data_dir.glob(file_pattern))
             if game_files:
                 latest_games = max(game_files, key=lambda x: x.stat().st_mtime)
@@ -434,17 +438,17 @@ def main():
         # Get game data
         if args.simple:
             df_games = get_simple_game_data(
-                df_ranks, 
-                boardgame_data=existing_data, 
+                df_ranks,
+                boardgame_data=existing_data,
                 batch_saves=True,
-                save_every_n_batches=args.save_every_n_batches
+                save_every_n_batches=args.save_every_n_batches,
             )
         else:
             df_games = get_boardgame_data(
-                df_ranks, 
-                boardgame_data=existing_data, 
+                df_ranks,
+                boardgame_data=existing_data,
                 batch_saves=True,
-                save_every_n_batches=args.save_every_n_batches
+                save_every_n_batches=args.save_every_n_batches,
             )
         logger.info("Successfully completed getting board game data")
         return df_games

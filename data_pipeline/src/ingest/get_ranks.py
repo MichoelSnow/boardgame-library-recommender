@@ -10,7 +10,7 @@ Execution order:
 3. get_ratings.py - Gets user ratings for each game
 
 Usage:
-    python get_ranks.py 
+    python get_ranks.py
 """
 
 from bs4 import BeautifulSoup
@@ -45,6 +45,7 @@ logging.basicConfig(
     handlers=build_log_handlers("get_ranks.log"),
 )
 logger = logging.getLogger(__name__)
+
 
 def get_driver_and_cookies():
     """
@@ -103,6 +104,7 @@ def get_driver_and_cookies():
     logger.info("Successfully retrieved cookies")
     return cookies
 
+
 def get_boardgame_ranks(cookies: dict, save_file: bool = False):
     """
     Download the current board game rankings from BGG.
@@ -121,19 +123,24 @@ def get_boardgame_ranks(cookies: dict, save_file: bool = False):
     bg_ranks_url = soup.find("div", {"id": "maincontent"})("a")[0]["href"]
     bg_ranks_zip = requests.get(bg_ranks_url)
     queried_at_utc = datetime.now().replace(microsecond=0).isoformat()
-    
+
     with ZipFile(BytesIO(bg_ranks_zip.content)) as archive:
         with archive.open("boardgames_ranks.csv") as csv_file:
             df_bg_ranks = pd.read_csv(csv_file)
-            df_bg_ranks["name"] = df_bg_ranks["name"].str.replace("[“”]", '"', regex=True)
+            df_bg_ranks["name"] = df_bg_ranks["name"].str.replace(
+                "[“”]", '"', regex=True
+            )
             df_bg_ranks["queried_at_utc"] = queried_at_utc
             logger.info(f"Successfully loaded {len(df_bg_ranks)} boardgames")
             if save_file:
                 # Create data directory if it doesn't exist
                 data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
                 data_dir.mkdir(parents=True, exist_ok=True)
-                
-                output_file = data_dir / f"boardgame_ranks_{queried_at_utc[:10].replace('-','')}.csv"
+
+                output_file = (
+                    data_dir
+                    / f"boardgame_ranks_{queried_at_utc[:10].replace('-', '')}.csv"
+                )
                 df_bg_ranks.to_csv(
                     output_file,
                     index=False,
@@ -143,6 +150,7 @@ def get_boardgame_ranks(cookies: dict, save_file: bool = False):
                 )
                 logger.info(f"Saved rankings to {output_file}")
             return df_bg_ranks
+
 
 def main():
     """Main function to get board game rankings."""
@@ -154,5 +162,6 @@ def main():
         logger.error(f"Error getting board game rankings: {str(e)}")
         raise
 
+
 if __name__ == "__main__":
-    main() 
+    main()

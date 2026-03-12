@@ -15,9 +15,15 @@ SPEC.loader.exec_module(MODULE)
 
 def test_static_constants_match_expected_values() -> None:
     assert MODULE.EXPECTED_CRON == 'cron: "*/20 * * * *"'
-    assert MODULE.EXPECTED_RUN_COMMAND == "python scripts/alerts/run_prod_health_alerts.py --env prod"
+    assert (
+        MODULE.EXPECTED_RUN_COMMAND
+        == "python scripts/alerts/run_prod_health_alerts.py --env prod"
+    )
 
 
 def test_paths_point_to_expected_files() -> None:
     assert MODULE.WORKFLOW_PATH.as_posix() == ".github/workflows/prod-health-alerts.yml"
-    assert MODULE.ALERT_SCRIPT_PATH.as_posix() == "scripts/alerts/run_prod_health_alerts.py"
+    assert (
+        MODULE.ALERT_SCRIPT_PATH.as_posix()
+        == "scripts/alerts/run_prod_health_alerts.py"
+    )

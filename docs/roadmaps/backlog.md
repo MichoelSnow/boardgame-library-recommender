@@ -21,6 +21,15 @@ This file is the canonical home for ad hoc and medium-term roadmap items that we
 - Move to Python 3.12.
 - After the Python upgrade, simplify `backend/app/versioning.py` to rely on stdlib `tomllib` only (remove fallback parser path if no longer needed).
 - Harden `backend/scripts/migrate_sqlite_to_postgres.py` sequence-reset SQL to quote table identifiers explicitly instead of direct string interpolation.
+- Migrate frontend away from legacy CRA (`react-scripts`) dependency chain to a modern build stack.
+  - Goals:
+    - Reduce transitive npm audit exposure from CRA-era packages.
+    - Improve build/test performance and long-term maintainability.
+    - Preserve existing app behavior, routing, auth flow, and test coverage.
+  - Initial acceptance criteria:
+    - `npm run build` and core frontend tests pass on the new stack.
+    - CI frontend jobs (`frontend-build`, `frontend-audit`) remain green with revised commands.
+    - No regression in local dev workflow documented in `frontend/README.md` and runbooks.
 
 ## App
 - Allow multiple selection in player count.

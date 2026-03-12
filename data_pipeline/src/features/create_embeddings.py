@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 from sklearn.preprocessing import normalize
-from typing import Dict, List, Tuple
 import argparse
 import logging
 from pathlib import Path
@@ -85,14 +84,20 @@ class GameRecommender:
         for game_id, row in df.iterrows():
             game_idx = self.game_mapping[game_id]
             for rating, users in row.items():
-                # Skip if users is NaN
+                # Skip missing values.
                 if users is None:
                     continue
+                if not isinstance(users, list) and pd.isna(users):
+                    continue
+
+                # Normalize either list-valued users or scalar user values.
+                iter_users = users if isinstance(users, list) else [users]
 
                 # Add ratings for each user
-                for user in users:
-                    if user in self.user_mapping:
-                        user_idx = self.user_mapping[user]
+                for user in iter_users:
+                    user_id = str(user)
+                    if user_id in self.user_mapping:
+                        user_idx = self.user_mapping[user_id]
                         rating_matrix[user_idx, game_idx] = float(rating)
 
         # Convert to CSR format for efficient operations

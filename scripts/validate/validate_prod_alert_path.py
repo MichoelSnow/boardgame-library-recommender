@@ -35,9 +35,7 @@ def validate_static_configuration() -> None:
 
     alert_script_text = ALERT_SCRIPT_PATH.read_text(encoding="utf-8")
     if "convention_mode_active" not in alert_script_text:
-        raise RuntimeError(
-            "Convention mode gate not found in alert script."
-        )
+        raise RuntimeError("Convention mode gate not found in alert script.")
 
     logger.info("Static alert-path configuration checks passed.")
 

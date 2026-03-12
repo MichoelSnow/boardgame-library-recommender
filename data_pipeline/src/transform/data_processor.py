@@ -7,7 +7,7 @@ It combines board game rankings and detailed game data into a format that matche
 
 import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import List
 import logging
 import time
 import csv
@@ -94,7 +94,6 @@ def save_basic_info(
     # Convert columns to float
     for col in float_cols:
         df_merged[col] = df_merged[col].fillna(value=pd.NA).astype(pd.Float64Dtype())
-
 
     # Save the int, float, and str columns to csv
     output_file_data = f"{output_file_base}_data_{timestamp}.csv"
@@ -318,7 +317,11 @@ def save_language_dependence(
 
 
 def combine_crawler_data(
-    ranks_file: str, data_file: str, output_file_base: str, timestamp: int, exclude_ids: List[int] = None
+    ranks_file: str,
+    data_file: str,
+    output_file_base: str,
+    timestamp: int,
+    exclude_ids: List[int] = None,
 ) -> None:
     """
     Combine board game rankings and detailed data into a format for backend import.
@@ -334,7 +337,9 @@ def combine_crawler_data(
 
     # Read the data files
     try:
-        df_ranks = pd.read_csv(ranks_file, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE)
+        df_ranks = pd.read_csv(
+            ranks_file, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE
+        )
         df_data = pd.read_parquet(data_file)
         logger.info(
             f"Successfully loaded {len(df_ranks)} rankings and {len(df_data)} detailed records"
@@ -372,9 +377,14 @@ def combine_crawler_data(
 def main():
     """Main function to process the most recent data pipeline outputs."""
     # Set up argument parser
-    parser = argparse.ArgumentParser(description="Process board game data from pipeline outputs.")
-    parser.add_argument('--exclude-expansions', action='store_true',
-                      help='Exclude board game expansions from the output')
+    parser = argparse.ArgumentParser(
+        description="Process board game data from pipeline outputs."
+    )
+    parser.add_argument(
+        "--exclude-expansions",
+        action="store_true",
+        help="Exclude board game expansions from the output",
+    )
     args = parser.parse_args()
 
     # Get the data directory using the project root
@@ -399,8 +409,10 @@ def main():
 
     # Read the ranks file to check for expansions if needed
     if args.exclude_expansions:
-        df_ranks = pd.read_csv(latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE)
-        expansion_ids = df_ranks[df_ranks['is_expansion'] == 1]['id'].tolist()
+        df_ranks = pd.read_csv(
+            latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE
+        )
+        expansion_ids = df_ranks[df_ranks["is_expansion"] == 1]["id"].tolist()
         logger.info(f"Found {len(expansion_ids)} expansion games")
     else:
         expansion_ids = None
@@ -411,7 +423,7 @@ def main():
         data_file=str(latest_data),
         output_file_base=str(output_file_base),
         timestamp=timestamp,
-        exclude_ids=expansion_ids
+        exclude_ids=expansion_ids,
     )
 
 

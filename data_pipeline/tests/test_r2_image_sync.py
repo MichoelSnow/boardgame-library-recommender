@@ -36,13 +36,27 @@ def test_parse_id_list_handles_empty_and_whitespace():
 
 def test_qualifies_for_sync_scopes():
     pax_ids = {10}
-    assert qualifies_for_sync(game_id=10, game_rank=None, pax_ids=pax_ids, max_rank=100, scope="pax-only")
-    assert not qualifies_for_sync(game_id=11, game_rank=200, pax_ids=pax_ids, max_rank=100, scope="pax-only")
-    assert qualifies_for_sync(game_id=11, game_rank=99, pax_ids=pax_ids, max_rank=100, scope="top-rank-only")
-    assert not qualifies_for_sync(game_id=11, game_rank=101, pax_ids=pax_ids, max_rank=100, scope="top-rank-only")
-    assert qualifies_for_sync(game_id=10, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified")
-    assert qualifies_for_sync(game_id=11, game_rank=50, pax_ids=pax_ids, max_rank=100, scope="all-qualified")
-    assert not qualifies_for_sync(game_id=12, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified")
+    assert qualifies_for_sync(
+        game_id=10, game_rank=None, pax_ids=pax_ids, max_rank=100, scope="pax-only"
+    )
+    assert not qualifies_for_sync(
+        game_id=11, game_rank=200, pax_ids=pax_ids, max_rank=100, scope="pax-only"
+    )
+    assert qualifies_for_sync(
+        game_id=11, game_rank=99, pax_ids=pax_ids, max_rank=100, scope="top-rank-only"
+    )
+    assert not qualifies_for_sync(
+        game_id=11, game_rank=101, pax_ids=pax_ids, max_rank=100, scope="top-rank-only"
+    )
+    assert qualifies_for_sync(
+        game_id=10, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+    )
+    assert qualifies_for_sync(
+        game_id=11, game_rank=50, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+    )
+    assert not qualifies_for_sync(
+        game_id=12, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+    )
 
 
 def test_iter_sync_candidates_filters_and_qualifies():
@@ -107,7 +121,9 @@ def test_sync_image_url_skips_download_when_object_exists(monkeypatch):
     )
 
     def fail_download(*args, **kwargs):
-        raise AssertionError("download_image_content should not be called for existing objects")
+        raise AssertionError(
+            "download_image_content should not be called for existing objects"
+        )
 
     monkeypatch.setattr(r2_module, "download_image_content", fail_download)
 

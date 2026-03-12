@@ -25,7 +25,9 @@ def _parse_positive_int(value: str, name: str) -> int:
     try:
         parsed = int(value)
     except ValueError as exc:
-        raise RuntimeError(f"{name} must be a positive integer, got '{value}'.") from exc
+        raise RuntimeError(
+            f"{name} must be a positive integer, got '{value}'."
+        ) from exc
     if parsed < 1:
         raise RuntimeError(f"{name} must be >= 1, got '{value}'.")
     return parsed
@@ -93,14 +95,20 @@ def serve() -> None:
         "Starting app with runtime profile '%s' using server '%s'%s",
         settings.runtime_profile,
         settings.app_server,
-        f" (workers={settings.gunicorn_workers})" if settings.app_server == "gunicorn" else "",
+        f" (workers={settings.gunicorn_workers})"
+        if settings.app_server == "gunicorn"
+        else "",
     )
     os.execvp(command[0], command)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Runtime profile bootstrap for app server startup.")
-    parser.add_argument("--serve", action="store_true", help="Execute the resolved server command.")
+    parser = argparse.ArgumentParser(
+        description="Runtime profile bootstrap for app server startup."
+    )
+    parser.add_argument(
+        "--serve", action="store_true", help="Execute the resolved server command."
+    )
     args = parser.parse_args()
 
     if args.serve:

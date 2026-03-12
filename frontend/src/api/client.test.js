@@ -1,3 +1,5 @@
+import { apiClient, clearAuthToken, setAuthToken } from './client';
+
 jest.mock('axios', () => ({
   create: jest.fn(() => ({
     defaults: {
@@ -7,8 +9,6 @@ jest.mock('axios', () => ({
     },
   })),
 }));
-
-import { apiClient, clearAuthToken, setAuthToken } from './client';
 
 describe('api client auth header helpers', () => {
   afterEach(() => {
