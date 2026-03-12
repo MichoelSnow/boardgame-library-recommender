@@ -10,6 +10,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import (
     JSONResponse,
     StreamingResponse,
@@ -28,6 +29,7 @@ import tempfile
 import ipaddress
 import socket
 import sys
+from collections import deque
 from getpass import getpass
 from urllib.parse import quote
 from urllib.parse import urlsplit
@@ -116,6 +118,123 @@ CONTENT_TYPE_TO_EXTENSION = {
     "image/avif": "avif",
 }
 MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
+RATE_LIMIT_WINDOW_SECONDS = 60
+
+
+class InMemoryRateLimiter:
+    """Simple process-local fixed-window rate limiter."""
+
+    def __init__(self, window_seconds: int = RATE_LIMIT_WINDOW_SECONDS):
+        self.window_seconds = window_seconds
+        self._bucket: dict[str, deque[float]] = {}
+
+    def allow(self, *, key: str, limit: int) -> bool:
+        now = time.monotonic()
+        window_start = now - self.window_seconds
+        bucket = self._bucket.setdefault(key, deque())
+        while bucket and bucket[0] < window_start:
+            bucket.popleft()
+        if len(bucket) >= limit:
+            return False
+        bucket.append(now)
+        return True
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    API_CSP = (
+        "default-src 'none'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'none'; "
+        "form-action 'none'"
+    )
+    FRONTEND_CSP = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https:; "
+        "font-src 'self' data:; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    )
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        csp_value = (
+            self.API_CSP
+            if request.url.path.startswith("/api/")
+            else os.getenv("FRONTEND_CSP", self.FRONTEND_CSP).strip()
+        )
+        if csp_value:
+            response.headers.setdefault("Content-Security-Policy", csp_value)
+        if os.getenv("NODE_ENV", "development").lower() == "production":
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Apply endpoint-class rate limits using client IP and path."""
+
+    def __init__(self, app, limiter: InMemoryRateLimiter):
+        super().__init__(app)
+        self._limiter = limiter
+
+    @staticmethod
+    def _read_limit(env_key: str, default: int) -> int:
+        raw_value = os.getenv(env_key, "").strip()
+        if not raw_value:
+            return default
+        try:
+            value = int(raw_value)
+        except ValueError:
+            return default
+        return value if value > 0 else default
+
+    @classmethod
+    def _resolve_limit(cls, path: str) -> int | None:
+        if path in {"/api/token", "/token"}:
+            return cls._read_limit("RATE_LIMIT_AUTH_PER_MIN", 10)
+        if path.startswith("/api/recommendations"):
+            return cls._read_limit("RATE_LIMIT_RECOMMENDATIONS_PER_MIN", 120)
+        if path.startswith("/api/"):
+            return cls._read_limit("RATE_LIMIT_API_PER_MIN", 300)
+        return None
+
+    def _client_key(self, request: Request, path: str) -> str:
+        forwarded_for = request.headers.get("x-forwarded-for", "")
+        client_ip = forwarded_for.split(",", 1)[0].strip() if forwarded_for else ""
+        if not client_ip:
+            client = request.client
+            client_ip = client.host if client else "unknown"
+        return f"{path}|{client_ip}"
+
+    async def dispatch(self, request: Request, call_next):
+        if os.getenv("RATE_LIMIT_ENABLED", "true").strip().lower() not in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            return await call_next(request)
+
+        path = request.url.path
+        limit = self._resolve_limit(path)
+        if limit is None:
+            return await call_next(request)
+
+        key = self._client_key(request, path)
+        if not self._limiter.allow(key=key, limit=limit):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit exceeded. Please try again later."},
+            )
+        return await call_next(request)
 
 
 class KioskEnrollRequest(BaseModel):
@@ -269,6 +388,7 @@ def get_cors_origins() -> List[str]:
 # Resolve CORS config once at startup so invalid production config fails fast.
 cors_origins = get_cors_origins()
 logger.info("Configured CORS origins: %s", cors_origins)
+RATE_LIMITER = InMemoryRateLimiter()
 
 # Configure CORS
 app.add_middleware(
@@ -281,6 +401,8 @@ app.add_middleware(
 
 # Add Gzip compression middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware, limiter=RATE_LIMITER)
 
 # Mount images directory with CORS support
 try:
@@ -321,7 +443,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     logger.error(f"HTTP error: {exc.detail}")
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=exc.headers,
+    )
 
 
 @app.exception_handler(Exception)
@@ -623,7 +749,7 @@ async def proxy_image(url: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
+        logger.error("Error proxying image request: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching image")
 
 

@@ -291,3 +291,34 @@ npm run build
 npm audit --omit=dev --json > /tmp/npm_audit.json
 python ../scripts/validate/validate_frontend_audit.py
 ```
+
+## 14. Security Scans
+
+Local:
+```bash
+# Secret scanning
+gitleaks detect --source . --no-git
+
+# Notebook secret-pattern scan
+poetry run python scripts/validate/validate_notebook_secrets.py
+
+# Frontend audit policy check
+poetry run python scripts/validate/validate_frontend_audit.py
+
+# Python dependency audit policy check
+poetry run python scripts/validate/validate_python_audit.py
+```
+
+CI mapping:
+```text
+security job:
+- gitleaks
+- validate_notebook_outputs.py
+- validate_notebook_secrets.py
+
+frontend-audit job:
+- validate_frontend_audit.py
+
+python-quality job:
+- validate_python_audit.py
+```

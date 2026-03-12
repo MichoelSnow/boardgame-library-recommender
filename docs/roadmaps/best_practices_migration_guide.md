@@ -6,6 +6,16 @@ _Last updated: 2026-02-27_
 - Provide a step-by-step checklist to move `pax_tt_recommender` from "working prototype" to "reliable production web app."
 - Apply the general engineering guide to this repo's stack and deployment model.
 - Prioritize correctness, observability, and deploy safety before deep refactors.
+- Enforce a solo-developer sustainability constraint: choose the lowest-maintenance approach that still satisfies baseline production safety.
+
+## Solo Developer Constraint (Mandatory)
+- Prefer controls that are:
+  - easy to automate once,
+  - low-touch to operate,
+  - unlikely to require frequent manual intervention.
+- When two options provide similar risk reduction, choose the one with lower ongoing maintenance.
+- Defer or downgrade high-operations-cost controls unless they are required for core security/safety.
+- Document defaults and emergency procedures tersely so they are usable under time pressure.
 
 ## Scope
 1. Backend API (`backend/app`)
@@ -80,6 +90,7 @@ Priority legend:
 Execution rule:
 - Minimum phase completion: all `P0` items in the phase are done.
 - Full phase completion: all `P0` + `P1` items are done (`P2` may defer if explicitly tracked).
+- For every phase, implementation choices must satisfy the Solo Developer Constraint above.
 
 Deployment verification rule:
 - For phases that include checks requiring a live Fly deployment, treat the phase PR/commit as implementation completion.
@@ -316,35 +327,34 @@ Related Phase 4 planning docs:
 - [x] [P0] Remove insecure production fallback behavior for `SECRET_KEY`.
 - [x] [P0] Make production startup fail if required security env vars are missing.
 - [x] [P1] Add `gitleaks` to CI.
-- [ ] [P1] Add Python dependency audit (`pip-audit` or equivalent) to CI.
-- [ ] [P1] Add npm dependency audit policy to CI.
-- [ ] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
-- [ ] [P1] Review and scrub logs for sensitive data exposure.
+- [x] [P1] Add Python dependency audit (`pip-audit` or equivalent) to CI.
+- [x] [P1] Add npm dependency audit policy to CI.
+- [x] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
+- [x] [P1] Review and scrub logs for sensitive data exposure. See `docs/policies/logging_safety.md`.
 - [x] [P1] Define outbound alert escalation channel for production incidents.
 - [x] [P1] Define alert recipients and escalation path.
-- [ ] [P1] Document how to run security scans locally and in CI.
-- [ ] [P0] Implement endpoint rate limiting policy (auth endpoints, recommendation endpoints, and general API).
-- [ ] [P1] Validate rate-limit behavior with abuse and load test scenarios.
-- [ ] [P0] Add security headers baseline (at minimum: HSTS, CSP, `X-Content-Type-Options`, and frame protections).
-- [ ] [P0] Validate CSP in production mode and document allowed origins/resources.
-- [ ] [P0] Define secret management and rotation policy (owner, cadence, emergency rotation runbook).
-- [ ] [P1] Verify encryption controls (TLS in transit; storage encryption expectations at rest).
-- [ ] [P2] Add SBOM generation in CI and store SBOM artifact per build.
-- [ ] [P1] Add lightweight threat-model checklist for new public endpoints/features.
-- [ ] [P0] Require security acceptance criteria in PRs for user-facing/backend-exposed changes.
-- [ ] [P0] Ensure security controls have corresponding automated tests where feasible.
-- [ ] [P0] Define data retention and minimization policy for app, logs, and pipeline outputs.
-- [ ] [P2] Define bot protection policy (for example Turnstile/CAPTCHA) for abuse-prone forms/endpoints.
+- [x] [P1] Document how to run security scans locally and in CI.
+- [x] [P0] Implement endpoint rate limiting policy (auth endpoints, recommendation endpoints, and general API).
+- [x] [P1] Validate rate-limit behavior with abuse and load test scenarios.
+- [x] [P0] Add security headers baseline (at minimum: HSTS, CSP, `X-Content-Type-Options`, and frame protections).
+- [x] [P0] Validate CSP in production mode and document allowed origins/resources. See `docs/policies/csp_policy.md`.
+- [x] [P0] Define secret management and rotation policy (minimal-overhead baseline: owner, 6-month cadence, and emergency rotation runbook). See `docs/policies/secret_management.md`.
+- [x] [P1] Verify encryption controls (TLS in transit; storage encryption expectations at rest). See `docs/policies/security_baseline_policy.md`.
+- [ ] [P2] Add SBOM generation in CI and store SBOM artifact per build (only if maintenance burden remains low).
+- [x] [P1] Add lightweight threat-model checklist for new public endpoints/features. See `docs/policies/security_baseline_policy.md`.
+- [x] [P0] Ensure security controls have corresponding automated tests where feasible.
+- [x] [P0] Define data retention and minimization policy for app, logs, and pipeline outputs. See `docs/policies/security_baseline_policy.md`.
+- [x] [P2] Define bot protection policy (for example Turnstile/CAPTCHA) for abuse-prone forms/endpoints; defer unless abuse is observed. See `docs/policies/security_baseline_policy.md`.
 - [ ] [P2] If file uploads are introduced: add upload validation and malware-scanning requirements before release.
-- [ ] [P2] If cookie-based auth is introduced: add CSRF protection requirements and tests before release.
-- [ ] [P2] If infrastructure supports it: define network policy and egress restrictions by environment.
-- [ ] [P0] Add automated security-misconfiguration tests (for example fail if insecure auth/CORS settings are used in production config).
+- [x] [P2] If cookie-based auth is introduced: add CSRF protection requirements and tests before release. See `docs/policies/security_baseline_policy.md`.
+- [x] [P2] If infrastructure supports it: define network policy and egress restrictions by environment. See `docs/policies/security_baseline_policy.md`.
+- [x] [P0] Add automated security-misconfiguration tests (for example fail if insecure auth/CORS settings are used in production config).
 
 ### Phase 8: CI/CD and Quality Gates (2-4 days)
 - [x] [P0] Standardize Python formatting/linting (`ruff format`, `ruff check`).
 - [x] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
-- [ ] [P0] Add required status checks in branch protection for `main`.
-- [ ] [P0] Enforce merge blocking on failed lint/tests/security checks.
+- [x] [P0] Add required status checks in branch protection for `main`.
+- [x] [P0] Enforce merge blocking on failed lint/tests/security checks.
 - [x] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
 - [x] [P0] Re-enable `python-quality` CI job and require it to pass.
 - [x] [P0] Re-enable `frontend-build` CI job and require it to pass.

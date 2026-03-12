@@ -68,6 +68,9 @@ jobs:
       - name: Python lint check
         run: |
           poetry run ruff check backend data_pipeline scripts
+      - name: Python dependency audit baseline policy
+        run: |
+          poetry run python scripts/validate/validate_python_audit.py
       - name: Python import sanity check
         run: |
           poetry run python -m compileall backend data_pipeline scripts
