@@ -86,3 +86,17 @@ python scripts/validate/validate_notebook_outputs.py
 ```bash
 python scripts/validate/validate_notebook_secrets.py
 ```
+
+## Dependency Audit Checks
+
+## `validate_frontend_audit.py`
+- Runs `npm audit --omit=dev --json` and enforces baseline allowlist policy.
+```bash
+poetry run python scripts/validate/validate_frontend_audit.py
+```
+
+## `validate_python_audit.py`
+- Runs `pip-audit --format json` and enforces baseline allowlist policy.
+```bash
+poetry run python scripts/validate/validate_python_audit.py
+```

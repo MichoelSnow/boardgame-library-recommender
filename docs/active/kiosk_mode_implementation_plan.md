@@ -1,5 +1,8 @@
 # Convention Mode Access Plan
 
+Status: Active design document  
+Exit criteria: move to `docs/deprecated/` once guest mode is implemented and validated in production
+
 ## Purpose
 - Define how the app should behave during convention operation when read-only access is needed on controlled public devices.
 - Separate guest read-only access from authenticated write access.
@@ -105,7 +108,7 @@
 ### Token Contract
 - Token subject: fixed guest identity (for example `guest_kiosk`).
 - Token role claim: `guest`.
-- Token TTL: `8` hours (refresh by calling the same endpoint again).
+- Token TTL: `17` hours (refresh by calling the same endpoint again).
 - Guest token permissions:
   - allow only explicit convention read allowlist endpoints
   - deny all write/admin endpoints
@@ -172,7 +175,7 @@
   - easier to test
   - lower risk of accidentally exposing unintended endpoints
 
-## Implementation Checklist (No-Code Planning Baseline)
+## Implementation Checklist
 1. Add flags/secrets:
   - `CONVENTION_MODE`
   - `CONVENTION_GUEST_ENABLED`
@@ -195,3 +198,11 @@
 - Authenticated write users continue to work normally.
 - Session-scoped personalization resets correctly on shared devices.
 - When convention mode is disabled, current auth protections still apply.
+
+## Decision Log
+Use this section to track scope or contract changes made during implementation.
+
+- YYYY-MM-DD - Decision summary
+  - Reason:
+  - Impact:
+  - Follow-up:

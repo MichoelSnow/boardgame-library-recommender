@@ -4,7 +4,7 @@
 - FastAPI application runtime, database models/migrations, recommendation service logic, and backend tests.
 
 For full repository usage flows, see:
-- [docs/runbooks/repo_usage_guide.md](../docs/runbooks/repo_usage_guide.md)
+- [docs/ai/repo_map.md](../docs/ai/repo_map.md)
 
 ## Key Paths
 - `app/`: API routes, models, CRUD, runtime profile, auth, recommendation engine.
@@ -79,7 +79,7 @@ poetry run python backend/tests/create_indexes.py
 
 ### Performance Expectations
 - Canonical SLO/latency targets live in:
-  - [docs/policies/service_level_targets.md](../docs/policies/service_level_targets.md)
+  - [docs/core/ownership_and_slos.md](../docs/core/ownership_and_slos.md)
 - Validation gate checks (via `scripts/validate/validate_performance_gate.py`) enforce environment-level thresholds for:
   - `/api`
   - `/api/version`
@@ -105,8 +105,8 @@ tail -f logs/get_ratings.log
   - `ALGORITHM`
   - `ACCESS_TOKEN_EXPIRE_MINUTES`
 - Canonical deploy/runtime procedures:
-  - [docs/runbooks/deploy_policy_and_prereqs.md](../docs/runbooks/deploy_policy_and_prereqs.md)
-  - [docs/runbooks/deploy_prod_runbook.md](../docs/runbooks/deploy_prod_runbook.md)
+  - [docs/core/runbook.md](../docs/core/runbook.md)
+  - [docs/core/runbook.md](../docs/core/runbook.md)
 
 ## API Endpoints (Primary)
 

@@ -7,7 +7,7 @@
 ## Usage
 - Use this as the canonical launch gate for convention readiness.
 - Keep ad hoc follow-ups in [backlog.md](backlog.md).
-- Keep `docs/roadmaps/best_practices_migration_guide.md` for long-horizon engineering and architecture work.
+- Keep `docs/active/best_practices_migration_guide.md` for long-horizon engineering and architecture work.
 
 ## Priority Legend
 - `P0`: must complete before the convention

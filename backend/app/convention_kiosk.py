@@ -5,7 +5,7 @@ from jose import JWTError, jwt
 
 KIOSK_COOKIE_NAME = "convention_kiosk"
 KIOSK_TOKEN_TYPE = "convention_kiosk_device"
-KIOSK_COOKIE_TTL_SECONDS = 8 * 60 * 60
+KIOSK_COOKIE_TTL_SECONDS = 17 * 60 * 60
 
 
 def _is_enabled(value: str | None) -> bool:

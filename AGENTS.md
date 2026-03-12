@@ -8,6 +8,9 @@
  - Avoid copy-paste divergence across files
  - Handle edge cases explicitly (empty inputs, missing data, partial failures)
  - Update docs when behavior or data flows change
+ - Prefer the lowest-maintenance solution that is still safe and acceptable for production use.
+ - Avoid introducing recurring operational toil (manual rotations, frequent audits, brittle workflows) unless the user explicitly requests it or it is mandatory for core security/safety.
+ - For security and reliability work, favor simple, durable controls with clear defaults and minimal ongoing upkeep.
 
 
 ## Testing expectations
@@ -20,6 +23,8 @@
  - If tests are skipped, state why and provide a manual verification step
 
 ## Command hygiene
+ - Run shell commands with a 10-second timeout by default.
+ - If a command exceeds 10 seconds, stop and ask the user to run it manually; do not change implementation solely to force the command under 10 seconds.
  - If a long-running command is interrupted or times out, check for partial artifacts (e.g., `node_modules` temp dirs) and either clean the affected paths or recommend a clean install before retrying.
 
 ## MCPs

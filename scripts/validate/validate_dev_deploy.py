@@ -92,7 +92,7 @@ def main() -> int:
     logger.info("Validated dev SHA recorded at %s", VALIDATED_SHA_PATH)
     logger.info(
         "If the merge changed frontend behavior, auth flows, or deployment config, "
-        "run the additional manual checks listed in docs/runbooks/deploy_rollback_runbook.md."
+        "run the additional manual checks listed in docs/core/runbook.md."
     )
     return 0
 

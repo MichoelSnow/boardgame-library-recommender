@@ -9,8 +9,8 @@
 
 ## Usage
 - Use this document for planned features, enhancements, and product ideas.
-- If a feature becomes launch-critical, copy it into [pre_convention_readiness_checklist.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/pre_convention_readiness_checklist.md) and track the execution steps there.
-- Keep [best_practices_migration_guide.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/best_practices_migration_guide.md) focused on engineering modernization, not feature scope.
+- If a feature becomes launch-critical, copy it into [pre_convention_readiness_checklist.md](pre_convention_readiness_checklist.md) and track the execution steps there.
+- Keep [best_practices_migration_guide.md](best_practices_migration_guide.md) focused on engineering modernization, not feature scope.
 
 ## Priority Legend
 - `Now`: important soon, but not currently a launch blocker
@@ -66,7 +66,7 @@
   - `#F4B223`
   - current next-convention primary target: `#D9272D`
 - Launch-critical note:
-  - This feature is convention-critical and must be tracked in [pre_convention_readiness_checklist.md](/home/msnow/git/pax_tt_recommender/docs/roadmaps/pre_convention_readiness_checklist.md) until complete.
+  - This feature is convention-critical and must be tracked in [pre_convention_readiness_checklist.md](pre_convention_readiness_checklist.md) until complete.
 
 ## Intake Rule
 - Before starting a new feature implementation, add it here with:

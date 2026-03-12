@@ -78,7 +78,7 @@ Security Priority and Context
 - Define and document API versioning/deprecation policy, including compatibility windows and sunset communication.
 - Define ownership for API/data contracts and require coordinated backend/frontend updates for contract changes.
 - Breaking changes must be called out explicitly in release notes.
-- Use the canonical release note template and section order in [release_notes_standard.md](/home/msnow/git/pax_tt_recommender/docs/policies/release_notes_standard.md).
+- Use the canonical release note template and section order in [standards.md](../ai/standards.md).
 
 ## CI and Quality Gates
 - Lint + format checks on every PR.

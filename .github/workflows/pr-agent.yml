@@ -19,10 +19,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          config.model: "gemini/gemini-2.5-flash"
-          config.fallback_models: '["gemini/gemini-2.5-flash-lite"]'
-          config.max_model_tokens: "16000"
-          config.custom_model_max_tokens: "16000"
+          config.model: "gemini/gemini-3-flash-preview"
+          config.fallback_models: '["gemini/gemini-2.5-flash", "gemini/gemini-2.5-flash-lite"]'
+          config.max_model_tokens: "40000"
+          config.custom_model_max_tokens: "40000"
           config.max_description_tokens: "400"
           config.max_commits_tokens: "400"
           pr_description.max_ai_calls: "2"
