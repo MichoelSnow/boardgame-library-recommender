@@ -33,6 +33,11 @@ Apply local migrations:
 poetry run alembic upgrade head
 ```
 
+Data pipeline and import workflow details:
+- [data_pipeline/README.md](/data_pipeline/README.md)
+- [backend/README.md](/backend/README.md)
+
+
 ## 2. Fly Stack Lifecycle
 
 Bring full stack up/down/status:
@@ -89,193 +94,25 @@ poetry run python scripts/validate/validate_performance_gate.py --env dev
 
 ## 5. DB Inspection and Suggestions
 
-Check runtime DB URL locally:
+Check runtime DB URL locally and get most recent suggestions from sqlite and postgres:
 
 ```bash
 poetry run python -c "from backend.app.db_config import get_database_url; print(get_database_url())"
-```
 
-Most recent suggestions in dev:
-
-```bash
-fly ssh console -a pax-tt-db-dev -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
-```
-
-Most recent suggestions in prod:
-
-```bash
-fly ssh console -a pax-tt-db-prod -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
-```
-
-Most recent suggestions (local SQLite):
-
-```bash
 sqlite3 backend/database/boardgames.db "SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;"
-```
 
-Most recent suggestions (local Postgres):
-
-```bash
 psql "$DATABASE_URL" -c "SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;"
 ```
 
-## 6. DB Backup and Restore
-
-Backup:
+Get Most recent suggestions from fly in dev and prod:
 
 ```bash
-poetry run python scripts/db/fly_postgres_backup.py --env dev
-poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-backup.sql
+fly ssh console -a pax-tt-db-dev -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
+
+fly ssh console -a pax-tt-db-prod -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 ```
 
-Restore:
-
-```bash
-poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-backup.sql
-poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-backup.sql --restore-db pax_tt_recommender_restore_test
-```
-
-## 7. Incident Triage
-
-Machine state:
-
-```bash
-fly machines list -a pax-tt-app-dev
-fly machines list -a pax-tt-db-dev
-fly machines list -a pax-tt-app
-fly machines list -a pax-tt-db-prod
-```
-
-App logs:
-
-```bash
-fly logs -a pax-tt-app-dev | tee -a logs/pax-tt-app-dev.fly.log
-fly logs -a pax-tt-app | tee -a logs/pax-tt-app.fly.log
-```
-
-Common error patterns:
-
-```bash
-fly logs -a pax-tt-app-dev | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
-fly logs -a pax-tt-app | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
-```
-
-## 8. Alerting and Workflow Toggles
-
-Run prod health alert job manually:
-
-```bash
-poetry run python scripts/alerts/run_prod_health_alerts.py --env prod
-poetry run python scripts/alerts/run_prod_health_alerts.py --env prod --dry-run
-```
-
-Validate alert path:
-
-```bash
-poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip-runtime
-poetry run python scripts/validate/validate_prod_alert_path.py --env prod
-```
-
-Enable/disable scheduled prod alerts workflow:
-
-```bash
-gh workflow enable prod-health-alerts.yml
-gh workflow disable prod-health-alerts.yml
-```
-
-## 9. Release and Rollback Helpers
-
-Record deploy traceability:
-
-```bash
-poetry run python scripts/deploy/record_deploy_traceability.py --env prod --marker prod-promotion --expected-sha-path .tmp/validated_dev_sha.txt
-```
-
-Prepare rollback target:
-
-```bash
-poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
-```
-
-Tag release:
-
-Flow:
-1. Merge this feature branch (no version bump here).
-2. Validate on dev.
-3. Create a small release-version branch that only bumps `pyproject.toml`.
-4. Merge that bump branch.
-5. Validate dev on that exact SHA.
-6. Promote that exact SHA to prod.
-7. Tag/release that same prod-promoted SHA.
-
-That keeps versioning tied to intentional prod releases, not intermediate implementation commits.
-
-```bash
-git tag -a prod-v0.X.Y -m "Release v0.X.Y"
-git push origin prod-v0.X.Y
-```
-
-## 10. Load and Performance
-
-Recommendation size benchmark:
-
-```bash
-poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --pax-only true
-```
-
-k6 rehearsal:
-
-```bash
-k6 run \
-  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
-  -e GAME_IDS="<csv>" \
-  -e VUS="10" \
-  -e DURATION="3m" \
-  -e THINK_TIME_SECONDS="2.0" \
-  scripts/load/k6_rehearsal.js
-```
-## 11. Fly Image Seed (Primary)
-
-Seed all qualified images directly from BGG to Fly dev volume:
-
-```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
-```
-
-Dry run candidate count:
-
-```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
-```
-
-PAX-only seed:
-```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope pax-only"'
-```
-
-Count image files on Fly volume:
-```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
-```
-
-## 12. R2 Commands (Backup-Only)
-
-R2 dry run candidates:
-```bash
-poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000 2>&1 \
-  | awk -F': ' '/Candidates selected/ {print $2}'
-```
-
-Count R2 objects:
-```bash
-export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
-aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
-  --endpoint-url "$R2_ENDPOINT_URL"
-```
-
-## 13. Quality Gates
+## 6. Quality Gates
 
 Python:
 ```bash
@@ -292,7 +129,7 @@ npm audit --omit=dev --json > /tmp/npm_audit.json
 python ../scripts/validate/validate_frontend_audit.py
 ```
 
-## 14. Security Scans
+## 7. Security Scans
 
 Local:
 ```bash
@@ -321,4 +158,142 @@ frontend-audit job:
 
 python-quality job:
 - validate_python_audit.py
+```
+
+## 8. DB Backup and Restore
+
+Backup:
+
+```bash
+poetry run python scripts/db/fly_postgres_backup.py --env dev
+poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-backup.sql
+```
+
+Restore:
+
+```bash
+poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-backup.sql
+poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-backup.sql --restore-db pax_tt_recommender_restore_test
+```
+
+## 9. Incident Triage
+
+Machine state:
+
+```bash
+fly machines list -a pax-tt-app-dev
+fly machines list -a pax-tt-db-dev
+fly machines list -a pax-tt-app
+fly machines list -a pax-tt-db-prod
+```
+
+App logs:
+
+```bash
+fly logs -a pax-tt-app-dev | tee -a logs/pax-tt-app-dev.fly.log
+fly logs -a pax-tt-app | tee -a logs/pax-tt-app.fly.log
+```
+
+Common error patterns:
+
+```bash
+fly logs -a pax-tt-app-dev | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+fly logs -a pax-tt-app | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+```
+
+## 10. Alerting and Workflow Toggles
+
+Run prod health alert job manually:
+
+```bash
+poetry run python scripts/alerts/run_prod_health_alerts.py --env prod
+poetry run python scripts/alerts/run_prod_health_alerts.py --env prod --dry-run
+```
+
+Validate alert path:
+
+```bash
+poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip-runtime
+poetry run python scripts/validate/validate_prod_alert_path.py --env prod
+```
+
+Enable/disable scheduled prod alerts workflow:
+
+```bash
+gh workflow enable prod-health-alerts.yml
+gh workflow disable prod-health-alerts.yml
+```
+
+## 11. Release and Rollback Helpers
+
+Record deploy traceability:
+
+```bash
+poetry run python scripts/deploy/record_deploy_traceability.py --env prod --marker prod-promotion --expected-sha-path .tmp/validated_dev_sha.txt
+```
+
+Prepare rollback target:
+
+```bash
+poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
+```
+
+## 12. Load and Performance
+
+Recommendation size benchmark:
+
+```bash
+poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --pax-only true
+```
+
+k6 rehearsal:
+
+```bash
+k6 run \
+  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e GAME_IDS="<csv>" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+## 13. Fly Image Seed (Primary)
+
+Seed all qualified images directly from BGG to Fly dev volume:
+
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
+```
+
+Dry run candidate count:
+
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
+```
+
+PAX-only seed:
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope pax-only"'
+```
+
+Count image files on Fly volume:
+```bash
+fly ssh console -a pax-tt-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
+```
+
+## 14. R2 Commands (Backup-Only)
+
+R2 dry run candidates:
+```bash
+poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000 2>&1 \
+  | awk -F': ' '/Candidates selected/ {print $2}'
+```
+
+Count R2 objects:
+```bash
+export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
+aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
+  --endpoint-url "$R2_ENDPOINT_URL"
 ```

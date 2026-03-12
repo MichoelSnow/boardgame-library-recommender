@@ -1,7 +1,5 @@
 # Best Practices Migration Guide: `pax_tt_recommender` (V1)
 
-_Last updated: 2026-02-27_
-
 ## Purpose
 - Provide a step-by-step checklist to move `pax_tt_recommender` from "working prototype" to "reliable production web app."
 - Apply the general engineering guide to this repo's stack and deployment model.
@@ -181,14 +179,14 @@ Deployment verification rule:
 - [x] [P1] Create a concrete migration plan for any chosen architecture changes (sequencing, cutover, rollback).
 - [x] [P1] Get explicit go/no-go sign-off before implementing architecture changes.
 - [x] [P1] Create dedicated planning docs for:
-- [x] [P1] Postgres migration (`docs/architecture/postgres_migration_plan.md`)
-- [x] [P1] convention-mode access (`docs/architecture/convention_mode_access_plan.md`)
-- [x] [P1] image storage migration (`docs/architecture/image_storage_migration_plan.md`)
-- [x] [P1] convention runtime policy (`docs/architecture/convention_runtime_policy.md`)
-- [x] [P1] observability and alerting (`docs/architecture/observability_alerting_plan.md`)
-- [x] [P1] frontend architecture (`docs/architecture/frontend_architecture_plan.md`)
-- [x] [P1] migration cutover strategy (`docs/architecture/migration_cutover_strategy.md`)
-- [x] [P1] data contract ownership (`docs/policies/data_contract_ownership.md`)
+- [x] [P1] Postgres migration (`docs/core/architecture.md`)
+- [x] [P1] convention-mode access (`docs/core/convention_ops.md`)
+- [x] [P1] image storage migration (`docs/core/convention_ops.md`)
+- [x] [P1] convention runtime policy (`docs/core/convention_ops.md`)
+- [x] [P1] observability and alerting (`docs/core/architecture.md`)
+- [x] [P1] frontend architecture (`docs/core/architecture.md`)
+- [x] [P1] migration cutover strategy (`docs/core/architecture.md`)
+- [x] [P1] data contract ownership (`docs/core/ownership_and_slos.md`)
 - [x] [P1] Select and finalize the primary image-storage runtime path for Phase 4 implementation (Fly-local with R2 backup retained).
 
 ### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
@@ -201,7 +199,7 @@ Deployment verification rule:
 - [x] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
 - [x] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
 - [x] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
-- [x] [P1] Record final Postgres cutover and rollback decisions in `docs/architecture/postgres_migration_plan.md`.
+- [x] [P1] Record final Postgres cutover and rollback decisions in `docs/core/architecture.md`.
 - [x] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
 - [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.
 - [x] [P1] Before the final Postgres `prod` cutover, make production fail fast when `DATABASE_URL` is missing instead of silently falling back to SQLite.
@@ -230,8 +228,8 @@ Overall execution order override:
   8. Phase 4 convention rehearsal/load testing in `dev`
   9. Later hardening phases
 - Phase 4 implementation items intentionally occur before later phase categories because later phases should build on the intended architecture rather than deepen investment in transitional paths.
-- [x] [P2] API versioning policy documented (`docs/policies/api_versioning_policy.md`)
-- [x] [P2] Phase 4 architecture ADR recorded (`docs/adr/0001-phase-4-architecture-foundations.md`)
+- [x] [P2] API versioning policy documented (`docs/ai/domain_glossary.md`)
+- [x] [P2] Phase 4 architecture ADR recorded (`docs/archive/adr/0001-phase-4-architecture-foundations.md`)
 
 Postgres migration timing:
 - The SQLite -> Postgres migration should occur within Phase 4, not after all phases are complete.
@@ -246,13 +244,13 @@ Postgres migration timing:
 
 Phase 4 decision summary:
 - Architecture decisions are recorded in:
-  - `docs/adr/0001-phase-4-architecture-foundations.md`
+  - `docs/archive/adr/0001-phase-4-architecture-foundations.md`
 - Cross-cutting sequencing and rollback rules are recorded in:
-  - `docs/architecture/migration_cutover_strategy.md`
+  - `docs/core/architecture.md`
 - Service-level targets are recorded in:
-  - `docs/policies/service_level_targets.md`
+  - `docs/core/ownership_and_slos.md`
 - Rehearsal/load-test requirements are recorded in:
-  - `docs/architecture/convention_runtime_policy.md`
+  - `docs/core/convention_ops.md`
 - Subsystem-specific implementation details live in the relevant planning docs listed below.
 
 Phase 4 non-functional targets:
@@ -260,17 +258,17 @@ Phase 4 non-functional targets:
 - Phase 4 planning and implementation docs should reference that file as the canonical source rather than duplicating target values.
 
 Related Phase 4 planning docs:
-- `docs/policies/service_level_targets.md`
-- `docs/architecture/postgres_migration_plan.md`
-- `docs/architecture/convention_mode_access_plan.md`
-- `docs/architecture/image_storage_migration_plan.md`
-- `docs/architecture/convention_runtime_policy.md`
-- `docs/architecture/observability_alerting_plan.md`
-- `docs/architecture/frontend_architecture_plan.md`
-- `docs/architecture/migration_cutover_strategy.md`
-- `docs/policies/data_contract_ownership.md`
-- `docs/policies/api_versioning_policy.md`
-- `docs/adr/0001-phase-4-architecture-foundations.md`
+- `docs/core/ownership_and_slos.md`
+- `docs/core/architecture.md`
+- `docs/core/convention_ops.md`
+- `docs/core/convention_ops.md`
+- `docs/core/convention_ops.md`
+- `docs/core/architecture.md`
+- `docs/core/architecture.md`
+- `docs/core/architecture.md`
+- `docs/core/ownership_and_slos.md`
+- `docs/ai/domain_glossary.md`
+- `docs/archive/adr/0001-phase-4-architecture-foundations.md`
 
 ### Phase 5: Repository Structure and Naming Cleanup (2-5 days)
 - [x] [P1] Define target top-level layout and ownership for `backend/`, `frontend/`, pipeline code, scripts, data, and docs.
@@ -330,24 +328,24 @@ Related Phase 4 planning docs:
 - [x] [P1] Add Python dependency audit (`pip-audit` or equivalent) to CI.
 - [x] [P1] Add npm dependency audit policy to CI.
 - [x] [P1] Add auth behavior tests for token expiry and unauthorized response consistency.
-- [x] [P1] Review and scrub logs for sensitive data exposure. See `docs/policies/logging_safety.md`.
+- [x] [P1] Review and scrub logs for sensitive data exposure. See `docs/core/security.md`.
 - [x] [P1] Define outbound alert escalation channel for production incidents.
 - [x] [P1] Define alert recipients and escalation path.
 - [x] [P1] Document how to run security scans locally and in CI.
 - [x] [P0] Implement endpoint rate limiting policy (auth endpoints, recommendation endpoints, and general API).
 - [x] [P1] Validate rate-limit behavior with abuse and load test scenarios.
 - [x] [P0] Add security headers baseline (at minimum: HSTS, CSP, `X-Content-Type-Options`, and frame protections).
-- [x] [P0] Validate CSP in production mode and document allowed origins/resources. See `docs/policies/csp_policy.md`.
-- [x] [P0] Define secret management and rotation policy (minimal-overhead baseline: owner, 6-month cadence, and emergency rotation runbook). See `docs/policies/secret_management.md`.
-- [x] [P1] Verify encryption controls (TLS in transit; storage encryption expectations at rest). See `docs/policies/security_baseline_policy.md`.
+- [x] [P0] Validate CSP in production mode and document allowed origins/resources. See `docs/core/security.md`.
+- [x] [P0] Define secret management and rotation policy (minimal-overhead baseline: owner, 6-month cadence, and emergency rotation runbook). See `docs/core/security.md`.
+- [x] [P1] Verify encryption controls (TLS in transit; storage encryption expectations at rest). See `docs/core/security.md`.
 - [ ] [P2] Add SBOM generation in CI and store SBOM artifact per build (only if maintenance burden remains low).
-- [x] [P1] Add lightweight threat-model checklist for new public endpoints/features. See `docs/policies/security_baseline_policy.md`.
+- [x] [P1] Add lightweight threat-model checklist for new public endpoints/features. See `docs/core/security.md`.
 - [x] [P0] Ensure security controls have corresponding automated tests where feasible.
-- [x] [P0] Define data retention and minimization policy for app, logs, and pipeline outputs. See `docs/policies/security_baseline_policy.md`.
-- [x] [P2] Define bot protection policy (for example Turnstile/CAPTCHA) for abuse-prone forms/endpoints; defer unless abuse is observed. See `docs/policies/security_baseline_policy.md`.
+- [x] [P0] Define data retention and minimization policy for app, logs, and pipeline outputs. See `docs/core/security.md`.
+- [x] [P2] Define bot protection policy (for example Turnstile/CAPTCHA) for abuse-prone forms/endpoints; defer unless abuse is observed. See `docs/core/security.md`.
 - [ ] [P2] If file uploads are introduced: add upload validation and malware-scanning requirements before release.
-- [x] [P2] If cookie-based auth is introduced: add CSRF protection requirements and tests before release. See `docs/policies/security_baseline_policy.md`.
-- [x] [P2] If infrastructure supports it: define network policy and egress restrictions by environment. See `docs/policies/security_baseline_policy.md`.
+- [x] [P2] If cookie-based auth is introduced: add CSRF protection requirements and tests before release. See `docs/core/security.md`.
+- [x] [P2] If infrastructure supports it: define network policy and egress restrictions by environment. See `docs/core/security.md`.
 - [x] [P0] Add automated security-misconfiguration tests (for example fail if insecure auth/CORS settings are used in production config).
 
 ### Phase 8: CI/CD and Quality Gates (2-4 days)

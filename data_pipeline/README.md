@@ -182,7 +182,7 @@ poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualif
 ```
 
 For Fly machine commands (dev/prod `fly ssh` usage), file counts, and validation:
-- [docs/runbooks/image_storage_operations.md](../docs/runbooks/image_storage_operations.md)
+- [docs/core/convention_ops.md](../docs/core/convention_ops.md)
 
 ## Cloudflare R2 Path (Deprecated Backup-Only)
 

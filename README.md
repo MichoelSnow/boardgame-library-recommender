@@ -32,10 +32,10 @@ pax_tt_recommender/
 ## Start Here
 
 - Core docs index: [docs/README.md](docs/README.md)
-- Practical repo usage guide: [repo_usage_guide.md](docs/runbooks/repo_usage_guide.md)
-- Deploy + rollback entrypoint: [deploy_rollback_runbook.md](docs/runbooks/deploy_rollback_runbook.md)
-- Migration/phase tracking: [best_practices_migration_guide.md](docs/roadmaps/best_practices_migration_guide.md)
-- Convention readiness gate: [pre_convention_readiness_checklist.md](docs/roadmaps/pre_convention_readiness_checklist.md)
+- Practical repo usage guide: [repo_usage_guide.md](docs/ai/repo_map.md)
+- Deploy + rollback entrypoint: [deploy_rollback_runbook.md](docs/core/runbook.md)
+- Migration/phase tracking: [best_practices_migration_guide.md](docs/active/best_practices_migration_guide.md)
+- Convention readiness gate: [pre_convention_readiness_checklist.md](docs/active/pre_convention_readiness_checklist.md)
 
 ## Domain READMEs
 
@@ -186,9 +186,9 @@ For detailed architecture and policy docs, use the docs index:
 
 ## Notes
 
-- Canonical release/version policy: [deploy_policy_and_prereqs.md](docs/runbooks/deploy_policy_and_prereqs.md)
-- Canonical release-note format: [release_notes_standard.md](docs/policies/release_notes_standard.md)
-- Repository structure and placement rules: [repository_structure_policy.md](docs/policies/repository_structure_policy.md)
+- Canonical release/version policy: [deploy_policy_and_prereqs.md](docs/core/runbook.md)
+- Canonical release-note format: [release_notes_standard.md](docs/ai/standards.md)
+- Repository structure and placement rules: [repository_structure_policy.md](docs/ai/repo_map.md)
 
 ## Contributing
 
