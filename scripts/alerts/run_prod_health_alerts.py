@@ -190,13 +190,22 @@ def load_alert_state(path: Path) -> dict:
         return {}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to load alert state from %s: %s", path, exc)
         return {}
 
 
 def save_alert_state(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(f"{path.suffix}.tmp")
+        tmp_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        tmp_path.replace(path)
+    except Exception as exc:
+        logger.warning("Failed to persist alert state to %s: %s", path, exc)
 
 
 def filter_alert_events(

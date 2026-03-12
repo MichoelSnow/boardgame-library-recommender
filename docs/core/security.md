@@ -83,9 +83,15 @@ If any hit logs sensitive values directly, replace with a sanitized message.
 ## CSP Baseline
 - API (`/api/*`):
   - `default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`
+  - optional override: `API_CSP`
 - Frontend/static (default):
   - `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`
 - Optional override via `FRONTEND_CSP`.
+
+## Rate Limit Client IP Trust
+- Default behavior ignores `X-Forwarded-For` for rate-limit keys.
+- To trust proxy-provided client IPs, set `TRUST_X_FORWARDED_FOR=true`.
+- Only enable trust mode when traffic is behind a trusted proxy that strips untrusted forwarding headers.
 
 ## Threat Model Lite Checklist (for new public endpoints)
 - Data exposed/modified?

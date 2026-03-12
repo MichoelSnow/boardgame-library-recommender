@@ -166,11 +166,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        csp_value = (
-            self.API_CSP
-            if request.url.path.startswith("/api/")
-            else os.getenv("FRONTEND_CSP", self.FRONTEND_CSP).strip()
-        )
+        if request.url.path.startswith("/api/"):
+            csp_value = os.getenv("API_CSP", self.API_CSP).strip()
+        else:
+            csp_value = os.getenv("FRONTEND_CSP", self.FRONTEND_CSP).strip()
         if csp_value:
             response.headers.setdefault("Content-Security-Policy", csp_value)
         if os.getenv("NODE_ENV", "development").lower() == "production":
@@ -208,21 +207,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return cls._read_limit("RATE_LIMIT_API_PER_MIN", 300)
         return None
 
+    @staticmethod
+    def _is_truthy_env(value: str) -> bool:
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
     def _client_key(self, request: Request, path: str) -> str:
-        forwarded_for = request.headers.get("x-forwarded-for", "")
-        client_ip = forwarded_for.split(",", 1)[0].strip() if forwarded_for else ""
+        client_ip = ""
+        trust_forwarded_for = self._is_truthy_env(
+            os.getenv("TRUST_X_FORWARDED_FOR", "false")
+        )
+        if trust_forwarded_for:
+            forwarded_for = request.headers.get("x-forwarded-for", "")
+            client_ip = forwarded_for.split(",", 1)[0].strip() if forwarded_for else ""
         if not client_ip:
             client = request.client
             client_ip = client.host if client else "unknown"
         return f"{path}|{client_ip}"
 
     async def dispatch(self, request: Request, call_next):
-        if os.getenv("RATE_LIMIT_ENABLED", "true").strip().lower() not in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }:
+        if not self._is_truthy_env(os.getenv("RATE_LIMIT_ENABLED", "true")):
             return await call_next(request)
 
         path = request.url.path

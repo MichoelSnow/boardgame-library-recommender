@@ -2,6 +2,7 @@ from pathlib import Path
 import importlib.util
 import sys
 from datetime import datetime, timezone
+import logging
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -140,3 +141,32 @@ def test_filter_alert_events_transition_and_cooldown() -> None:
         cooldown_seconds=3600,
     )
     assert suppressed == []
+
+
+def test_load_alert_state_logs_and_recovers_on_invalid_json(
+    tmp_path: Path, caplog
+) -> None:
+    state_path = tmp_path / "state.json"
+    state_path.write_text("{invalid-json", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        loaded = MODULE.load_alert_state(state_path)
+
+    assert loaded == {}
+    assert "Failed to load alert state" in caplog.text
+
+
+def test_save_alert_state_logs_and_recovers_on_write_failure(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    state_path = tmp_path / "state.json"
+
+    def _raise_on_replace(self: Path, target: Path) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(Path, "replace", _raise_on_replace)
+
+    with caplog.at_level(logging.WARNING):
+        MODULE.save_alert_state(state_path, {"k": "v"})
+
+    assert "Failed to persist alert state" in caplog.text
