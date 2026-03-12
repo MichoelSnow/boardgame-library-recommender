@@ -306,7 +306,7 @@ Related Phase 4 planning docs:
 - [x] [P1] Add MSW-based API mocks for deterministic frontend tests.
 - [x] [P1] Add data pipeline unit tests for `data_processor.py` and `create_embeddings.py`.
 - [x] [P1] Add fixture/golden tests for output shape and key fields.
-- [ ] [P0] Ensure all tests run in CI on PR.
+- [x] [P0] Ensure all tests run in CI on PR.
 - [x] [P1] Document test commands for backend, frontend, and pipeline in repo docs.
 - [x] [P1] Document expected test runtime and minimum local prerequisites.
 - [x] [P1] Add load/performance baseline tests and store reference results.
@@ -343,7 +343,6 @@ Related Phase 4 planning docs:
 ### Phase 8: CI/CD and Quality Gates (2-4 days)
 - [x] [P0] Standardize Python formatting/linting (`ruff format`, `ruff check`).
 - [x] [P0] Standardize frontend formatting/linting (`eslint`, `prettier`).
-- [ ] [P2] Add Python type checks for critical backend modules.
 - [ ] [P0] Add required status checks in branch protection for `main`.
 - [ ] [P0] Enforce merge blocking on failed lint/tests/security checks.
 - [x] [P1] Add dependency update cadence (scheduled PRs + patch SLA).
@@ -354,7 +353,6 @@ Related Phase 4 planning docs:
 - [x] [P1] Add a `Quality Commands` section in docs with exact local commands:
 - [x] [P1] Python format/lint/fix commands (`ruff format`, `ruff check`).
 - [x] [P1] Frontend format/lint commands (`prettier`, `eslint`).
-- [ ] [P1] Type-check commands (frontend type checks if enabled).
 - [x] [P1] Add CI mapping in docs (which command runs in which CI job).
 - [x] [P1] Add troubleshooting notes for common quality-check failures.
 

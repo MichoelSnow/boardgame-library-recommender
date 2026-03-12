@@ -25,7 +25,12 @@ import httpx
 import hmac
 import mimetypes
 import tempfile
+import ipaddress
+import socket
+import sys
+from getpass import getpass
 from urllib.parse import quote
+from urllib.parse import urlsplit
 from sqlalchemy.orm import Session
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
@@ -110,10 +115,97 @@ CONTENT_TYPE_TO_EXTENSION = {
     "image/gif": "gif",
     "image/avif": "avif",
 }
+MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 
 
 class KioskEnrollRequest(BaseModel):
     kiosk_key: Optional[str] = None
+
+
+def _is_disallowed_ip_address(ip_text: str) -> bool:
+    try:
+        address = ipaddress.ip_address(ip_text)
+    except ValueError:
+        return True
+    return (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_reserved
+        or address.is_unspecified
+    )
+
+
+def _is_disallowed_host(host: str) -> bool:
+    normalized_host = host.strip().lower().rstrip(".")
+    if not normalized_host:
+        return True
+    if normalized_host in {"localhost", "metadata.google.internal"}:
+        return True
+
+    try:
+        ipaddress.ip_address(normalized_host)
+    except ValueError:
+        return False
+    return _is_disallowed_ip_address(normalized_host)
+
+
+def validate_proxy_image_url(raw_url: str) -> str:
+    parsed = urlsplit(raw_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image URL scheme. Only http/https are allowed.",
+        )
+    if parsed.username or parsed.password:
+        raise HTTPException(
+            status_code=400,
+            detail="Image URL must not include credentials.",
+        )
+
+    host = parsed.hostname
+    if host is None or _is_disallowed_host(host):
+        raise HTTPException(status_code=400, detail="Invalid image URL host.")
+
+    port = parsed.port
+    try:
+        addrinfos = socket.getaddrinfo(
+            host,
+            port or (443 if parsed.scheme == "https" else 80),
+            type=socket.SOCK_STREAM,
+        )
+    except OSError:
+        raise HTTPException(status_code=400, detail="Image URL host could not be resolved.")
+
+    for addrinfo in addrinfos:
+        ip_text = addrinfo[4][0]
+        if _is_disallowed_ip_address(ip_text):
+            raise HTTPException(status_code=400, detail="Image URL host is not allowed.")
+
+    return raw_url
+
+
+def resolve_cli_password(
+    *,
+    password_arg: Optional[str],
+    use_stdin: bool,
+) -> str:
+    if password_arg:
+        return password_arg
+    if use_stdin:
+        password = sys.stdin.readline().rstrip("\r\n")
+        if not password:
+            raise ValueError("Password from stdin is empty.")
+        return password
+
+    password = getpass("Password: ")
+    confirm = getpass("Confirm Password: ")
+    if password != confirm:
+        raise ValueError("Passwords do not match.")
+    if not password:
+        raise ValueError("Password is empty.")
+    return password
 
 
 def apply_recommendation_status_headers(response: Response) -> None:
@@ -497,12 +589,22 @@ async def root(request: Request):
 @app.get("/api/proxy-image/{url:path}")
 async def proxy_image(url: str):
     try:
+        validated_url = validate_proxy_image_url(url)
         async with httpx.AsyncClient() as client:
-            response = await client.get(url)
+            response = await client.get(
+                validated_url, follow_redirects=False, timeout=20.0
+            )
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=response.status_code, detail="Failed to fetch image"
                 )
+            content_length = response.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    if int(content_length) > MAX_PROXY_IMAGE_BYTES:
+                        raise HTTPException(status_code=413, detail="Image is too large.")
+                except ValueError:
+                    pass
 
             return StreamingResponse(
                 response.iter_bytes(),
@@ -512,6 +614,8 @@ async def proxy_image(url: str):
                     "Access-Control-Allow-Origin": "*",
                 },
             )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error proxying image {url}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching image")
@@ -1019,7 +1123,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Create user account.")
     parser.add_argument("--username", required=True, help="Username")
-    parser.add_argument("--password", required=True, help="Password")
+    parser.add_argument("--password", help="Password (discouraged; use prompt/stdin)")
+    parser.add_argument(
+        "--password-stdin",
+        action="store_true",
+        help="Read password from stdin.",
+    )
     parser.add_argument(
         "--admin",
         action="store_true",
@@ -1029,8 +1138,15 @@ if __name__ == "__main__":
         "--reset-password", action="store_true", help="Reset password for existing user"
     )
     args = parser.parse_args()
+    try:
+        password_value = resolve_cli_password(
+            password_arg=args.password,
+            use_stdin=args.password_stdin,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc))
 
     if args.reset_password:
-        security.reset_password_cli(args.username, args.password)
+        security.reset_password_cli(args.username, password_value)
     else:
-        security.create_user_cli(args.username, args.password, args.admin)
+        security.create_user_cli(args.username, password_value, args.admin)
