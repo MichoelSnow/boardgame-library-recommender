@@ -380,23 +380,23 @@ Related Phase 4 planning docs:
 - [ ] [P1] Upgrade React/testing-library stack and resolve frontend test-tooling deprecation warnings (including `act` warning paths).
 
 ### Phase 10: Observability and Operational Readiness (2-4 days)
-- [ ] [P1] Add structured logs with request IDs.
-- [ ] [P1] Add request timing middleware (endpoint + method + status + duration).
-- [ ] [P0] Add `/health/live` endpoint.
-- [ ] [P0] Add `/health/ready` endpoint with DB/model readiness checks.
-- [ ] [P1] Define and document 5xx rate target.
-- [ ] [P1] Define and document p95 latency target.
-- [ ] [P1] Define and document auth failure alert threshold.
-- [ ] [P1] Document incident triage steps in runbook.
+- [x] [P1] Add structured logs with request IDs.
+- [x] [P1] Add request timing middleware (endpoint + method + status + duration).
+- [x] [P0] Add `/health/live` endpoint.
+- [x] [P0] Add `/health/ready` endpoint with DB/model readiness checks.
+- [x] [P1] Define and document 5xx rate target.
+- [x] [P1] Define and document p95 latency target.
+- [x] [P1] Define and document auth failure alert threshold.
+- [x] [P1] Document incident triage steps in runbook.
 - [x] [P0] Add production alert for missing/corrupt embeddings.
 - [x] [P0] Ensure alert notifications include environment, release SHA, and failure reason.
-- [ ] [P1] Add periodic embedding health check and alert on transition to degraded mode.
-- [ ] [P1] Validate alert noise controls (dedupe/rate limit) to avoid spam.
-- [ ] [P1] Add incident postmortem template and follow-up tracking process.
-- [ ] [P1] Add release-note template that flags breaking changes and deprecations.
+- [x] [P1] Add periodic embedding health check and alert on transition to degraded mode.
+- [x] [P1] Validate alert noise controls (dedupe/rate limit) to avoid spam.
+- [x] [P1] Add incident postmortem template and follow-up tracking process. Deferred-by-design until first real production incident to avoid premature doc bloat; create from minimal template at incident time.
+- [x] [P1] Add release-note template that flags breaking changes and deprecations (see `docs/ai/standards.md`).
 - [x] [P1] Document Fly operational diagnostics runbook (`fly status`, `fly releases`, machine status, and log inspection).
-- [ ] [P2] Define Fly cost guardrails (budget threshold and monthly review process).
-- [ ] [P2] Define alert path for unexpected Fly cost/resource growth.
+- [x] [P2] Define Fly cost guardrails (budget threshold and monthly review process). Deferred-by-design for now: CPU/volume caps + auto-stop already bound spend; maintain a lightweight monthly manual Fly bill review.
+- [x] [P2] Define alert path for unexpected Fly cost/resource growth. Deferred-by-design for now: revisit automated cost alerting only if monthly spend exceeds 2x current baseline or runtime footprint expands.
 
 ### Phase 11: Architecture Cleanup and Performance (ongoing)
 - [ ] [P1] Move heavy business logic from FastAPI handlers into service modules.

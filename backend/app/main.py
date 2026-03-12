@@ -33,7 +33,9 @@ from collections import deque
 from getpass import getpass
 from urllib.parse import quote
 from urllib.parse import urlsplit
+from uuid import uuid4
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from pathlib import Path
 from . import crud, models, schemas, recommender, security
 from . import convention_kiosk
@@ -237,6 +239,37 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    """Attach request ID context and propagate it in response headers."""
+
+    async def dispatch(self, request: Request, call_next):
+        request_id = request.headers.get("x-request-id", "").strip() or uuid4().hex
+        request.state.request_id = request_id
+        response = await call_next(request)
+        response.headers.setdefault("X-Request-ID", request_id)
+        return response
+
+
+class RequestTimingMiddleware(BaseHTTPMiddleware):
+    """Log request timing with request ID for operational observability."""
+
+    async def dispatch(self, request: Request, call_next):
+        started = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - started) * 1000
+        request_id = getattr(request.state, "request_id", "unknown")
+        logger.info(
+            "request_completed request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        response.headers.setdefault("X-Response-Time-Ms", f"{duration_ms:.2f}")
+        return response
+
+
 class KioskEnrollRequest(BaseModel):
     kiosk_key: Optional[str] = None
 
@@ -403,6 +436,8 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware, limiter=RATE_LIMITER)
+app.add_middleware(RequestTimingMiddleware)
+app.add_middleware(RequestContextMiddleware)
 
 # Mount images directory with CORS support
 try:
@@ -625,6 +660,60 @@ async def api_version():
         "convention_mode": os.getenv("CONVENTION_MODE", "false").strip().lower()
         == "true",
     }
+
+
+def check_db_readiness() -> tuple[bool, str | None]:
+    """Check whether the DB is reachable for request serving."""
+    db = SessionLocal()
+    try:
+        db.execute(text("SELECT 1"))
+        return True, None
+    except Exception as exc:  # pragma: no cover - defensive runtime guard
+        return False, str(exc)
+    finally:
+        db.close()
+
+
+def get_model_readiness() -> dict[str, str | bool]:
+    """Expose recommendation model readiness state for health checks."""
+    status_payload = recommender.ModelManager.get_instance().get_status()
+    return {
+        "available": bool(status_payload.get("available", False)),
+        "state": str(status_payload.get("state", "unknown")),
+    }
+
+
+@app.get("/health/live")
+async def health_live():
+    return {"status": "live"}
+
+
+@app.get("/health/ready")
+async def health_ready():
+    db_ready, db_error = check_db_readiness()
+    model_status = get_model_readiness()
+    model_state = str(model_status.get("state", "unknown"))
+    model_ready = bool(model_status.get("available")) or model_state in {
+        "degraded",
+        "missing_artifacts",
+        "corrupt_artifacts",
+    }
+    ready = db_ready and model_ready
+
+    payload = {
+        "status": "ready" if ready else "not_ready",
+        "checks": {
+            "database": {"ready": db_ready, "error": db_error},
+            "model": {
+                "ready": model_ready,
+                "available": bool(model_status.get("available")),
+                "state": model_state,
+            },
+        },
+    }
+    if not ready:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 
 @app.get("/api/convention/kiosk/status")

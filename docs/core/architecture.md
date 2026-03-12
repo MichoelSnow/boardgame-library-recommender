@@ -36,7 +36,7 @@
   `.github/workflows/prod-health-alerts.yml` backed by
   `scripts/alerts/run_prod_health_alerts.py`.
 - Operational controls (enable/disable/manual run) are documented in
-  `docs/core/convention_ops.md`.
+  [docs/core/convention_ops.md](/docs/core/convention_ops.md).
 
 ## Architectural Decision Record Policy
 - Durable decisions live in `docs/archive/adr/`.

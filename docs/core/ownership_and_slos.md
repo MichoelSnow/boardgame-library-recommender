@@ -17,6 +17,7 @@
 
 ### Reliability
 - Error rate during convention hours: < 1%
+- 5xx rate target during convention hours: < 0.5%
 
 ### Recovery
 - Incident acknowledgment: within 5 minutes
@@ -28,3 +29,7 @@
 
 ## Usage Rule
 - New architecture changes and runbooks should align with these targets.
+
+## Auth Failure Alert Threshold
+- Alert when auth failures spike above 30/min for 5 consecutive minutes.
+- Treat this as abuse/misconfiguration signal; investigate before tuning thresholds.

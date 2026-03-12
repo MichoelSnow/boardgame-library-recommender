@@ -106,10 +106,18 @@ If GitHub workflow is unavailable:
 - `scripts/deploy/fly_deploy.sh prod`
 - run migration and prod validation immediately after.
 
+## Incident Triage Steps
+1. Confirm app/machine status (`fly machines list` for app + db).
+2. Check recent releases and identify latest known-good release.
+3. Inspect recent logs for startup errors, DB connectivity issues, or repeated 5xx.
+4. Run targeted validation checks (`validate_fly_release`, `validate_auth_flow`, recommendation health).
+5. Decide fix-forward vs rollback; default to fix-forward unless rollback path is clearly safer.
+6. Record incident actions and outcome in deploy/ops notes.
+
 ## Fly Stack Safety Notes
 - Use `scripts/deploy/fly_stack.sh <env> up|down|status` for normal lifecycle operations.
 - Avoid `fly scale count 0` as a routine stop/start mechanism; it can force machine/volume recreation work.
 
 ## Reference
-- Fast command index: `docs/core/command_reference.md`
-- Convention-specific operations: `docs/core/convention_ops.md`
+- Fast command index: [docs/core/command_reference.md](/docs/core/command_reference.md)
+- Convention-specific operations: [docs/core/convention_ops.md](/docs/core/convention_ops.md)

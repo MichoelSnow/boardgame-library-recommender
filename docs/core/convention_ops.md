@@ -5,7 +5,7 @@ Operational policy for convention periods where availability and latency are pri
 
 ## Service Targets Reference
 Convention runtime choices should align with:
-- `docs/core/ownership_and_slos.md`
+- [docs/core/ownership_and_slos.md](/docs/core/ownership_and_slos.md)
 
 ## Runtime Profiles
 - `standard`
@@ -84,6 +84,12 @@ Behavior:
 - Scheduled every 20 minutes.
 - Supports manual workflow dispatch/manual script run.
 - Runtime-gated: checks are skipped unless convention mode is active.
+- Embedding degraded-mode alerting is transition-based:
+  - alert on healthy/ready -> degraded transition
+  - suppress repeated degraded alerts when state remains degraded.
+- Noise control:
+  - per-event cooldown window (default 3 hours) in `run_prod_health_alerts.py`
+  - persisted state file (`.alert_state/prod_health_alert_state.json`) reused across scheduled runs via workflow cache.
 
 Alerting controls:
 - Enable schedule:
@@ -103,5 +109,5 @@ Backup path:
 
 ## Related Operations
 For exact commands and operational sequences, use:
-- `docs/core/command_reference.md`
-- `docs/core/runbook.md`
+- [docs/core/command_reference.md](/docs/core/command_reference.md)
+- [docs/core/runbook.md](/docs/core/runbook.md)

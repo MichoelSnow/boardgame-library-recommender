@@ -1,6 +1,7 @@
 from pathlib import Path
 import importlib.util
 import sys
+from datetime import datetime, timezone
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -33,7 +34,12 @@ def test_main_returns_zero_when_convention_mode_is_off(monkeypatch) -> None:
     monkeypatch.setattr(
         MODULE,
         "parse_args",
-        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+        lambda: MODULE.argparse.Namespace(
+            env="prod",
+            dry_run=False,
+            state_path=".alert_state/test_off.json",
+            cooldown_seconds=0,
+        ),
     )
     assert MODULE.main() == 0
 
@@ -43,8 +49,15 @@ def test_main_returns_zero_when_no_alert_conditions(monkeypatch) -> None:
     monkeypatch.setattr(
         MODULE,
         "parse_args",
-        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+        lambda: MODULE.argparse.Namespace(
+            env="prod",
+            dry_run=False,
+            state_path=".alert_state/test_no_alerts.json",
+            cooldown_seconds=0,
+        ),
     )
+    monkeypatch.setattr(MODULE, "load_alert_state", lambda _path: {})
+    monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
     assert MODULE.main() == 0
 
 
@@ -70,6 +83,60 @@ def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
     monkeypatch.setattr(
         MODULE,
         "parse_args",
-        lambda: MODULE.argparse.Namespace(env="prod", dry_run=False),
+        lambda: MODULE.argparse.Namespace(
+            env="prod",
+            dry_run=False,
+            state_path=".alert_state/test_main_returns_one.json",
+            cooldown_seconds=0,
+        ),
     )
+    monkeypatch.setattr(MODULE, "load_alert_state", lambda _path: {})
+    monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
     assert MODULE.main() == 1
+
+
+def test_filter_alert_events_transition_and_cooldown() -> None:
+    snapshot = MODULE.HealthSnapshot(
+        environment="prod",
+        checked_at_utc="2026-03-07T00:00:00+00:00",
+        release_sha="sha1",
+        convention_mode_active=True,
+        app_ok=True,
+        db_ok=True,
+        recommendation_ok=False,
+        recommendation_state="degraded",
+        events=[
+            MODULE.AlertEvent(
+                code="recommendation_degraded",
+                summary="Recommendation subsystem reported degraded mode",
+                details="{}",
+            )
+        ],
+    )
+
+    now_utc = datetime(2026, 3, 7, 0, 0, 0, tzinfo=timezone.utc)
+
+    transitioned = MODULE.filter_alert_events(
+        snapshot=snapshot,
+        previous_state={
+            "last_recommendation_state": "ready",
+            "last_emitted_at_utc_by_code": {},
+        },
+        now_utc=now_utc,
+        cooldown_seconds=3600,
+    )
+    assert len(transitioned) == 1
+    assert transitioned[0].code == "recommendation_degraded"
+
+    suppressed = MODULE.filter_alert_events(
+        snapshot=snapshot,
+        previous_state={
+            "last_recommendation_state": "degraded",
+            "last_emitted_at_utc_by_code": {
+                "recommendation_degraded": "2026-03-06T23:30:00+00:00"
+            },
+        },
+        now_utc=now_utc,
+        cooldown_seconds=3600,
+    )
+    assert suppressed == []
