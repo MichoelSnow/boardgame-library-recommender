@@ -27,6 +27,24 @@ def test_load_ranks_dataframe_adds_timestamp_and_normalizes_name() -> None:
     assert df.iloc[0]["queried_at_utc"] == queried_at_utc
 
 
+def test_load_ranks_dataframe_raises_when_csv_missing() -> None:
+    queried_at_utc = "2026-03-13T15:00:00+00:00"
+    buffer = BytesIO()
+    with ZipFile(buffer, mode="w") as archive:
+        archive.writestr("other.csv", "id,name\n1,Missing\n")
+
+    with pytest.raises(ValueError, match="Expected boardgames_ranks.csv"):
+        get_ranks._load_ranks_dataframe(buffer.getvalue(), queried_at_utc)
+
+
+def test_load_ranks_dataframe_raises_when_required_columns_missing() -> None:
+    queried_at_utc = "2026-03-13T15:00:00+00:00"
+    zip_bytes = _build_ranks_zip_bytes("name\nNo ID Column\n")
+
+    with pytest.raises(ValueError, match="missing required columns: id"):
+        get_ranks._load_ranks_dataframe(zip_bytes, queried_at_utc)
+
+
 def test_save_ranks_dataframe_writes_expected_pipe_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

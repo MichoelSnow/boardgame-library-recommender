@@ -25,6 +25,12 @@ import argparse
 import bs4
 import csv
 import duckdb
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -37,6 +43,20 @@ logging.basicConfig(
     handlers=build_log_handlers("get_game_data.log"),
 )
 logger = logging.getLogger(__name__)
+
+BATCH_REQUEST_TIMEOUT_SECONDS = 20
+
+
+@retry(
+    retry=retry_if_exception_type(requests.RequestException),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+def _http_get_bgg_xml(url: str) -> requests.Response:
+    response = requests.get(url, timeout=BATCH_REQUEST_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return response
 
 
 def _initialize_game_data_store(conn: duckdb.DuckDBPyConnection) -> None:
@@ -63,13 +83,7 @@ def _upsert_game_batch(
     conn.register("game_data_tmp", df_rows)
     conn.execute(
         """
-        DELETE FROM boardgame_data
-        WHERE id IN (SELECT id FROM game_data_tmp);
-        """
-    )
-    conn.execute(
-        """
-        INSERT INTO boardgame_data (id, payload_json)
+        INSERT OR REPLACE INTO boardgame_data (id, payload_json)
         SELECT id, payload_json
         FROM game_data_tmp;
         """
@@ -162,7 +176,7 @@ def _run_game_data_ingest(
                     f"&id={','.join(batch_id_strings)}"
                 )
 
-            bgg_response = requests.get(bg_info_url)
+            bgg_response = _http_get_bgg_xml(bg_info_url)
             soup_xml = BeautifulSoup(bgg_response.content, "xml")
             games_xml_list = soup_xml.find_all(
                 "item", attrs={"type": ["boardgame", "boardgameexpansion"]}

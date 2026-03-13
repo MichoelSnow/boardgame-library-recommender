@@ -25,7 +25,7 @@ from io import BytesIO
 import logging
 import os
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 from dotenv import find_dotenv, load_dotenv
 import pandas as pd
@@ -54,9 +54,27 @@ RANKS_CSV_FILENAME = "boardgames_ranks.csv"
 
 
 def _load_ranks_dataframe(zip_bytes: bytes, queried_at_utc: str) -> pd.DataFrame:
-    with ZipFile(BytesIO(zip_bytes)) as archive:
-        with archive.open(RANKS_CSV_FILENAME) as csv_file:
-            df = pd.read_csv(csv_file)
+    try:
+        with ZipFile(BytesIO(zip_bytes)) as archive:
+            if RANKS_CSV_FILENAME not in archive.namelist():
+                raise ValueError(
+                    f"Expected {RANKS_CSV_FILENAME} in ranks ZIP, but it was not found."
+                )
+            with archive.open(RANKS_CSV_FILENAME) as csv_file:
+                df = pd.read_csv(csv_file)
+    except BadZipFile as exc:
+        raise ValueError("Invalid ranks ZIP payload from BGG.") from exc
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Failed to load ranks CSV from ZIP: {exc}") from exc
+
+    required_columns = {"id", "name"}
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Ranks CSV is missing required columns: {missing}")
+
     df["name"] = df["name"].str.replace("[“”]", '"', regex=True)
     df["queried_at_utc"] = queried_at_utc
     return df

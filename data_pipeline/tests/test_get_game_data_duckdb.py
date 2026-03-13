@@ -43,7 +43,7 @@ def test_get_game_data_raises_if_batch_returns_no_items(tmp_path, monkeypatch):
         content = b"<items></items>"
 
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data.requests.get",
+        "data_pipeline.src.ingest.get_game_data._http_get_bgg_xml",
         lambda _url: _Response(),
     )
     monkeypatch.setattr(
