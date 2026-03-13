@@ -69,7 +69,7 @@
 - [ ] [P0] Implement an authenticated admin panel before convention launch.
 - [ ] [P0] Add admin capability to switch convention primary color theme at runtime.
 - [ ] [P0] Add admin capability to create/manage users.
-- [ ] [P0] Add admin capability to upload PAX game IDs CSV and run validation/import flow.
+- [ ] [P0] Add admin capability to upload Library game IDs CSV and run validation/import flow.
 - [ ] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
 - [ ] [P0] Establish canonical convention color palette and document assignment:
   - `#904799`

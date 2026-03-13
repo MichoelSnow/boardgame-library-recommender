@@ -38,7 +38,7 @@ import {
   useGameDetailsQuery,
   useGamesQuery,
   useMechanicsQuery,
-  usePaxGameIdsQuery,
+  useLibraryGameIdsQuery,
 } from '../hooks/useGameListQueries';
 import { useRecommendationMutation } from '../hooks/useRecommendationMutation';
 import { useRecommendationSessionState } from '../hooks/useRecommendationSessionState';
@@ -144,7 +144,7 @@ const GameList = () => {
   const initialMechanicIds = parseCsvIntegers(searchParams.get('mechanics'));
   const initialCategoryIds = parseCsvIntegers(searchParams.get('categories'));
   const initialSortBy = searchParams.get('sort');
-  const initialPaxOnly = parseBooleanParam(searchParams.get('pax_only'), true);
+  const initialLibraryOnly = parseBooleanParam(searchParams.get('library_only'), true);
 
   const [inputValue, setInputValue] = useState(initialSearchValue);
   const [searchTerm, setSearchTerm] = useState(initialSearchValue);
@@ -195,12 +195,12 @@ const GameList = () => {
   const { data: kioskStatus } = useConventionKioskStatusQuery();
   const isConventionKiosk = Boolean(kioskStatus?.kiosk_mode);
   const {
-    paxOnly,
-    setPaxOnly,
+    libraryOnly,
+    setLibraryOnly,
     showNonLibraryNotification,
     setShowNonLibraryNotification,
     toggleAllBoardGames,
-  } = useConventionUiState(initialPaxOnly, isConventionKiosk);
+  } = useConventionUiState(initialLibraryOnly, isConventionKiosk);
   const {
     likedGames,
     dislikedGames,
@@ -227,7 +227,7 @@ const GameList = () => {
 
   const { data: popularMechanics = [] } = useMechanicsQuery();
   const { data: popularCategories = [] } = useCategoriesQuery();
-  const { data: paxGameIds = [] } = usePaxGameIdsQuery();
+  const { data: libraryGameIds = [] } = useLibraryGameIdsQuery();
 
   const {
     data: response = { games: [], total: 0 },
@@ -238,7 +238,7 @@ const GameList = () => {
     gamesPerPage,
     currentPage,
     sortBy,
-    paxOnly,
+    libraryOnly,
     searchTerm,
     playerOptions,
     selectedDesigners,
@@ -263,7 +263,7 @@ const GameList = () => {
         likedGames: likedGames.map((g) => g.id),
         dislikedGames: dislikedGames.map((g) => g.id),
         limit: 50, // Backend currently caps recommendation requests at 50
-        paxOnly: false,
+        libraryOnly: false,
       });
       const recommendationsAvailable =
         allResponse.headers['x-recommendations-available'] !== 'false';
@@ -334,7 +334,7 @@ const GameList = () => {
     setActiveFilter(null);
     setCurrentPage(1);
     setIsRecommendation(false);
-    setPaxOnly(true);
+    setLibraryOnly(true);
     
     // Reset recommendation states
     resetRecommendationState();
@@ -385,7 +385,7 @@ const GameList = () => {
       nextSearchParams.delete('sort');
     }
 
-    nextSearchParams.set('pax_only', String(paxOnly));
+    nextSearchParams.set('library_only', String(libraryOnly));
 
     if (playerOptions.count) {
       nextSearchParams.set('players', String(playerOptions.count));
@@ -427,7 +427,7 @@ const GameList = () => {
     }
     setSearchParams(nextSearchParams, { replace: true });
   }, [
-    paxOnly,
+    libraryOnly,
     playerOptions,
     searchParams,
     searchTerm,
@@ -498,9 +498,9 @@ const GameList = () => {
   useEffect(() => {
     if (showingRecommendations && hasRecommendations) {
       let newGameList = allRecommendations;
-      if (paxOnly && paxGameIds.length > 0) {
-        const paxSet = new Set(paxGameIds);
-        newGameList = allRecommendations.filter(game => paxSet.has(game.id));
+      if (libraryOnly && libraryGameIds.length > 0) {
+        const librarySet = new Set(libraryGameIds);
+        newGameList = allRecommendations.filter(game => librarySet.has(game.id));
       }
       setGameList(newGameList);
       setTotalGames(newGameList.length);
@@ -509,7 +509,7 @@ const GameList = () => {
     } else {
       setIsRecommendation(false);
     }
-  }, [showingRecommendations, hasRecommendations, paxOnly, allRecommendations, paxGameIds]);
+  }, [showingRecommendations, hasRecommendations, libraryOnly, allRecommendations, libraryGameIds]);
 
   const isSortFiltered = sortBy !== 'rank';
   const sortButtonLabel = isSortFiltered ? (sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort') : 'Sort';
@@ -692,7 +692,7 @@ const GameList = () => {
               disliked={dislikedGames.some(g => g.id === game.id)}
               onLike={() => likeGame(game)}
               onDislike={() => dislikeGame(game)}
-              isPaxGame={paxGameIds.includes(game.id)}
+              isLibraryGame={libraryGameIds.includes(game.id)}
             />
           </Grid>
         ))}
@@ -730,13 +730,13 @@ const GameList = () => {
             <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
               <Tooltip title="Show non-library games for recommendations and information">
                 <FormControlLabel
-                  control={<Switch checked={!paxOnly} onChange={(e) => {
+                  control={<Switch checked={!libraryOnly} onChange={(e) => {
                     const showNonLibrary = e.target.checked;
                     toggleAllBoardGames(showNonLibrary);
                   }} />}
                   label="All Board Games"
                   sx={{ mr: 2 }}
-                  data-tour="pax-toggle"
+                  data-tour="library-toggle"
                 />
               </Tooltip>
               <Tooltip title={isRecommendation ? "Sort is disabled in recommendation mode" : sortButtonLabel}>

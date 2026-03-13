@@ -48,10 +48,10 @@ Optional reset import:
 poetry run python backend/app/import_data.py --delete-existing
 ```
 
-Import PAX dataset:
+Import Library dataset:
 
 ```bash
-poetry run python backend/app/import_pax_data.py
+poetry run python backend/app/import_library_data.py
 ```
 
 ## Tests
@@ -92,7 +92,7 @@ poetry run python backend/tests/create_indexes.py
 
 ```bash
 tail -f logs/import_data.log
-tail -f logs/import_pax_data.log
+tail -f logs/import_library_data.log
 tail -f logs/get_game_data.log
 tail -f logs/get_ratings.log
 ```
@@ -125,7 +125,7 @@ tail -f logs/get_ratings.log
 - `GET /api/categories/`
 - `GET /api/mechanics/by_frequency`
 - `GET /api/categories/by_frequency`
-- `GET /api/pax_game_ids`
+- `GET /api/library_game_ids`
 
 ### Auth and Users
 - `POST /api/token`

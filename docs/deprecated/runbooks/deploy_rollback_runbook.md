@@ -5,17 +5,17 @@ No operational content was removed; all original sections are mapped below.
 
 ## Runbook Map
 - Core policy and prerequisites:
-  - [deploy_policy_and_prereqs.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/deploy_policy_and_prereqs.md)
+  - [deploy_policy_and_prereqs.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/deploy_policy_and_prereqs.md)
 - Fly stack lifecycle and DB runtime behavior:
-  - [fly_stack_operations.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/fly_stack_operations.md)
+  - [fly_stack_operations.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/fly_stack_operations.md)
 - Convention runtime profile and rehearsal guidance:
-  - [convention_runtime_runbook.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/convention_runtime_runbook.md)
+  - [convention_runtime_runbook.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/convention_runtime_runbook.md)
 - Dev deployment and validation:
-  - [deploy_dev_runbook.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/deploy_dev_runbook.md)
+  - [deploy_dev_runbook.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/deploy_dev_runbook.md)
 - Prod promotion, alerting, fallback deploy, and smoke checks:
-  - [deploy_prod_runbook.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/deploy_prod_runbook.md)
+  - [deploy_prod_runbook.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/deploy_prod_runbook.md)
 - Rollback, deploy traceability record, and inspection queries:
-  - [rollback_runbook.md](/home/msnow/git/pax_tt_recommender/docs/runbooks/rollback_runbook.md)
+  - [rollback_runbook.md](/home/msnow/git/bg_lib_recommender/docs/runbooks/rollback_runbook.md)
 
 ## Original Section Mapping (Lossless)
 - Purpose -> `deploy_policy_and_prereqs.md`

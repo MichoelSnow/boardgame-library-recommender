@@ -1,6 +1,6 @@
-# fly.db.dev.toml app configuration file for pax-tt-db-dev
+# fly.db.dev.toml app configuration file for bg-lib-db-dev
 
-app = "pax-tt-db-dev"
+app = "bg-lib-db-dev"
 primary_region = "iad"
 
 [build]
@@ -23,7 +23,7 @@ primary_region = "iad"
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = 1024
+  memory = 2048
 
 [[restart]]
   policy = "on-failure"

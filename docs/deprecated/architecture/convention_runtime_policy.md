@@ -10,7 +10,7 @@
 - Balance reliability improvements against cost sensitivity.
 
 ## Service-Level Reference
-- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/bg_lib_recommender/docs/policies/service_level_targets.md).
 - This runtime policy exists to keep production inside those targets during convention hours.
 
 ## Convention Hours

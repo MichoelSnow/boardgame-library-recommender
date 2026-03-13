@@ -4,12 +4,12 @@ from backend.app import db_config
 
 
 def test_get_database_url_prefers_database_url(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/pax")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/library")
     monkeypatch.setenv("DATABASE_PATH", "/tmp/ignored.db")
 
     result = db_config.get_database_url()
 
-    assert result == "postgresql://user:pass@localhost:5432/pax"
+    assert result == "postgresql://user:pass@localhost:5432/library"
 
 
 def test_get_database_url_falls_back_to_database_path(monkeypatch):
@@ -52,7 +52,7 @@ def test_get_engine_kwargs_sets_sqlite_connect_args():
 
 
 def test_get_engine_kwargs_omits_sqlite_connect_args_for_postgres():
-    result = db_config.get_engine_kwargs("postgresql://user:pass@localhost:5432/pax")
+    result = db_config.get_engine_kwargs("postgresql://user:pass@localhost:5432/library")
 
     assert "connect_args" not in result
     assert result["pool_pre_ping"] is True

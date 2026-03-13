@@ -1,7 +1,7 @@
-# Best Practices Migration Guide: `pax_tt_recommender` (V1)
+# Best Practices Migration Guide: `bg_lib_recommender` (V1)
 
 ## Purpose
-- Provide a step-by-step checklist to move `pax_tt_recommender` from "working prototype" to "reliable production web app."
+- Provide a step-by-step checklist to move `bg_lib_recommender` from "working prototype" to "reliable production web app."
 - Apply the general engineering guide to this repo's stack and deployment model.
 - Prioritize correctness, observability, and deploy safety before deep refactors.
 - Enforce a solo-developer sustainability constraint: choose the lowest-maintenance approach that still satisfies baseline production safety.
@@ -261,12 +261,6 @@ Related Phase 4 planning docs:
 - `docs/core/ownership_and_slos.md`
 - `docs/core/architecture.md`
 - `docs/core/convention_ops.md`
-- `docs/core/convention_ops.md`
-- `docs/core/convention_ops.md`
-- `docs/core/architecture.md`
-- `docs/core/architecture.md`
-- `docs/core/architecture.md`
-- `docs/core/ownership_and_slos.md`
 - `docs/ai/domain_glossary.md`
 - `docs/archive/adr/0001-phase-4-architecture-foundations.md`
 
@@ -405,8 +399,8 @@ Related Phase 4 planning docs:
 - [ ] [P1] Revisit cache strategy and invalidation rules.
 - [ ] [P3] Optional optimization: replace O(N) total-count cache eviction scan with `OrderedDict` LRU-style eviction (avoid full-cache clear).
 - [ ] [P2] Add lightweight ADRs for major architecture decisions.
-- [ ] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs.
-- [ ] [P1] Define timeout/retry policy for external calls and long-running jobs.
+- [ ] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs. Proposed draft in `data_pipeline/README.md` ("Operational Policy (Phase 11)"), pending approval.
+- [ ] [P1] Define timeout/retry policy for external calls and long-running jobs. Proposed draft in `data_pipeline/README.md` ("Operational Policy (Phase 11)"), pending approval.
 - [ ] [P0] Run memory/performance validation for `data_pipeline/src` scripts on Fly runtime targets and capture OOM-safe limits per job.
 - [ ] [P0] Decide pipeline execution topology on Fly:
 - [ ] [P0] whether jobs can safely run on existing app/db machines

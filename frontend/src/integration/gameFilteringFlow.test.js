@@ -10,7 +10,7 @@ const GamesQueryHarness = ({ searchTerm = 'alpha' }) => {
     gamesPerPage: 24,
     currentPage: 2,
     sortBy: 'rank',
-    paxOnly: true,
+    libraryOnly: true,
     searchTerm,
     playerOptions: { count: 4, recommendation: 'recommended' },
     selectedDesigners: [{ boardgamedesigner_id: 12, boardgamedesigner_name: 'D' }],
@@ -40,7 +40,7 @@ describe('games filtering integration', () => {
     expect(query).toContain('limit=24');
     expect(query).toContain('skip=24');
     expect(query).toContain('sort_by=rank');
-    expect(query).toContain('pax_only=true');
+    expect(query).toContain('library_only=true');
     expect(query).toContain('search=alpha');
     expect(query).toContain('players=4');
     expect(query).toContain('recommendations=recommended');

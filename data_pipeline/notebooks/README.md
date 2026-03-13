@@ -8,9 +8,9 @@
 - Never store secrets, passwords, tokens, or API keys in notebook source or outputs.
 - Load credentials only from environment variables.
 - Keep notebook outputs cleared before commit.
-- Keep generated data artifacts out of `data_pipeline/notebooks/`; store them under `data/pipeline/`.
+- Keep generated data artifacts out of `data_pipeline/notebooks/`; store them under `data/ingest/` or `data/transform/processed/`.
 - Update stale path/import references to current conventions when touching notebooks:
-  - use `data/pipeline/...` (not `data/crawler/...`)
+  - use `data/ingest/...` and `data/transform/processed/...` (not `data/crawler/...`)
   - use `data_pipeline.src...` for imports (not `crawler.src...`)
 
 ## Archive Policy

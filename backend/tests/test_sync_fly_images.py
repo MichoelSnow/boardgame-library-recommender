@@ -27,8 +27,8 @@ def test_build_relative_image_path_prefers_content_type():
 
 
 def test_parse_bool_scope_all_qualified():
-    include_pax, include_top_rank = parse_bool_scope("all-qualified")
-    assert include_pax is True
+    include_library, include_top_rank = parse_bool_scope("all-qualified")
+    assert include_library is True
     assert include_top_rank is True
 
 
@@ -36,27 +36,27 @@ def test_qualifies_for_seed_top_rank():
     assert qualifies_for_seed(
         game_id=10,
         rank=100,
-        pax_ids={99},
+        library_ids={99},
         max_rank=1000,
-        include_pax=False,
+        include_library=False,
         include_top_rank=True,
     )
 
 
-def test_qualifies_for_seed_pax_only():
+def test_qualifies_for_seed_library_only():
     assert qualifies_for_seed(
         game_id=42,
         rank=50000,
-        pax_ids={42},
+        library_ids={42},
         max_rank=1000,
-        include_pax=True,
+        include_library=True,
         include_top_rank=False,
     )
     assert not qualifies_for_seed(
         game_id=77,
         rank=50000,
-        pax_ids={42},
+        library_ids={42},
         max_rank=1000,
-        include_pax=True,
+        include_library=True,
         include_top_rank=False,
     )

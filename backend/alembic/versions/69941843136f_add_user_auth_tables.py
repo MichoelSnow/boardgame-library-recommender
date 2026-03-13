@@ -67,7 +67,7 @@ def upgrade() -> None:
     drop_index_if_exists("games", op.f("idx_games_year_published"))
     drop_index_if_exists("mechanics", op.f("idx_mechanics_boardgamemechanic_id"))
     drop_index_if_exists("mechanics", op.f("idx_mechanics_game_id"))
-    drop_index_if_exists("pax_games", op.f("idx_pax_games_bgg_id"))
+    drop_index_if_exists("library_games", op.f("idx_library_games_bgg_id"))
     drop_index_if_exists("suggested_players", op.f("idx_suggested_players_game_id"))
     drop_index_if_exists(
         "suggested_players", op.f("idx_suggested_players_player_count")
@@ -123,7 +123,7 @@ def downgrade() -> None:
         ["game_id"],
         unique=False,
     )
-    op.create_index(op.f("idx_pax_games_bgg_id"), "pax_games", ["bgg_id"], unique=False)
+    op.create_index(op.f("idx_library_games_bgg_id"), "library_games", ["bgg_id"], unique=False)
     op.create_index(
         op.f("idx_mechanics_game_id"), "mechanics", ["game_id"], unique=False
     )

@@ -17,7 +17,7 @@ scripts/deploy/fly_stack.sh dev up
 ```
 2. Migrate:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 3. Validate:
 ```bash
@@ -35,7 +35,7 @@ scripts/deploy/fly_deploy.sh dev
 ```
 3. Migrate:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 4. Validate:
 ```bash
@@ -55,7 +55,7 @@ scripts/deploy/fly_stack.sh prod up
 ```
 4. Migrate:
 ```bash
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 5. Validate:
 ```bash
@@ -69,7 +69,7 @@ poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
 ```
 2. Roll back release:
 ```bash
-fly releases rollback <RELEASE_VERSION> -a pax-tt-app
+fly releases rollback <RELEASE_VERSION> -a bg-lib-app
 ```
 3. Re-run smoke/validation checks.
 

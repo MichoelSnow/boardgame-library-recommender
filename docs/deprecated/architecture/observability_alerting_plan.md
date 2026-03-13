@@ -1,7 +1,7 @@
 # Observability and Alerting Plan
 
 ## Purpose
-- Define the initial observability and alerting model for `pax_tt_recommender`.
+- Define the initial observability and alerting model for `bg_lib_recommender`.
 - Keep the convention-launch operational footprint simple, low-cost, and actionable for a single developer.
 
 ## Scope
@@ -14,7 +14,7 @@
 - Does not introduce a full centralized logging platform in the first implementation.
 
 ## Service-Level Reference
-- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Canonical performance, reliability, and recovery targets are defined in [service_level_targets.md](/home/msnow/git/bg_lib_recommender/docs/policies/service_level_targets.md).
 - Alerts should be aligned to those targets.
 
 ## V1 Decisions
@@ -100,7 +100,7 @@ Implementation status:
 - brief reason/context
 4. Investigate using:
 ```bash
-fly logs -a pax-tt-app
+fly logs -a bg-lib-app
 ```
 5. Follow the deploy/rollback runbook if remediation is required.
 

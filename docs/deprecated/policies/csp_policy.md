@@ -33,8 +33,8 @@
 ## Production Validation
 
 ```bash
-curl -sI https://pax-tt-app.fly.dev/api/version | rg -i "content-security-policy|strict-transport-security|x-content-type-options|x-frame-options"
-curl -sI https://pax-tt-app.fly.dev/ | rg -i "content-security-policy"
+curl -sI https://bg-lib-app.fly.dev/api/version | rg -i "content-security-policy|strict-transport-security|x-content-type-options|x-frame-options"
+curl -sI https://bg-lib-app.fly.dev/ | rg -i "content-security-policy"
 ```
 
 Expected:

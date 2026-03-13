@@ -111,7 +111,7 @@ def parse_bool_scope(scope: str) -> tuple[bool, bool]:
     normalized = scope.strip().lower()
     if normalized == "all-qualified":
         return True, True
-    if normalized == "pax-only":
+    if normalized == "library-only":
         return True, False
     if normalized == "top-rank-only":
         return False, True
@@ -122,14 +122,14 @@ def qualifies_for_seed(
     *,
     game_id: int,
     rank: Optional[int],
-    pax_ids: set[int],
+    library_ids: set[int],
     max_rank: int,
-    include_pax: bool,
+    include_library: bool,
     include_top_rank: bool,
 ) -> bool:
-    is_pax = game_id in pax_ids
+    is_library = game_id in library_ids
     is_top_ranked = rank is not None and rank <= max_rank
-    return (include_pax and is_pax) or (include_top_rank and is_top_ranked)
+    return (include_library and is_library) or (include_top_rank and is_top_ranked)
 
 
 def collect_candidates(
@@ -139,11 +139,11 @@ def collect_candidates(
     scope: str,
     include_expansions: bool,
 ) -> list[tuple[int, str]]:
-    include_pax, include_top_rank = parse_bool_scope(scope)
-    pax_ids = {
+    include_library, include_top_rank = parse_bool_scope(scope)
+    library_ids = {
         row[0]
         for row in db.execute(
-            select(models.PAXGame.bgg_id).where(models.PAXGame.bgg_id.isnot(None))
+            select(models.LibraryGame.bgg_id).where(models.LibraryGame.bgg_id.isnot(None))
         ).all()
         if row[0] is not None
     }
@@ -165,9 +165,9 @@ def collect_candidates(
         if not qualifies_for_seed(
             game_id=int(game_id),
             rank=int(rank) if rank is not None else None,
-            pax_ids=pax_ids,
+            library_ids=library_ids,
             max_rank=max_rank,
-            include_pax=include_pax,
+            include_library=include_library,
             include_top_rank=include_top_rank,
         ):
             continue
@@ -293,7 +293,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--scope",
-        choices=["all-qualified", "pax-only", "top-rank-only"],
+        choices=["all-qualified", "library-only", "top-rank-only"],
         default="all-qualified",
         help="Candidate scope (default: all-qualified).",
     )

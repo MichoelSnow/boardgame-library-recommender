@@ -14,7 +14,7 @@ const RecommendationHarness = ({ likedGames = [1, 2] }) => {
       likedGames,
       dislikedGames: [4],
       limit: 50,
-      paxOnly: true,
+      libraryOnly: true,
     });
   };
 
@@ -44,7 +44,7 @@ describe('recommendation flow integration', () => {
       liked_games: [1, 2],
       disliked_games: [4],
       limit: 50,
-      pax_only: true,
+      library_only: true,
     });
   });
 

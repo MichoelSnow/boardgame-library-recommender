@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 APP_NAMES = {
-    "dev": "pax-tt-app-dev",
-    "prod": "pax-tt-app",
+    "dev": "bg-lib-app-dev",
+    "prod": "bg-lib-app",
 }
 
 

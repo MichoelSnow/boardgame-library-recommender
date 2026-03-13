@@ -1,6 +1,6 @@
 DB_APP_BY_ENV = {
-    "dev": "pax-tt-db-dev",
-    "prod": "pax-tt-db-prod",
+    "dev": "bg-lib-db-dev",
+    "prod": "bg-lib-db-prod",
 }
 
 

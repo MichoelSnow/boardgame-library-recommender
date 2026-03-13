@@ -2,10 +2,10 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
 
-const BASE_URL = __ENV.BASE_URL || "https://pax-tt-app-dev.fly.dev";
+const BASE_URL = __ENV.BASE_URL || "https://bg-lib-app-dev.fly.dev";
 const THINK_TIME_SECONDS = Number(__ENV.THINK_TIME_SECONDS || "0.3");
 const RECOMMENDATION_LIMIT = Number(__ENV.RECOMMENDATION_LIMIT || "5");
-const PAX_ONLY = (__ENV.PAX_ONLY || "true").toLowerCase() === "true";
+const LIBRARY_ONLY = (__ENV.LIBRARY_ONLY || "true").toLowerCase() === "true";
 const GAME_IDS = (__ENV.GAME_IDS || "224517,167791,174430,173346,266192,161936,13,822,30549,68448")
   .split(",")
   .map((value) => Number(value.trim()))
@@ -95,7 +95,7 @@ function requestRecommendations() {
   const payload = JSON.stringify({
     liked_games: likedGames,
     limit: RECOMMENDATION_LIMIT,
-    pax_only: PAX_ONLY,
+    library_only: LIBRARY_ONLY,
   });
 
   const response = http.post(`${BASE_URL}/api/recommendations`, payload, {
@@ -113,7 +113,7 @@ function requestRecommendations() {
 
 function requestGamesList() {
   const response = http.get(
-    `${BASE_URL}/api/games/?skip=0&limit=20&sort_by=rank&pax_only=true`
+    `${BASE_URL}/api/games/?skip=0&limit=20&sort_by=rank&library_only=true`
   );
   gamesDuration.add(response.timings.duration);
   gamesErrorRate.add(response.status !== 200);

@@ -13,7 +13,7 @@ describe('useConventionUiState', () => {
       result.current.toggleAllBoardGames(true);
     });
     expect(result.current.showNonLibraryNotification).toBe(true);
-    expect(result.current.paxOnly).toBe(false);
+    expect(result.current.libraryOnly).toBe(false);
 
     act(() => {
       result.current.setShowNonLibraryNotification(false);

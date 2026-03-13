@@ -19,12 +19,12 @@ scripts/deploy/fly_stack.sh prod up
 ```
 9. Run the database migration on the deployed prod app:
 ```bash
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 10. Verify the database migration completed successfully before treating the production deploy as valid.
 11. Verify the new Fly release exists:
 ```bash
-fly releases -a pax-tt-app | head -n 5
+fly releases -a bg-lib-app | head -n 5
 ```
 12. Run the core production validation script:
 ```bash
@@ -44,9 +44,9 @@ poetry run python scripts/validate/validate_prod_release.py
 - deploy traceability is recorded locally in `logs/deploy_traceability.jsonl`
 - a valid rollback target is resolved and the exact rollback command is printed
 14. Additional manual checks are only required when the release affects the related area:
-- if frontend behavior changed: open `https://pax-tt-app.fly.dev` and verify the main UI plus the changed user flow render correctly
+- if frontend behavior changed: open `https://bg-lib-app.fly.dev` and verify the main UI plus the changed user flow render correctly
 - if auth changed: manually test the full login, current-user flow, and password change path as applicable in `prod` (the scripted auth smoke is intentionally lightweight)
-- if deployment/config changed: review `fly logs -a pax-tt-app` and confirm startup logs show the app loaded a matched embeddings/mapping pair successfully
+- if deployment/config changed: review `fly logs -a bg-lib-app` and confirm startup logs show the app loaded a matched embeddings/mapping pair successfully
 15. If any production validation step fails, stop and either fix forward immediately or run rollback steps.
 
 ## Periodic Prod Alerting
@@ -81,8 +81,8 @@ scripts/deploy/fly_deploy.sh dev
 After either manual deploy, run the required migration before validation:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 
 ## Post-Deploy Smoke Checks

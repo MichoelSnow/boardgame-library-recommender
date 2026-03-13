@@ -28,12 +28,12 @@ action="$2"
 
 case "${environment}" in
   dev)
-    app_name="pax-tt-app-dev"
-    db_name="pax-tt-db-dev"
+    app_name="bg-lib-app-dev"
+    db_name="bg-lib-db-dev"
     ;;
   prod)
-    app_name="pax-tt-app"
-    db_name="pax-tt-db-prod"
+    app_name="bg-lib-app"
+    db_name="bg-lib-db-prod"
     ;;
   *)
     usage

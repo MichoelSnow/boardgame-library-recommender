@@ -10,11 +10,11 @@ scripts/deploy/fly_stack.sh dev up
 ```
 4. Run the database migration on the deployed dev app:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 5. Verify release version:
 ```bash
-fly releases -a pax-tt-app-dev | head -n 5
+fly releases -a bg-lib-app-dev | head -n 5
 ```
 
 ## Validate Dev (After Every Successful Merge to `main`)
@@ -26,7 +26,7 @@ scripts/deploy/fly_stack.sh dev up
 ```
 2. Run the database migration on the deployed dev app:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 3. Run the core validation script:
 ```bash

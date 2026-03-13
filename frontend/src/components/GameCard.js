@@ -63,7 +63,7 @@ const GameCard = memo(({
   onLike,
   onDislike,
   compact = false,
-  isPaxGame = false,
+  isLibraryGame = false,
   enableImageAccent = true,
 }) => {
   const [bgColor, setBgColor] = useState(DEFAULT_IMAGE_BG_COLOR);
@@ -249,10 +249,10 @@ const GameCard = memo(({
         sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'center', p: 0.5, borderLeft: '1px solid', borderColor: 'divider' }}
         data-tour="like-buttons"
       >
-        {isPaxGame ? (
+        {isLibraryGame ? (
           <Tooltip title={game.avg_box_volume && game.avg_box_volume <= 100 ? 
-            "Available in PAX Library, small games section" : 
-            "Available in PAX Library"} 
+            "Available in Library Library, small games section" : 
+            "Available in Library Library"} 
             placement="left">
             <IconButton size="small" sx={{ mb: 2, cursor: 'default' }}>
               <MenuBookIcon color="primary" />

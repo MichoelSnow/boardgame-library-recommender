@@ -135,7 +135,7 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 - `GET /api/mechanics/by_frequency`
 - `GET /api/categories/`
 - `GET /api/categories/by_frequency`
-- `GET /api/pax_game_ids`
+- `GET /api/library_game_ids`
 - future public read endpoints for librarian picks
 
 ## Frontend Contract (V1)

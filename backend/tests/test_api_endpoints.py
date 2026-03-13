@@ -59,7 +59,7 @@ async def test_games_endpoint_passes_filter_and_pagination_params(
             "limit": 10,
             "sort_by": "rank",
             "search": "alph",
-            "pax_only": "true",
+            "library_only": "true",
         },
     )
 
@@ -70,7 +70,7 @@ async def test_games_endpoint_passes_filter_and_pagination_params(
     assert captured["skip"] == 5
     assert captured["limit"] == 10
     assert captured["search"] == "alph"
-    assert captured["pax_only"] is True
+    assert captured["library_only"] is True
 
 
 @pytest.mark.anyio
@@ -115,7 +115,7 @@ async def test_multi_recommendations_empty_result(monkeypatch, api_client):
 
     response = await api_client.post(
         "/api/recommendations",
-        json={"liked_games": [1], "disliked_games": [], "limit": 5, "pax_only": False},
+        json={"liked_games": [1], "disliked_games": [], "limit": 5, "library_only": False},
     )
 
     assert response.status_code == 200

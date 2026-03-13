@@ -44,7 +44,7 @@ function Navbar() {
           component="div"
           sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}
         >
-          PAX Tabletop Board Game Catalog
+          Library Tabletop Board Game Catalog
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>

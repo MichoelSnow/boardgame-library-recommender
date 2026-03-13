@@ -78,7 +78,7 @@ def benchmark_size(
     liked_count: int,
     iterations: int,
     recommendation_limit: int,
-    pax_only: bool,
+    library_only: bool,
 ) -> dict:
     url = build_url(environment, "/api/recommendations")
     latencies: list[float] = []
@@ -89,7 +89,7 @@ def benchmark_size(
         payload = {
             "liked_games": liked_games,
             "limit": recommendation_limit,
-            "pax_only": pax_only,
+            "library_only": library_only,
         }
         status, duration_ms = post_json_once(url, payload)
         statuses[status] += 1
@@ -147,10 +147,10 @@ def parse_args() -> argparse.Namespace:
         help="Recommendation result limit per request.",
     )
     parser.add_argument(
-        "--pax-only",
+        "--library-only",
         choices=["true", "false"],
         default="true",
-        help="Whether to set pax_only in request payload.",
+        help="Whether to set library_only in request payload.",
     )
     return parser.parse_args()
 
@@ -182,13 +182,13 @@ def main() -> int:
         return 1
 
     random.seed(42)
-    pax_only = args.pax_only == "true"
+    library_only = args.library_only == "true"
 
     logger.info("Environment: %s", args.env)
     logger.info("Candidate IDs: %d", len(candidate_game_ids))
     logger.info("Sizes: %s", sizes)
     logger.info("Iterations per size: %d", args.iterations)
-    logger.info("Payload pax_only: %s", pax_only)
+    logger.info("Payload library_only: %s", library_only)
     logger.info("Payload limit: %d", args.limit)
 
     summary_rows: list[dict] = []
@@ -199,7 +199,7 @@ def main() -> int:
             liked_count=liked_count,
             iterations=args.iterations,
             recommendation_limit=args.limit,
-            pax_only=pax_only,
+            library_only=library_only,
         )
         summary_rows.append(result)
         logger.info(

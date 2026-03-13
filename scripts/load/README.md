@@ -25,12 +25,12 @@ scripts/deploy/fly_stack.sh dev up
 ```
 
 ### Default behavior
-- Base URL: `https://pax-tt-app-dev.fly.dev`
+- Base URL: `https://bg-lib-app-dev.fly.dev`
 - VUs: `20`
 - Duration: `5m`
 - Think time: `0.3s`
 - Recommendation payload:
-  - `pax_only=true`
+  - `library_only=true`
   - `limit=5`
   - random liked-games count from `1` to `50` (bounded by provided `GAME_IDS`)
 - Route weights:
@@ -56,7 +56,7 @@ scripts/deploy/fly_stack.sh dev up
 - `LIKED_MIN`
 - `LIKED_MAX`
 - `RECOMMENDATION_LIMIT`
-- `PAX_ONLY` (`true|false`)
+- `LIBRARY_ONLY` (`true|false`)
 - `WEIGHT_API`
 - `WEIGHT_VERSION`
 - `WEIGHT_RECOMMENDATIONS`
@@ -67,7 +67,7 @@ scripts/deploy/fly_stack.sh dev up
 Mixed profile (recommended baseline):
 ```bash
 k6 run \
-  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
   -e GAME_IDS="224517,167791,174430,173346,266192,161936,13,822,30549,68448" \
   -e LIKED_MIN="1" \
   -e LIKED_MAX="50" \
@@ -80,7 +80,7 @@ k6 run \
 Recommendations-only stress:
 ```bash
 k6 run \
-  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
   -e GAME_IDS="224517,167791,174430,173346,266192,161936,13,822,30549,68448" \
   -e LIKED_MIN="1" \
   -e LIKED_MAX="50" \
@@ -97,7 +97,7 @@ k6 run \
 Games-only stress:
 ```bash
 k6 run \
-  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
   -e WEIGHT_API="0" \
   -e WEIGHT_VERSION="0" \
   -e WEIGHT_RECOMMENDATIONS="0" \
@@ -117,5 +117,5 @@ k6 run \
   - p95 latency metrics
 - Correlate with app logs during the run:
 ```bash
-fly logs -a pax-tt-app-dev | rg -n "CRITICAL|WORKER TIMEOUT|ERROR|Out of memory|Killed process"
+fly logs -a bg-lib-app-dev | rg -n "CRITICAL|WORKER TIMEOUT|ERROR|Out of memory|Killed process"
 ```

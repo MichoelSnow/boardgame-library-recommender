@@ -18,11 +18,11 @@ build_pg_dump_command = MODULE.build_pg_dump_command
 
 
 def test_build_pg_dump_command_for_dev():
-    command = build_pg_dump_command("dev", "pax_tt_app", "pax_tt_recommender")
+    command = build_pg_dump_command("dev", "bg_lib_app", "bg_lib_recommender")
 
-    assert command[:5] == ["fly", "ssh", "console", "-a", "pax-tt-db-dev"]
+    assert command[:5] == ["fly", "ssh", "console", "-a", "bg-lib-db-dev"]
     assert command[5] == "-C"
-    assert "pg_dump -U pax_tt_app -d pax_tt_recommender" in command[6]
+    assert "pg_dump -U bg_lib_app -d bg_lib_recommender" in command[6]
     assert "--clean --if-exists --no-owner --no-privileges" in command[6]
 
 
@@ -31,5 +31,5 @@ def test_build_default_output_path_uses_environment_and_sql_suffix():
 
     assert isinstance(path, Path)
     assert path.parent == Path("/tmp")
-    assert path.name.startswith("pax-tt-prod-postgres-backup-")
+    assert path.name.startswith("bg-lib-prod-postgres-backup-")
     assert path.suffix == ".sql"

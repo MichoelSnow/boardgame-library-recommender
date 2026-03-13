@@ -24,7 +24,7 @@ def configure_logging() -> None:
 
 def build_default_output_path(environment: str, output_dir: str = "/tmp") -> Path:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return Path(output_dir) / f"pax-tt-{environment}-postgres-backup-{timestamp}.sql"
+    return Path(output_dir) / f"bg-lib-{environment}-postgres-backup-{timestamp}.sql"
 
 
 def build_pg_dump_command(
@@ -64,13 +64,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--postgres-user",
-        default="pax_tt_app",
-        help="Database user for pg_dump (default: pax_tt_app).",
+        default="bg_lib_app",
+        help="Database user for pg_dump (default: bg_lib_app).",
     )
     parser.add_argument(
         "--postgres-db",
-        default="pax_tt_recommender",
-        help="Database name for pg_dump (default: pax_tt_recommender).",
+        default="bg_lib_recommender",
+        help="Database name for pg_dump (default: bg_lib_recommender).",
     )
     parser.add_argument(
         "--output",

@@ -1,15 +1,17 @@
-# PAX Tabletop Recommender
+# Library Tabletop Recommender
 
-A board game recommendation system built around BoardGameGeek data, collaborative filtering, and practical convention use.
+## Summary
 
-The project started as a way to make game discovery faster and more trustworthy in real-world settings where people need good suggestions quickly, especially at PAX tabletop events. It combines a data pipeline that ingests and models BGG data, a backend API that serves recommendations and search/filter endpoints, and a frontend built for quick iteration during active convention windows.
+A board game recommendation system built around BoardGameGeek data, collaborative filtering, and practical library use.
+
+The project started as a way to make game discovery faster and more trustworthy in real-world settings where people need good suggestions quickly, given a limited tabletop library. It combines a data pipeline that ingests and models BGG data, a backend API that serves recommendations and search/filter endpoints.
 
 This repository is intentionally operations-aware: deployment, validation, rollback, and incident checks are treated as first-class workflows, not afterthoughts. The goal is to keep recommendation quality high while making runtime behavior predictable under load and easy to operate as a solo-maintained system.
 
 ## Key Features
 
 - Collaborative-filtering recommendations using sparse embeddings and similarity scoring
-- PAX convention integration with PAX-focused filtering and runtime profile support
+- Library-specific game lists via configurable BoardGameGeek ID imports 
 - BoardGameGeek-backed game corpus with ratings, mechanics, categories, and metadata
 - User auth and suggestion capture workflows for feedback-driven iteration
 - Advanced game discovery filters for player count, complexity, categories, mechanics, and more
@@ -19,7 +21,7 @@ This repository is intentionally operations-aware: deployment, validation, rollb
 ## Repository Layout
 
 ```text
-pax_tt_recommender/
+bg_lib_recommender/
 ├── backend/        # FastAPI runtime, models/migrations, backend tests
 ├── frontend/       # React SPA
 ├── data_pipeline/  # Ingest/transform/features/assets + notebooks
@@ -28,21 +30,6 @@ pax_tt_recommender/
 ├── data/           # Local generated data artifacts (ignored)
 └── logs/           # Local logs and deploy trace artifacts (ignored)
 ```
-
-## Start Here
-
-- Core docs index: [docs/README.md](docs/README.md)
-- Practical repo usage guide: [repo_usage_guide.md](docs/ai/repo_map.md)
-- Deploy + rollback entrypoint: [deploy_rollback_runbook.md](docs/core/runbook.md)
-- Migration/phase tracking: [best_practices_migration_guide.md](docs/active/best_practices_migration_guide.md)
-- Convention readiness gate: [pre_convention_readiness_checklist.md](docs/active/pre_convention_readiness_checklist.md)
-
-## Domain READMEs
-
-- Backend: [backend/README.md](backend/README.md)
-- Frontend: [frontend/README.md](frontend/README.md)
-- Data pipeline: [data_pipeline/README.md](data_pipeline/README.md)
-- Scripts: [scripts/README.md](scripts/README.md)
 
 ## Quick Start (Local)
 
@@ -53,20 +40,43 @@ poetry install
 cd frontend && npm ci
 ```
 
-### 2) Configure environment
+### 2) Configure environment (`.env` in repo root)
 
-Create `.env` in repo root with at minimum:
+At minimum:
 
 ```env
 SECRET_KEY=<32+ char secret>
 DATABASE_PATH=backend/database/boardgames.db
-BGG_USERNAME=<optional for pipeline ingestion>
-BGG_PASSWORD=<optional for pipeline ingestion>
 ```
 
-For auth/release validation flows, set optional smoke-test and admin vars documented in backend/scripts runbooks.
+### 3) Download/process BGG data and seed local DB
 
-### 3) Run backend
+The app is not useful until data has been ingested and imported.
+
+```bash
+poetry run python -m data_pipeline.src.ingest.get_ranks
+poetry run python -m data_pipeline.src.ingest.get_game_data
+poetry run python -m data_pipeline.src.ingest.get_ratings
+poetry run python -m data_pipeline.src.transform.data_processor
+poetry run python -m data_pipeline.src.features.create_embeddings
+poetry run python backend/app/import_data.py
+```
+
+Optional library list import:
+
+```bash
+poetry run python backend/app/import_library_data.py
+```
+
+If you prefer hosted environments, use the repository workflows/scripts documented under `scripts/` and `docs/core`.
+
+### 4) Create your first user (admin)
+
+```bash
+printf '%s' '<strong-password>' | poetry run python backend/app/main.py --username <admin-username> --password-stdin --admin
+```
+
+### 5) Run backend
 
 ```bash
 poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
@@ -74,7 +84,7 @@ poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 
 `backend.app.runtime_profile --serve` is intended for runtime-profile/server-mode bootstrapping and currently defaults to port `8080`.
 
-### 4) Run frontend
+### 6) Run frontend
 
 ```bash
 cd frontend
@@ -134,7 +144,7 @@ python scripts/validate/validate_notebook_secrets.py
 - Collaborative filtering recommendations with cosine-style similarity over sparse embeddings
 - Support for disliked games (anti-recommendation signals)
 - Degraded-mode behavior and health signaling when model artifacts are unavailable
-- PAX-aware filtering support
+- Library-aware filtering support
 
 #### Authentication and Authorization (`backend/app/security.py`, `backend/app/main.py`)
 - JWT bearer token authentication
@@ -150,10 +160,27 @@ python scripts/validate/validate_notebook_secrets.py
 #### Performance and Runtime Controls
 - Query and relationship-loading optimizations in backend CRUD/recommender paths
 - API/runtime validation gates and load-rehearsal tooling under `scripts/validate` and `scripts/load`
-- Configurable runtime profile behavior for convention and non-convention operation
+- Configurable runtime profile behavior for operations during library hours
 
 For detailed architecture and policy docs, use the docs index:
 - [docs/README.md](docs/README.md)
+
+## Docs
+
+- Roadmap:
+  - [docs/active/backlog.md](docs/active/backlog.md)
+- Core docs:
+  - [docs/core/README.md](docs/core/README.md)
+  - [docs/core/architecture.md](docs/core/architecture.md)
+  - [docs/core/runbook.md](docs/core/runbook.md)
+  - [docs/core/security.md](docs/core/security.md)
+- Domain READMEs:
+  - [backend/README.md](backend/README.md)
+  - [frontend/README.md](frontend/README.md)
+  - [data_pipeline/README.md](data_pipeline/README.md)
+  - [scripts/README.md](scripts/README.md)
+- Full docs index:
+  - [docs/README.md](docs/README.md)
 
 ## Technology Stack
 
@@ -183,12 +210,6 @@ For detailed architecture and policy docs, use the docs index:
 - Fly.io
 - Postgres for Fly-hosted environments
 - SQLite support for local/offline workflows where explicitly configured
-
-## Notes
-
-- Canonical release/version policy: [deploy_policy_and_prereqs.md](docs/core/runbook.md)
-- Canonical release-note format: [release_notes_standard.md](docs/ai/standards.md)
-- Repository structure and placement rules: [repository_structure_policy.md](docs/ai/repo_map.md)
 
 ## Contributing
 

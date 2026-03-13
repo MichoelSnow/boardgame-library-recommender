@@ -27,7 +27,7 @@ jobs:
         run: |
           flyctl deploy --remote-only \
             -c fly.toml \
-            -a pax-tt-app \
+            -a bg-lib-app \
             --build-arg GIT_SHA="${{ env.DEPLOY_GIT_SHA }}" \
             --build-arg BUILD_TIMESTAMP="${{ env.BUILD_TIMESTAMP }}"
         env:

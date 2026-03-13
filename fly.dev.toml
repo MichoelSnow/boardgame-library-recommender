@@ -1,6 +1,6 @@
-# fly.dev.toml app configuration file for pax-tt-app-dev
+# fly.dev.toml app configuration file for bg-lib-app-dev
 
-app = 'pax-tt-app-dev'
+app = 'bg-lib-app-dev'
 primary_region = 'iad'
 
 [env]
@@ -37,6 +37,10 @@ primary_region = 'iad'
 [mounts]
   source = "boardgames_data_dev"
   destination = "/data"
+  initial_size = "4GB"
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "10GB"  
 
 [[restart]]
   policy = "on-failure"

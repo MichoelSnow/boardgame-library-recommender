@@ -36,22 +36,22 @@ Use this only when introducing `fly.db.*.toml` to an existing DB app or fixing a
 
 1. Inspect current DB resources:
 ```bash
-fly machines list -a pax-tt-db-dev
-fly volumes list -a pax-tt-db-dev
+fly machines list -a bg-lib-db-dev
+fly volumes list -a bg-lib-db-dev
 ```
 2. Keep the intended data volume (for example `pg_data_dev`) and delete unintended duplicate machine/volume resources first.
 3. If you need deterministic re-attachment to an existing volume and there is no live traffic:
    - stop stack: `scripts/deploy/fly_stack.sh dev down`
-   - destroy old DB machine (volume is retained): `fly machine destroy <DB_MACHINE_ID> -a pax-tt-db-dev`
+   - destroy old DB machine (volume is retained): `fly machine destroy <DB_MACHINE_ID> -a bg-lib-db-dev`
    - ensure only the intended volume remains in `fly volumes list`
-   - deploy DB config: `fly deploy -a pax-tt-db-dev -c fly.db.dev.toml`
+   - deploy DB config: `fly deploy -a bg-lib-db-dev -c fly.db.dev.toml`
 4. Re-verify:
 ```bash
-fly machines list -a pax-tt-db-dev
-fly volumes list -a pax-tt-db-dev
-fly ips list -a pax-tt-db-dev
+fly machines list -a bg-lib-db-dev
+fly volumes list -a bg-lib-db-dev
+fly ips list -a bg-lib-db-dev
 ```
-5. Repeat the same pattern for `prod` with `pax-tt-db-prod` and `fly.db.prod.toml`.
+5. Repeat the same pattern for `prod` with `bg-lib-db-prod` and `fly.db.prod.toml`.
 
 ## DB Keepalive (App-Driven)
 To keep DB machines aligned with app runtime without a 24/7 external scheduler:

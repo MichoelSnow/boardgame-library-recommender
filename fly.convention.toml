@@ -1,6 +1,6 @@
-# fly.convention.toml app configuration file for pax-tt-app convention profile
+# fly.convention.toml app configuration file for bg-lib-app convention profile
 
-app = 'pax-tt-app'
+app = 'bg-lib-app'
 primary_region = 'iad'
 
 [env]

@@ -18,6 +18,7 @@ import requests
 import pandas as pd
 import logging
 import math
+import json
 from time import sleep, time
 from pathlib import Path
 import argparse
@@ -37,6 +38,50 @@ logging.basicConfig(
     handlers=build_log_handlers("get_ratings.log"),
 )
 logger = logging.getLogger(__name__)
+
+
+def load_game_data_from_duckdb(duckdb_path: Path) -> pd.DataFrame:
+    """Load boardgame_data records from DuckDB JSON payload storage."""
+    con = duckdb.connect(str(duckdb_path), read_only=True)
+    try:
+        payload_rows = con.execute(
+            "SELECT payload_json FROM boardgame_data ORDER BY id"
+        ).fetchall()
+    finally:
+        con.close()
+    if not payload_rows:
+        return pd.DataFrame()
+    records = [json.loads(row[0]) for row in payload_rows]
+    return pd.DataFrame(records)
+
+
+def save_game_data_to_duckdb(boardgame_data: pd.DataFrame, save_path: Path) -> None:
+    """Persist updated boardgame_data snapshot in DuckDB JSON payload format."""
+    con = duckdb.connect(str(save_path))
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS boardgame_data (
+            id BIGINT PRIMARY KEY,
+            payload_json TEXT
+        );
+        """
+    )
+    rows = [
+        {"id": int(record["id"]), "payload_json": json.dumps(record)}
+        for record in boardgame_data.to_dict(orient="records")
+    ]
+    df_rows = pd.DataFrame(rows)
+    con.register("game_data_tmp", df_rows)
+    con.execute("DELETE FROM boardgame_data;")
+    con.execute(
+        """
+        INSERT INTO boardgame_data (id, payload_json)
+        SELECT id, payload_json
+        FROM game_data_tmp;
+        """
+    )
+    con.unregister("game_data_tmp")
+    con.close()
 
 
 def get_boardgame_ratings(
@@ -69,12 +114,17 @@ def get_boardgame_ratings(
     logger.setLevel(getattr(logging, log_level.upper()))
 
     query_time = int(time())
-    data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    save_path = data_dir / f"boardgame_ratings_{query_time}.parquet"
+    project_root = Path(__file__).resolve().parents[3]
+    ratings_dir = project_root / "data" / "ingest" / "ratings"
+    ratings_state_dir = project_root / "data" / "ingest" / "ratings_state"
+    game_data_dir = project_root / "data" / "ingest" / "game_data"
+    ratings_dir.mkdir(parents=True, exist_ok=True)
+    ratings_state_dir.mkdir(parents=True, exist_ok=True)
+    game_data_dir.mkdir(parents=True, exist_ok=True)
+    save_path = ratings_dir / f"boardgame_ratings_{query_time}.parquet"
 
     # Initialize DuckDB persistent store for ratings
-    duckdb_path = data_dir / "ratings.duckdb"
+    duckdb_path = ratings_state_dir / "ratings.duckdb"
     con = duckdb.connect(str(duckdb_path))
     con.execute(
         """
@@ -202,7 +252,7 @@ def get_boardgame_ratings(
 
         # Update numratings if requested
         if update_numratings:
-            game_data_save_path = data_dir / f"boardgame_data_{query_time}.parquet"
+            game_data_save_path = game_data_dir / f"boardgame_data_{query_time}.duckdb"
             logger.info("Updating number of ratings for games with missing ratings")
             for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
                 logger.info(
@@ -233,7 +283,7 @@ def get_boardgame_ratings(
                         ] = 0
                 if batch_saves and (batch_num + 1) % 20 == 0:
                     logger.info(f"Saving batch {batch_num} data")
-                    boardgame_data.to_parquet(game_data_save_path)
+                    save_game_data_to_duckdb(boardgame_data, game_data_save_path)
                     logger.info(
                         f"Saved batch {batch_num} data to {game_data_save_path}"
                     )
@@ -241,7 +291,7 @@ def get_boardgame_ratings(
                 sleep(1)
 
             # Save updated game data
-            boardgame_data.to_parquet(game_data_save_path)
+            save_game_data_to_duckdb(boardgame_data, game_data_save_path)
             logger.info(f"Saved updated game data to {game_data_save_path}")
             boardgame_data_ratings = boardgame_data.loc[
                 boardgame_data["numratings"] > 100
@@ -450,8 +500,12 @@ def main():
         args = parser.parse_args()
 
         # Get the most recent game_ranks file
-        data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-        game_ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+        project_root = Path(__file__).resolve().parents[3]
+        ranks_dir = project_root / "data" / "ingest" / "ranks"
+        game_data_dir = project_root / "data" / "ingest" / "game_data"
+        ratings_dir = project_root / "data" / "ingest" / "ratings"
+        ratings_state_dir = project_root / "data" / "ingest" / "ratings_state"
+        game_ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
         if not game_ranks_files:
             raise FileNotFoundError("No game ranks files found")
         latest_ranks = max(game_ranks_files, key=lambda x: x.stat().st_mtime)
@@ -465,8 +519,9 @@ def main():
         )
         non_expansion_ids = df_ranks.loc[df_ranks["is_expansion"] == 0, "id"].tolist()
 
-        # Get the most recent game data file
-        game_files = list(data_dir.glob("boardgame_data_*.parquet"))
+        # Get the most recent game data file (DuckDB preferred, Parquet fallback).
+        game_files = list(game_data_dir.glob("boardgame_data_*.duckdb"))
+        game_files.extend(game_data_dir.glob("boardgame_data_*.parquet"))
         if not game_files:
             raise FileNotFoundError("No game data files found")
 
@@ -474,13 +529,16 @@ def main():
         logger.info(f"Using game data file: {latest_games}")
 
         # Read game data
-        df_games = pd.read_parquet(latest_games)
+        if latest_games.suffix == ".duckdb":
+            df_games = load_game_data_from_duckdb(latest_games)
+        else:
+            df_games = pd.read_parquet(latest_games)
         df_games = df_games.loc[df_games["id"].isin(non_expansion_ids)]
 
         # Get existing ratings if continuing (prefer DuckDB snapshot if present)
         existing_ratings = None
         if args.continue_from_last:
-            duckdb_path = data_dir / "ratings.duckdb"
+            duckdb_path = ratings_state_dir / "ratings.duckdb"
             if duckdb_path.exists():
                 logger.info(f"Continuing from DuckDB ratings at: {duckdb_path}")
                 con = duckdb.connect(str(duckdb_path))
@@ -490,7 +548,7 @@ def main():
                     con.close()
                 logger.info(f"Pulled ratings from DuckDB ratings at: {duckdb_path}")
             else:
-                ratings_files = list(data_dir.glob("boardgame_ratings_*.parquet"))
+                ratings_files = list(ratings_dir.glob("boardgame_ratings_*.parquet"))
                 if ratings_files:
                     latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
                     logger.info(f"Continuing from ratings file: {latest_ratings}")

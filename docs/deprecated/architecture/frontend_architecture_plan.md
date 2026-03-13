@@ -1,7 +1,7 @@
 # Frontend Architecture Plan
 
 ## Purpose
-- Define the Phase 4 frontend architecture direction for `pax_tt_recommender`.
+- Define the Phase 4 frontend architecture direction for `bg_lib_recommender`.
 - Improve maintainability and responsiveness without changing the core React-based stack.
 
 ## Scope
@@ -13,7 +13,7 @@
 - Does not require immediate implementation of the full refactor.
 
 ## Service-Level Reference
-- Canonical latency and reliability targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Canonical latency and reliability targets are defined in [service_level_targets.md](/home/msnow/git/bg_lib_recommender/docs/policies/service_level_targets.md).
 - Frontend data-fetching and cache decisions should support those targets by reducing unnecessary repeated requests and improving perceived responsiveness.
 
 ## V1 Architecture Decisions

@@ -64,8 +64,8 @@ scripts/deploy/fly_deploy.sh prod
 Run migrations inside Fly app machine:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 
 ## 4. Validation
@@ -107,9 +107,9 @@ psql "$DATABASE_URL" -c "SELECT id, user_id, comment, timestamp FROM user_sugges
 Get Most recent suggestions from fly in dev and prod:
 
 ```bash
-fly ssh console -a pax-tt-db-dev -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
+fly ssh console -a bg-lib-db-dev -C 'sh -lc "psql -U bg_lib_app -d bg_lib_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 
-fly ssh console -a pax-tt-db-prod -C 'sh -lc "psql -U pax_tt_app -d pax_tt_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
+fly ssh console -a bg-lib-db-prod -C 'sh -lc "psql -U bg_lib_app -d bg_lib_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 ```
 
 ## 6. Quality Gates
@@ -166,14 +166,14 @@ Backup:
 
 ```bash
 poetry run python scripts/db/fly_postgres_backup.py --env dev
-poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-backup.sql
+poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-lib-prod-backup.sql
 ```
 
 Restore:
 
 ```bash
-poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-backup.sql
-poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-backup.sql --restore-db pax_tt_recommender_restore_test
+poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/bg-lib-dev-backup.sql
+poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-lib-prod-backup.sql --restore-db bg_lib_recommender_restore_test
 ```
 
 ## 9. Incident Triage
@@ -181,24 +181,24 @@ poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax
 Machine state:
 
 ```bash
-fly machines list -a pax-tt-app-dev
-fly machines list -a pax-tt-db-dev
-fly machines list -a pax-tt-app
-fly machines list -a pax-tt-db-prod
+fly machines list -a bg-lib-app-dev
+fly machines list -a bg-lib-db-dev
+fly machines list -a bg-lib-app
+fly machines list -a bg-lib-db-prod
 ```
 
 App logs:
 
 ```bash
-fly logs -a pax-tt-app-dev | tee -a logs/pax-tt-app-dev.fly.log
-fly logs -a pax-tt-app | tee -a logs/pax-tt-app.fly.log
+fly logs -a bg-lib-app-dev | tee -a logs/bg-lib-app-dev.fly.log
+fly logs -a bg-lib-app | tee -a logs/bg-lib-app.fly.log
 ```
 
 Common error patterns:
 
 ```bash
-fly logs -a pax-tt-app-dev | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
-fly logs -a pax-tt-app | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+fly logs -a bg-lib-app-dev | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+fly logs -a bg-lib-app | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
 ```
 
 ## 10. Alerting and Workflow Toggles
@@ -243,14 +243,14 @@ poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
 Recommendation size benchmark:
 
 ```bash
-poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --pax-only true
+poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --library-only true
 ```
 
 k6 rehearsal:
 
 ```bash
 k6 run \
-  -e BASE_URL="https://pax-tt-app-dev.fly.dev" \
+  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
   -e GAME_IDS="<csv>" \
   -e VUS="10" \
   -e DURATION="3m" \
@@ -262,23 +262,23 @@ k6 run \
 Seed all qualified images directly from BGG to Fly dev volume:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
 ```
 
 Dry run candidate count:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
 ```
 
-PAX-only seed:
+Library-only seed:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope pax-only"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope library-only"'
 ```
 
 Count image files on Fly volume:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
 ```
 
 ## 14. R2 Commands (Backup-Only)

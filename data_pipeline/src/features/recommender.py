@@ -125,8 +125,8 @@ class GameRecommender:
             return None
 
         # Find the most recent ranks file
-        data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-        ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+        ranks_dir = Path(__file__).resolve().parents[3] / "data" / "ingest" / "ranks"
+        ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
         if not ranks_files:
             logger.warning("No ranks files found, cannot exclude expansions")
             return None

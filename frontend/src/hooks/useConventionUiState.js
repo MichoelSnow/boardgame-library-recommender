@@ -2,15 +2,15 @@ import { useState } from 'react';
 
 const NON_LIBRARY_NOTICE_SESSION_KEY = 'hasSeenNonLibraryMessage';
 
-export const useConventionUiState = (initialPaxOnly, isConventionKiosk) => {
-  const [paxOnly, setPaxOnly] = useState(initialPaxOnly);
+export const useConventionUiState = (initialLibraryOnly, isConventionKiosk) => {
+  const [libraryOnly, setLibraryOnly] = useState(initialLibraryOnly);
   const [showNonLibraryNotification, setShowNonLibraryNotification] = useState(false);
   const [hasSeenNonLibraryMessage, setHasSeenNonLibraryMessage] = useState(
     window.sessionStorage.getItem(NON_LIBRARY_NOTICE_SESSION_KEY) === 'true'
   );
 
   const toggleAllBoardGames = (showAllBoardGames) => {
-    setPaxOnly(!showAllBoardGames);
+    setLibraryOnly(!showAllBoardGames);
     setShowNonLibraryNotification(false);
 
     if (showAllBoardGames) {
@@ -28,8 +28,8 @@ export const useConventionUiState = (initialPaxOnly, isConventionKiosk) => {
   };
 
   return {
-    paxOnly,
-    setPaxOnly,
+    libraryOnly,
+    setLibraryOnly,
     showNonLibraryNotification,
     setShowNonLibraryNotification,
     toggleAllBoardGames,
