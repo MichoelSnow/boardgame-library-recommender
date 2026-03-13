@@ -48,7 +48,7 @@ def _build_total_cache_key(
     weight: Optional[str],
     mechanics: Optional[str],
     categories: Optional[str],
-    pax_only: Optional[bool],
+    library_only: Optional[bool],
 ) -> tuple[Any, ...]:
     return (
         search,
@@ -59,7 +59,7 @@ def _build_total_cache_key(
         weight,
         mechanics,
         categories,
-        bool(pax_only),
+        bool(library_only),
     )
 
 
@@ -115,7 +115,7 @@ def get_games(
     weight: Optional[str] = None,
     mechanics: Optional[str] = None,
     categories: Optional[str] = None,
-    pax_only: Optional[bool] = False,
+    library_only: Optional[bool] = False,
 ):
     try:
         # Start with a base query - only load main game fields initially
@@ -124,9 +124,9 @@ def get_games(
         if sort_by == "recommendation_score":
             sort_by = "rank"
 
-        if pax_only:
+        if library_only:
             query = query.filter(
-                exists().where(models.PAXGame.bgg_id == models.BoardGame.id)
+                exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
             )
 
         # Apply simple filters first
@@ -300,7 +300,7 @@ def get_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
-            pax_only=pax_only,
+            library_only=library_only,
         )
 
         cached_total = _cache_get_total(cache_key)
@@ -488,7 +488,7 @@ def get_recommendations(
     liked_games: Optional[List[int]] = None,
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
-    pax_only: Optional[bool] = False,
+    library_only: Optional[bool] = False,
 ) -> List[models.BoardGame]:
     """
     Get game recommendations based on liked and disliked games.
@@ -501,12 +501,12 @@ def get_recommendations(
         liked_games=liked_games,
         disliked_games=disliked_games,
         anti_weight=anti_weight,
-        pax_only=pax_only,
+        library_only=library_only,
     )
 
 
-# PAX Games CRUD operations
-def get_pax_games(
+# Library Games CRUD operations
+def get_library_games(
     db: Session,
     skip: int = 0,
     limit: int = 100,
@@ -514,74 +514,82 @@ def get_pax_games(
     convention_year: Optional[int] = None,
     has_bgg_id: Optional[bool] = None,
 ):
-    """Get PAX games with optional filtering."""
-    query = db.query(models.PAXGame)
+    """Get Library games with optional filtering."""
+    query = db.query(models.LibraryGame)
 
     if convention_name:
-        query = query.filter(models.PAXGame.convention_name == convention_name)
+        query = query.filter(models.LibraryGame.convention_name == convention_name)
 
     if convention_year:
-        query = query.filter(models.PAXGame.convention_year == convention_year)
+        query = query.filter(models.LibraryGame.convention_year == convention_year)
 
     if has_bgg_id is not None:
         if has_bgg_id:
-            query = query.filter(models.PAXGame.bgg_id.isnot(None))
+            query = query.filter(models.LibraryGame.bgg_id.isnot(None))
         else:
-            query = query.filter(models.PAXGame.bgg_id.is_(None))
+            query = query.filter(models.LibraryGame.bgg_id.is_(None))
 
     # Get total count before pagination
     total = query.count()
 
     # Apply pagination
-    pax_games = query.offset(skip).limit(limit).all()
+    library_games = query.offset(skip).limit(limit).all()
 
-    return pax_games, total
-
-
-def get_pax_game(db: Session, pax_game_id: int):
-    """Get a specific PAX game by ID."""
-    return db.query(models.PAXGame).filter(models.PAXGame.id == pax_game_id).first()
+    return library_games, total
 
 
-def get_pax_game_by_bgg_id(db: Session, bgg_id: int):
-    """Get PAX game by BGG ID."""
-    return db.query(models.PAXGame).filter(models.PAXGame.bgg_id == bgg_id).first()
+def get_library_game(db: Session, library_game_id: int):
+    """Get a specific Library game by ID."""
+    return (
+        db.query(models.LibraryGame)
+        .filter(models.LibraryGame.id == library_game_id)
+        .first()
+    )
 
 
-def create_pax_game(db: Session, pax_game: schemas.PAXGameCreate):
-    """Create a new PAX game."""
-    db_pax_game = models.PAXGame(**pax_game.model_dump())
-    db.add(db_pax_game)
+def get_library_game_by_bgg_id(db: Session, bgg_id: int):
+    """Get Library game by BGG ID."""
+    return (
+        db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id == bgg_id).first()
+    )
+
+
+def create_library_game(db: Session, library_game: schemas.LibraryGameCreate):
+    """Create a new Library game."""
+    db_library_game = models.LibraryGame(**library_game.model_dump())
+    db.add(db_library_game)
     db.commit()
-    db.refresh(db_pax_game)
-    return db_pax_game
+    db.refresh(db_library_game)
+    return db_library_game
 
 
-def get_pax_games_by_convention(
+def get_library_games_by_convention(
     db: Session, convention_name: str, convention_year: Optional[int] = None
 ):
-    """Get PAX games for a specific convention."""
-    query = db.query(models.PAXGame).filter(
-        models.PAXGame.convention_name == convention_name
+    """Get Library games for a specific convention."""
+    query = db.query(models.LibraryGame).filter(
+        models.LibraryGame.convention_name == convention_name
     )
 
     if convention_year:
-        query = query.filter(models.PAXGame.convention_year == convention_year)
+        query = query.filter(models.LibraryGame.convention_year == convention_year)
 
     return query.all()
 
 
-def get_pax_games_with_board_game_links(db: Session, skip: int = 0, limit: int = 100):
-    """Get PAX games that have links to BoardGame records."""
-    query = db.query(models.PAXGame).filter(models.PAXGame.bgg_id.isnot(None))
+def get_library_games_with_board_game_links(
+    db: Session, skip: int = 0, limit: int = 100
+):
+    """Get Library games that have links to BoardGame records."""
+    query = db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id.isnot(None))
 
     # Get total count before pagination
     total = query.count()
 
     # Apply pagination
-    pax_games = query.offset(skip).limit(limit).all()
+    library_games = query.offset(skip).limit(limit).all()
 
-    return pax_games, total
+    return library_games, total
 
 
 def get_user(db: Session, user_id: int):

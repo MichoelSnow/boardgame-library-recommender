@@ -104,12 +104,12 @@ def process_games_data(
 ):
     """Process the most recent games data file and download images."""
     # Find the most recent processed games file
-    data_dir = PROJECT_ROOT / "data" / "processed"
-    processed_files = list(data_dir.glob("processed_games_data_*.csv"))
+    data_dir = PROJECT_ROOT / "data" / "transform" / "processed"
+    processed_files = list(data_dir.glob("*/processed_games_data_*.csv"))
     if not processed_files:
         raise FileNotFoundError(f"No processed games files found in {data_dir}")
 
-    latest_file = max(processed_files, key=lambda x: int(x.stem.split("_")[-1]))
+    latest_file = max(processed_files, key=lambda x: x.stat().st_mtime)
     logger.info(f"Using most recent processed games file: {latest_file}")
 
     # Read the CSV file

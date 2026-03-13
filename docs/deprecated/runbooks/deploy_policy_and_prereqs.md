@@ -46,7 +46,7 @@
 
 ### Release Notes Rule
 - Use the canonical release notes format in:
-  - [release_notes_standard.md](/home/msnow/git/pax_tt_recommender/docs/policies/release_notes_standard.md)
+  - [release_notes_standard.md](/home/msnow/git/bg_lib_recommender/docs/policies/release_notes_standard.md)
 - Keep section headers and order consistent across releases.
 - Publish notes for each production tag (`prod-vX.Y.Z`) using that template.
 
@@ -55,16 +55,16 @@
 - Correct app selected (`dev` or `prod`).
 - Required secrets are already set in Fly.
 - Production auth endpoints must be served over HTTPS/TLS only (no plain HTTP for login/token flows).
-- For Postgres-backed environments with DB autostop enabled, `DATABASE_URL` should use Flycast hostnames (for example `pax-tt-db-dev.flycast`), not `.internal` hostnames.
+- For Postgres-backed environments with DB autostop enabled, `DATABASE_URL` should use Flycast hostnames (for example `bg-lib-db-dev.flycast`), not `.internal` hostnames.
 - Flycast private IP is allocated on each DB app used by the app:
-  - `fly ips list -a pax-tt-db-dev`
-  - `fly ips list -a pax-tt-db-prod`
+  - `fly ips list -a bg-lib-db-dev`
+  - `fly ips list -a bg-lib-db-prod`
   - If missing, allocate it:
-    - `fly ips allocate-v6 --private -a pax-tt-db-dev`
-    - `fly ips allocate-v6 --private -a pax-tt-db-prod`
+    - `fly ips allocate-v6 --private -a bg-lib-db-dev`
+    - `fly ips allocate-v6 --private -a bg-lib-db-prod`
 - DB apps should remain private-only. Verify there are no public IPs:
-  - `fly ips list -a pax-tt-db-dev`
-  - `fly ips list -a pax-tt-db-prod`
+  - `fly ips list -a bg-lib-db-dev`
+  - `fly ips list -a bg-lib-db-prod`
 - Treat database migrations as required on every deploy, even if a given commit appears not to change schema. This is the conservative default for this project.
 - Local development also requires `.env` with `SECRET_KEY` (minimum 32 characters) before the backend will start.
 - Optional but recommended for full auth smoke coverage: set environment-specific smoke-test credentials in local `.env`:

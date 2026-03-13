@@ -10,7 +10,7 @@ export const fetchGameDetails = async (gameId) => {
   return response.data;
 };
 
-export const fetchPaxGameIds = async () => {
-  const response = await apiClient.get('/pax_game_ids/');
+export const fetchLibraryGameIds = async () => {
+  const response = await apiClient.get('/library_game_ids/');
   return response.data;
 };

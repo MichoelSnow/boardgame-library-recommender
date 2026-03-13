@@ -75,12 +75,12 @@ APP_CONFIG = {
         "base_url": os.getenv("LOCAL_APP_BASE_URL", "http://127.0.0.1:8000"),
     },
     "dev": {
-        "app_name": "pax-tt-app-dev",
-        "base_url": "https://pax-tt-app-dev.fly.dev",
+        "app_name": "bg-lib-app-dev",
+        "base_url": "https://bg-lib-app-dev.fly.dev",
     },
     "prod": {
-        "app_name": "pax-tt-app",
-        "base_url": "https://pax-tt-app.fly.dev",
+        "app_name": "bg-lib-app",
+        "base_url": "https://bg-lib-app.fly.dev",
     },
 }
 

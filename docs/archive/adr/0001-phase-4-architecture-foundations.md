@@ -4,7 +4,7 @@
 - Accepted
 
 ## Context
-- `pax_tt_recommender` is moving from a working prototype toward a convention-ready production web app.
+- `bg_lib_recommender` is moving from a working prototype toward a convention-ready production web app.
 - The system must support:
   - short-term convention usage with up to roughly `100` concurrent users
   - a mostly read-heavy traffic profile

@@ -24,8 +24,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
-DEFAULT_PAX_DIR = PROJECT_ROOT / "data" / "pax"
+DEFAULT_PROCESSED_DIR = PROJECT_ROOT / "data" / "transform" / "processed"
+DEFAULT_LIBRARY_DIR = PROJECT_ROOT / "data" / "library"
 
 
 def parse_id_list(raw: str) -> set[int]:
@@ -41,28 +41,28 @@ def parse_id_list(raw: str) -> set[int]:
 
 
 def find_latest_processed_games_file(processed_dir: Path) -> Path:
-    processed_files = list(processed_dir.glob("processed_games_data_*.csv"))
+    processed_files = list(processed_dir.glob("*/processed_games_data_*.csv"))
     if not processed_files:
         raise FileNotFoundError(f"No processed games files found in {processed_dir}")
-    return max(processed_files, key=lambda path: int(path.stem.split("_")[-1]))
+    return max(processed_files, key=lambda path: path.stat().st_mtime)
 
 
-def find_latest_pax_file(pax_dir: Path) -> Optional[Path]:
-    pax_files = list(pax_dir.glob("pax_tt_games_*.csv"))
-    if not pax_files:
+def find_latest_library_file(library_dir: Path) -> Optional[Path]:
+    library_files = list(library_dir.glob("bg_lib_games_*.csv"))
+    if not library_files:
         return None
-    return max(pax_files, key=lambda path: int(path.stem.split("_")[-1]))
+    return max(library_files, key=lambda path: path.stat().st_mtime)
 
 
-def load_pax_bgg_ids(pax_file: Optional[Path]) -> set[int]:
-    if not pax_file or not pax_file.exists():
+def load_library_bgg_ids(library_file: Optional[Path]) -> set[int]:
+    if not library_file or not library_file.exists():
         return set()
-    pax_df = pd.read_csv(pax_file, sep="|", escapechar="\\")
-    if "bgg_id" not in pax_df.columns:
+    library_df = pd.read_csv(library_file, sep="|", escapechar="\\")
+    if "bgg_id" not in library_df.columns:
         return set()
 
     ids = set()
-    for value in pax_df["bgg_id"].dropna().tolist():
+    for value in library_df["bgg_id"].dropna().tolist():
         value_str = str(value).strip()
         if not value_str:
             continue
@@ -77,24 +77,24 @@ def qualifies_for_sync(
     *,
     game_id: int,
     game_rank: Optional[float],
-    pax_ids: set[int],
+    library_ids: set[int],
     max_rank: int,
     scope: str,
 ) -> bool:
-    is_pax = game_id in pax_ids
+    is_library = game_id in library_ids
     is_top_ranked = game_rank is not None and game_rank <= max_rank
 
-    if scope == "pax-only":
-        return is_pax
+    if scope == "library-only":
+        return is_library
     if scope == "top-rank-only":
         return is_top_ranked
-    return is_pax or is_top_ranked
+    return is_library or is_top_ranked
 
 
 def iter_sync_candidates(
     games_df: pd.DataFrame,
     *,
-    pax_ids: set[int],
+    library_ids: set[int],
     max_rank: int,
     scope: str,
     include_game_ids: set[int],
@@ -128,7 +128,7 @@ def iter_sync_candidates(
         if not qualifies_for_sync(
             game_id=game_id,
             game_rank=game_rank,
-            pax_ids=pax_ids,
+            library_ids=library_ids,
             max_rank=max_rank,
             scope=scope,
         ):
@@ -152,10 +152,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Explicit processed_games_data CSV path (defaults to latest file).",
     )
     parser.add_argument(
-        "--pax-file",
+        "--library-file",
         type=Path,
         default=None,
-        help="Explicit pax_tt_games CSV path (defaults to latest file, if present).",
+        help="Explicit bg_lib_games CSV path (defaults to latest file, if present).",
     )
     parser.add_argument(
         "--max-rank",
@@ -165,7 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--scope",
-        choices=["all-qualified", "pax-only", "top-rank-only"],
+        choices=["all-qualified", "library-only", "top-rank-only"],
         default="all-qualified",
         help="Qualification scope (default: all-qualified).",
     )
@@ -205,16 +205,16 @@ def main() -> int:
     processed_file = args.processed_file or find_latest_processed_games_file(
         DEFAULT_PROCESSED_DIR
     )
-    pax_file = args.pax_file or find_latest_pax_file(DEFAULT_PAX_DIR)
+    library_file = args.library_file or find_latest_library_file(DEFAULT_LIBRARY_DIR)
 
     games_df = pd.read_csv(processed_file, sep="|", escapechar="\\")
-    pax_ids = load_pax_bgg_ids(pax_file)
+    library_ids = load_library_bgg_ids(library_file)
     include_game_ids = parse_id_list(args.include_game_ids)
 
     candidates = list(
         iter_sync_candidates(
             games_df,
-            pax_ids=pax_ids,
+            library_ids=library_ids,
             max_rank=args.max_rank,
             scope=args.scope,
             include_game_ids=include_game_ids,
@@ -225,7 +225,7 @@ def main() -> int:
         candidates = candidates[: args.limit]
 
     logger.info("Processed file: %s", processed_file)
-    logger.info("PAX file: %s", pax_file or "none")
+    logger.info("Library file: %s", library_file or "none")
     logger.info("Scope: %s", args.scope)
     logger.info("Qualification max rank: %s", args.max_rank)
     logger.info("Candidates selected: %s", len(candidates))

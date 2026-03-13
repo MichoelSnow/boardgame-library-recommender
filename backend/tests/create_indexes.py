@@ -49,10 +49,10 @@ def create_indexes():
             "idx_publishers_game_id",
             "idx_publishers_boardgamepublisher_id",
             "idx_publishers_name",
-            # PAX games - unnecessary fields
-            "idx_pax_games_convention_name",
-            "idx_pax_games_convention_year",
-            "idx_pax_games_name",
+            # Library games - unnecessary fields
+            "idx_library_games_convention_name",
+            "idx_library_games_convention_year",
+            "idx_library_games_name",
         ]
 
         for index_name in indexes_to_drop:
@@ -161,10 +161,10 @@ def create_indexes():
             "CREATE INDEX IF NOT EXISTS idx_suggested_players_recommendation_level ON suggested_players(recommendation_level)"
         )
 
-        # PAX Games - only bgg_id index
-        logger.info("Creating indexes for PAX games table...")
+        # Library Games - only bgg_id index
+        logger.info("Creating indexes for Library games table...")
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_pax_games_bgg_id ON pax_games(bgg_id)"
+            "CREATE INDEX IF NOT EXISTS idx_library_games_bgg_id ON library_games(bgg_id)"
         )
 
         # Commit changes

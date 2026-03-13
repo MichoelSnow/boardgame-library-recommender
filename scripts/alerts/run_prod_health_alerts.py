@@ -96,7 +96,12 @@ def check_prod_health(environment: str) -> HealthSnapshot:
             build_url(
                 environment,
                 "/api/games/",
-                query={"limit": 1, "skip": 0, "sort_by": "rank", "pax_only": "true"},
+                query={
+                    "limit": 1,
+                    "skip": 0,
+                    "sort_by": "rank",
+                    "library_only": "true",
+                },
             )
         )
         db_ok = True

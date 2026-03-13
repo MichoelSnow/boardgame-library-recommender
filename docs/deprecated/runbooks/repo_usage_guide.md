@@ -111,10 +111,10 @@ Optional full refresh:
 poetry run python backend/app/import_data.py --delete-existing
 ```
 
-Import PAX data:
+Import Library data:
 
 ```bash
-poetry run python backend/app/import_pax_data.py
+poetry run python backend/app/import_library_data.py
 ```
 
 ### A5. Validate Local Behavior (Optional)
@@ -169,8 +169,8 @@ scripts/deploy/fly_deploy.sh prod
 Apply migrations after deploy when required:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 
 ### B3. Image Operations (Dev/Prod)
@@ -183,15 +183,15 @@ Most-used commands:
 Count image files on dev/prod app volumes:
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
-fly ssh console -a pax-tt-app -C 'sh -lc "find /data/images/games -type f | wc -l"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
+fly ssh console -a bg-lib-app -C 'sh -lc "find /data/images/games -type f | wc -l"'
 ```
 
 Primary seed path (BGG -> Fly local volume):
 
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
 ```
 
 Note:

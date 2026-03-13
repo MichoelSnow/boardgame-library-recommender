@@ -211,7 +211,7 @@ class GameListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PAXGameBase(BaseModel):
+class LibraryGameBase(BaseModel):
     name: str
     name_raw: Optional[str] = None
     bgg_id: Optional[int] = None
@@ -225,11 +225,11 @@ class PAXGameBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class PAXGameCreate(PAXGameBase):
+class LibraryGameCreate(LibraryGameBase):
     pass
 
 
-class PAXGameOut(PAXGameBase):
+class LibraryGameOut(LibraryGameBase):
     id: int
     board_game: Optional[BoardGameOut] = None
 

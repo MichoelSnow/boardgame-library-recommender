@@ -9,7 +9,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [ ] Add in-library indicators to similar games shown in the dialog recommendations section.
 - [ ] Keep dialog open when dialog filters are applied.
 - [ ] Show selected-state styling for already-applied filter chips and avoid invisible toggle behavior.
-- [ ] Reset catalog pagination to page 1 when toggling `pax_only` vs all-games.
+- [ ] Reset catalog pagination to page 1 when toggling `library_only` vs all-games.
 - [ ] Update Board Game Catalog Help Guide to match current behavior.
 - [ ] Add tag search (larger effort; likely requires query/index review).
 - [ ] Add optional recommendation sharing via email/SMS (requires abuse/rate-limit controls).
@@ -17,7 +17,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 
 ## Admin and Operations Features
 - [ ] Build admin console for convention operations.
-  - Initial scope: theme color switch, user management, PAX CSV upload/validation.
+  - Initial scope: theme color switch, user management, Library CSV upload/validation.
     - #904799 (unplugged)
     - #D9272D (east)
     - #007DBB (west)
@@ -42,4 +42,4 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
   Start with cost/complexity assessment before implementation.
 
 ## Notebooks
-- [ ] Restore Google auth client dependencies for `data_pipeline/notebooks/pax_tabletop_library.ipynb`.
+- [ ] Restore Google auth client dependencies for `data_pipeline/notebooks/library_tabletop_catalog.ipynb`.

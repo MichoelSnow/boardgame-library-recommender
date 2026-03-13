@@ -27,7 +27,7 @@ fly secrets set \
   CONVENTION_TIMEZONE="America/New_York" \
   CONVENTION_WARM_START="09:00" \
   CONVENTION_WARM_END="00:00" \
-  -a pax-tt-app
+  -a bg-lib-app
 ```
 
 ## Profile Config Files
@@ -39,13 +39,13 @@ fly secrets set \
 ## Planned Enable/Disable Flow (Prod)
 1. Enable convention profile:
 ```bash
-fly deploy -a pax-tt-app -c fly.convention.toml
+fly deploy -a bg-lib-app -c fly.convention.toml
 ```
 2. Verify profile:
 ```bash
-fly status -a pax-tt-app
-fly checks list -a pax-tt-app
-curl -fsS https://pax-tt-app.fly.dev/api
+fly status -a bg-lib-app
+fly checks list -a bg-lib-app
+curl -fsS https://bg-lib-app.fly.dev/api
 ```
 3. Record convention profile enable event in deploy traceability:
 ```bash
@@ -53,13 +53,13 @@ poetry run python scripts/deploy/record_deploy_traceability.py --env prod --mark
 ```
 4. Disable convention profile (return to standard):
 ```bash
-fly deploy -a pax-tt-app -c fly.toml
+fly deploy -a bg-lib-app -c fly.toml
 ```
 5. Verify standard profile:
 ```bash
-fly status -a pax-tt-app
-fly checks list -a pax-tt-app
-curl -fsS https://pax-tt-app.fly.dev/api
+fly status -a bg-lib-app
+fly checks list -a bg-lib-app
+curl -fsS https://bg-lib-app.fly.dev/api
 ```
 6. Record convention profile disable event in deploy traceability:
 ```bash
@@ -69,12 +69,12 @@ poetry run python scripts/deploy/record_deploy_traceability.py --env prod --mark
 ## Planned Enable/Disable Flow (Dev Rehearsal)
 1. Enable rehearsal profile:
 ```bash
-fly deploy -a pax-tt-app-dev -c fly.dev.rehearsal.toml
+fly deploy -a bg-lib-app-dev -c fly.dev.rehearsal.toml
 ```
 2. Run rehearsal/load-test checks.
 3. Disable rehearsal profile (return to standard dev):
 ```bash
-fly deploy -a pax-tt-app-dev -c fly.dev.toml
+fly deploy -a bg-lib-app-dev -c fly.dev.toml
 ```
 
 ## Rehearsal Baseline (Recorded 2026-03-06)

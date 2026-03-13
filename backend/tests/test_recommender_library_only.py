@@ -15,7 +15,7 @@ def _reset_model_manager() -> recommender.ModelManager:
     return manager
 
 
-def test_get_recommendations_pax_only_filters_via_db_query() -> None:
+def test_get_recommendations_library_only_filters_via_db_query() -> None:
     engine = create_engine("sqlite:///:memory:")
     models.Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -24,39 +24,39 @@ def test_get_recommendations_pax_only_filters_via_db_query() -> None:
     db.add_all(
         [
             models.BoardGame(id=1, name="Liked Seed"),
-            models.BoardGame(id=2, name="Non-PAX Candidate"),
-            models.BoardGame(id=3, name="PAX Candidate"),
+            models.BoardGame(id=2, name="Non-Library Candidate"),
+            models.BoardGame(id=3, name="Library Candidate"),
         ]
     )
-    db.add(models.PAXGame(name="PAX Entry", bgg_id=3))
+    db.add(models.LibraryGame(name="Library Entry", bgg_id=3))
     db.commit()
 
     manager = _reset_model_manager()
     manager._game_embeddings = sparse.csr_matrix(
         [
             [1.0, 0.0],  # game 1 (liked seed)
-            [0.95, 0.05],  # game 2 (higher score, non-PAX)
-            [0.90, 0.10],  # game 3 (slightly lower score, PAX)
+            [0.95, 0.05],  # game 2 (higher score, non-Library)
+            [0.90, 0.10],  # game 3 (slightly lower score, Library)
         ]
     )
     manager._game_mapping = {1: 0, 2: 1, 3: 2}
     manager._reverse_game_mapping = {0: 1, 1: 2, 2: 3}
 
-    pax_only_results = recommender.get_recommendations(
+    library_only_results = recommender.get_recommendations(
         db=db,
         limit=5,
         liked_games=[1],
-        pax_only=True,
+        library_only=True,
     )
     all_results = recommender.get_recommendations(
         db=db,
         limit=5,
         liked_games=[1],
-        pax_only=False,
+        library_only=False,
     )
 
-    pax_only_ids = [int(game["id"]) for game in pax_only_results]
+    library_only_ids = [int(game["id"]) for game in library_only_results]
     all_ids = [int(game["id"]) for game in all_results]
 
     assert 2 in all_ids
-    assert pax_only_ids == [3]
+    assert library_only_ids == [3]

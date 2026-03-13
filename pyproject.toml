@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pax-tt-recommender"
+name = "bg-lib-recommender"
 version = "0.5.0"
 description = "BoardGameGeek data pipeline and recommender system"
 authors = ["MichoelSnow <michoelsnow@gmail.com>"]
@@ -55,6 +55,9 @@ extend-exclude = ["data_pipeline/notebooks"]
 [tool.ruff.lint]
 select = ["E", "F"]
 ignore = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [build-system]
 requires = ["poetry-core"]

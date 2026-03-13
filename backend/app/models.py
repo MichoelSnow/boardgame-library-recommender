@@ -295,15 +295,15 @@ class Version(Base):
     game = relationship("BoardGame", back_populates="versions")
 
 
-class PAXGame(Base):
-    __tablename__ = "pax_games"
+class LibraryGame(Base):
+    __tablename__ = "library_games"
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
     name_raw = Column(String)
     bgg_id = Column(
         Integer, ForeignKey("games.id"), nullable=True, index=True
-    )  # Links to BoardGame if exists - indexed for pax_only filtering
+    )  # Links to BoardGame if exists - indexed for library_only filtering
     publisher = Column(String)
     min_titles_id = Column(Integer)
     titles_id_list = Column(String)  # Comma-separated list of title IDs

@@ -35,27 +35,55 @@ def test_parse_id_list_handles_empty_and_whitespace():
 
 
 def test_qualifies_for_sync_scopes():
-    pax_ids = {10}
+    library_ids = {10}
     assert qualifies_for_sync(
-        game_id=10, game_rank=None, pax_ids=pax_ids, max_rank=100, scope="pax-only"
+        game_id=10,
+        game_rank=None,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="library-only",
     )
     assert not qualifies_for_sync(
-        game_id=11, game_rank=200, pax_ids=pax_ids, max_rank=100, scope="pax-only"
+        game_id=11,
+        game_rank=200,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="library-only",
     )
     assert qualifies_for_sync(
-        game_id=11, game_rank=99, pax_ids=pax_ids, max_rank=100, scope="top-rank-only"
+        game_id=11,
+        game_rank=99,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="top-rank-only",
     )
     assert not qualifies_for_sync(
-        game_id=11, game_rank=101, pax_ids=pax_ids, max_rank=100, scope="top-rank-only"
+        game_id=11,
+        game_rank=101,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="top-rank-only",
     )
     assert qualifies_for_sync(
-        game_id=10, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+        game_id=10,
+        game_rank=500,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
     assert qualifies_for_sync(
-        game_id=11, game_rank=50, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+        game_id=11,
+        game_rank=50,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
     assert not qualifies_for_sync(
-        game_id=12, game_rank=500, pax_ids=pax_ids, max_rank=100, scope="all-qualified"
+        game_id=12,
+        game_rank=500,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
 
 
@@ -68,11 +96,11 @@ def test_iter_sync_candidates_filters_and_qualifies():
             {"id": 4, "rank": 5, "image": None},
         ]
     )
-    pax_ids = {3}
+    library_ids = {3}
     candidates = list(
         iter_sync_candidates(
             df,
-            pax_ids=pax_ids,
+            library_ids=library_ids,
             max_rank=100,
             scope="all-qualified",
             include_game_ids=set(),
@@ -91,11 +119,11 @@ def test_iter_sync_candidates_applies_include_filter_before_qualification():
             {"id": 3, "rank": 50000, "image": "https://example.com/3.jpg"},
         ]
     )
-    pax_ids = {3}
+    library_ids = {3}
     candidates = list(
         iter_sync_candidates(
             df,
-            pax_ids=pax_ids,
+            library_ids=library_ids,
             max_rank=100,
             scope="all-qualified",
             include_game_ids={1},

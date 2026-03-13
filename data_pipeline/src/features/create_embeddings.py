@@ -130,8 +130,8 @@ class GameRecommender:
             return None
 
         # Find the most recent ranks file
-        data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-        ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+        ranks_dir = Path(__file__).resolve().parents[3] / "data" / "ingest" / "ranks"
+        ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
         if not ranks_files:
             logger.warning("No ranks files found, cannot exclude expansions")
             return None
@@ -234,8 +234,10 @@ def main():
         args = parser.parse_args()
 
         # Find the most recent ratings file
-        data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-        ratings_files = list(data_dir.glob("boardgame_ratings_*.parquet"))
+        ratings_dir = (
+            Path(__file__).resolve().parents[3] / "data" / "ingest" / "ratings"
+        )
+        ratings_files = list(ratings_dir.glob("boardgame_ratings_*.parquet"))
         if not ratings_files:
             raise FileNotFoundError("No ratings files found")
 

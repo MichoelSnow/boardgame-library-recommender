@@ -12,5 +12,5 @@
   backend API/schema is canonical; frontend follows by explicit integration updates.
 - `Embedding artifacts`:
   recommendation model data files (for example sparse matrix `.npz` and index mapping JSON) loaded by recommendation paths.
-- `PAXGame linkage`:
+- `LibraryGame linkage`:
   mapping between convention game records and canonical board game records (typically via `bgg_id`).

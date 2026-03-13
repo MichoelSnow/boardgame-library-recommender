@@ -404,8 +404,8 @@ def get_cors_origins() -> List[str]:
     elif node_env == "production":
         # Production defaults to explicit origins only (no wildcard).
         origins = [
-            "https://pax-tt-app.fly.dev",
-            "https://pax-tt-app-dev.fly.dev",
+            "https://bg-lib-app.fly.dev",
+            "https://bg-lib-app-dev.fly.dev",
         ]
     else:
         origins = [
@@ -951,7 +951,7 @@ async def list_games(
     weight: Optional[str] = None,
     mechanics: Optional[str] = None,
     categories: Optional[str] = None,
-    pax_only: Optional[bool] = False,
+    library_only: Optional[bool] = False,
 ):
     try:
         # Direct call - no thread pool overhead for better performance
@@ -969,7 +969,7 @@ async def list_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
-            pax_only=pax_only,
+            library_only=library_only,
         )
         return {"games": games, "total": total}
     except HTTPException:
@@ -1010,7 +1010,7 @@ async def get_recommendations(
     limit: int = Query(10, ge=1, le=50),
     disliked_games: Optional[str] = None,
     anti_weight: float = Query(1.0, gt=0),
-    pax_only: Optional[bool] = False,
+    library_only: Optional[bool] = False,
 ):
     """
     Get game recommendations based on a game ID.
@@ -1021,7 +1021,7 @@ async def get_recommendations(
         limit: Maximum number of recommendations to return
         disliked_games: Comma-separated list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations (higher values = stronger anti-recommendations)
-        pax_only: If true, only recommend games that are in the PAX games table
+        library_only: If true, only recommend games that are in the Library games table
     """
     try:
         # Parse disliked games if provided
@@ -1041,7 +1041,7 @@ async def get_recommendations(
             liked_games=[game_id],
             disliked_games=disliked_games_list,
             anti_weight=anti_weight,
-            pax_only=pax_only,
+            library_only=library_only,
         )
         apply_recommendation_status_headers(response)
         return recommendations
@@ -1109,11 +1109,11 @@ async def list_mechanics(
         raise HTTPException(status_code=500, detail="Error fetching mechanics")
 
 
-@app.get("/api/pax_games/with_board_game_links")
-def read_pax_games_with_board_game_links(
+@app.get("/api/library_games/with_board_game_links")
+def read_library_games_with_board_game_links(
     skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
 ):
-    return crud.get_pax_games_with_board_game_links(db=db, skip=skip, limit=limit)
+    return crud.get_library_games_with_board_game_links(db=db, skip=skip, limit=limit)
 
 
 @app.get("/api/mechanics/by_frequency", response_model=List[schemas.MechanicFrequency])
@@ -1132,17 +1132,19 @@ def read_categories(db: Session = Depends(get_db)):
     return categories
 
 
-@app.get("/api/pax_game_ids", response_model=List[int])
+@app.get("/api/library_game_ids", response_model=List[int])
 @app.get(
-    "/api/pax_game_ids/", response_model=List[int]
+    "/api/library_game_ids/", response_model=List[int]
 )  # Add endpoint with trailing slash
-async def get_pax_game_ids(db: Session = Depends(get_db)):
-    """Return a list of all PAX game BGG IDs (integers)."""
-    pax_ids = (
-        db.query(models.PAXGame.bgg_id).filter(models.PAXGame.bgg_id.isnot(None)).all()
+async def get_library_game_ids(db: Session = Depends(get_db)):
+    """Return a list of all Library game BGG IDs (integers)."""
+    library_ids = (
+        db.query(models.LibraryGame.bgg_id)
+        .filter(models.LibraryGame.bgg_id.isnot(None))
+        .all()
     )
-    # pax_ids is a list of tuples, extract the first element from each
-    return [pid[0] for pid in pax_ids if pid[0] is not None]
+    # library_ids is a list of tuples, extract the first element from each
+    return [pid[0] for pid in library_ids if pid[0] is not None]
 
 
 @app.on_event("startup")
@@ -1196,7 +1198,7 @@ class RecommendationRequest(schemas.BaseModel):
     disliked_games: Optional[List[int]] = None
     limit: int = schemas.Field(24, ge=1, le=50)
     anti_weight: float = schemas.Field(1.0, gt=0)
-    pax_only: bool = False
+    library_only: bool = False
 
 
 @app.post("/api/recommendations", response_model=List[schemas.RecommendationGameOut])
@@ -1214,7 +1216,7 @@ async def get_multi_game_recommendations(
             liked_games=request.liked_games,
             disliked_games=request.disliked_games,
             anti_weight=request.anti_weight,
-            pax_only=request.pax_only,
+            library_only=request.library_only,
         )
         apply_recommendation_status_headers(response)
         return recommendations

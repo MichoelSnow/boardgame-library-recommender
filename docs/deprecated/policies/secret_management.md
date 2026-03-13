@@ -1,7 +1,7 @@
 # Secret Management and Rotation Policy
 
 ## Scope
-- Applies to production and development secrets used by `pax_tt_recommender`.
+- Applies to production and development secrets used by `bg_lib_recommender`.
 - Applies to secrets stored in:
   - GitHub Actions repository secrets
   - Fly app secrets (`dev` and `prod`)
@@ -82,7 +82,7 @@
 1. Generate a new value.
 2. Set in `dev`:
    ```bash
-   fly secrets set -a pax-tt-app-dev SECRET_KEY="<new-secret>"
+   fly secrets set -a bg-lib-app-dev SECRET_KEY="<new-secret>"
    ```
    Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`, `R2_*`).
 3. Validate `dev`:
@@ -91,7 +91,7 @@
    - image paths work if rotating `R2_*`
 4. Set the same rotation in `prod`:
    ```bash
-   fly secrets set -a pax-tt-app SECRET_KEY="<new-secret>"
+   fly secrets set -a bg-lib-app SECRET_KEY="<new-secret>"
    ```
 5. Validate `prod` with the same checks.
 

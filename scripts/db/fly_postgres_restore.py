@@ -91,12 +91,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--postgres-user",
-        default="pax_tt_app",
-        help="Database user for restore operations (default: pax_tt_app).",
+        default="bg_lib_app",
+        help="Database user for restore operations (default: bg_lib_app).",
     )
     parser.add_argument(
         "--restore-db",
-        default="pax_tt_recommender_restore_test",
+        default="bg_lib_recommender_restore_test",
         help="Disposable database name to recreate and restore into.",
     )
     return parser.parse_args()

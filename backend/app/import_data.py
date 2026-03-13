@@ -422,10 +422,10 @@ def import_all_data(
     """
     logger.info(f"Starting data import from {data_dir}")
 
-    # If requested, drop only the tables related to the imported datasets (preserve users and pax tables)
+    # If requested, drop only the tables related to the imported datasets (preserve users and library tables)
     if delete_existing:
         logger.info(
-            "Dropping existing import-related tables (preserving users and pax tables)..."
+            "Dropping existing import-related tables (preserving users and library tables)..."
         )
         tables_to_drop = [
             models.Mechanic.__table__,
@@ -558,23 +558,32 @@ def main():
     )
     args = parser.parse_args()
 
-    # Get the processed data directory
-    data_dir = project_root / "data" / "processed"
-    if not data_dir.exists():
-        raise FileNotFoundError(f"Data directory not found: {data_dir}")
+    # Get the processed data root directory
+    processed_root_dir = project_root / "data" / "transform" / "processed"
+    if not processed_root_dir.exists():
+        raise FileNotFoundError(
+            f"Processed data root directory not found: {processed_root_dir}"
+        )
 
-    # Find the most recent processed games file
-    processed_files = list(data_dir.glob("processed_games_data_*.csv"))
-    if not processed_files:
-        raise FileNotFoundError(f"No processed games files found in {data_dir}")
-
-    # Get the most recent file based on timestamp in filename
-    latest_file = max(processed_files, key=lambda x: int(x.stem.split("_")[-1]))
-    timestamp = int(latest_file.stem.split("_")[-1])
+    # Find the most recent timestamped processed directory.
+    timestamp_dirs = [
+        p for p in processed_root_dir.iterdir() if p.is_dir() and p.name.isdigit()
+    ]
+    if not timestamp_dirs:
+        raise FileNotFoundError(
+            f"No timestamped processed directories found in {processed_root_dir}"
+        )
+    latest_dir = max(timestamp_dirs, key=lambda p: int(p.name))
+    timestamp = int(latest_dir.name)
+    latest_file = latest_dir / f"processed_games_data_{timestamp}.csv"
+    if not latest_file.exists():
+        raise FileNotFoundError(
+            f"Missing expected processed games file in {latest_dir}: {latest_file.name}"
+        )
     logger.info(f"Using most recent processed games file: {latest_file}")
 
     # Import the data with delete_existing from command line args
-    import_all_data(str(data_dir), timestamp, delete_existing=args.delete_existing)
+    import_all_data(str(latest_dir), timestamp, delete_existing=args.delete_existing)
 
     should_sync_images = args.sync_images or args.sync_images_r2
     sync_backend = "r2_cdn" if args.sync_images_r2 else args.sync_images_backend

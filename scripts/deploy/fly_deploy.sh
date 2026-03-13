@@ -24,11 +24,11 @@ environment="$1"
 case "$environment" in
   prod)
     config_file="fly.toml"
-    app_name="pax-tt-app"
+    app_name="bg-lib-app"
     ;;
   dev)
     config_file="fly.dev.toml"
-    app_name="pax-tt-app-dev"
+    app_name="bg-lib-app-dev"
     ;;
   *)
     usage

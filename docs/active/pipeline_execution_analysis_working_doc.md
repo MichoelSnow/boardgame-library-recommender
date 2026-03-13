@@ -1,0 +1,205 @@
+# Pipeline Execution Analysis (Working Doc)
+
+Status: temporary working document for Phase 11 decisions.
+
+## Objective
+- Decide whether monthly pipeline rebuilds should run on:
+  - the existing Fly `dev` machine, or
+  - a temporary monthly Fly worker machine.
+
+This decision should be based on measured runtime/memory behavior, not assumptions.
+
+## Decision Gates
+Use these gates to choose topology:
+
+1. Runtime gate
+- If any required stage consistently exceeds acceptable wall-clock runtime on `dev`, `dev` is not viable.
+
+2. Stability gate
+- If pipeline runs cause `dev` API instability (health check failures, restart flapping, unusable latency), `dev` is not viable.
+
+3. Resource gate
+- If memory pressure is high enough to risk OOM/restart behavior during pipeline runs, `dev` is not viable.
+
+4. Operator overhead gate
+- If running on `dev` requires recurring manual babysitting, temporary worker is preferred.
+
+## Proposed Acceptance Thresholds (Draft)
+Adjust these before final decision if needed.
+
+- Max wall-clock per heavy stage on `dev`: 12h
+- Max total monthly rebuild wall-clock on `dev`: 24h
+- No app restart flapping during run
+- No sustained readiness failures during run
+- No observed OOM/restart attributable to pipeline work
+
+## Stages to Measure
+Primary monthly rebuild stages:
+
+1. `data_pipeline.src.ingest.get_ranks`
+2. `data_pipeline.src.ingest.get_game_data`
+3. `data_pipeline.src.ingest.get_ratings`
+4. `data_pipeline.src.transform.data_processor`
+5. `data_pipeline.src.features.create_embeddings`
+6. `backend/app/import_data.py`
+7. Optional: `backend/app/import_pax_data.py`
+
+## Measurement Plan
+For each stage:
+- Record start/end time and total duration.
+- Record machine size/profile used.
+- Record whether app health endpoints remained healthy during run.
+- Record any failures/retries/manual intervention.
+- Record rough peak memory indicator (from Fly metrics/log evidence).
+
+## Fast Estimation Commands (No Full Run)
+Goal:
+- estimate runtime and memory profile quickly from representative samples.
+- avoid full 12-24h runs during topology decision.
+
+Notes:
+- These commands intentionally run sampled subsets.
+- They still write normal pipeline artifacts (small), so run in a clean branch/worktree.
+- `Maximum resident set size` from `/usr/bin/time -v` is the peak memory signal.
+
+### A) `get_game_data` sample benchmark
+Run three sample sizes and estimate seconds per game:
+
+```bash
+/usr/bin/time -v poetry run python - <<'PY'
+from pathlib import Path
+import pandas as pd
+from data_pipeline.src.ingest.get_game_data import get_boardgame_data
+
+data_dir = Path("data/pipeline")
+ranks = max(data_dir.glob("boardgame_ranks_*.csv"), key=lambda p: p.stat().st_mtime)
+df = pd.read_csv(ranks, sep="|", escapechar="\\")
+sample = df.head(200).copy()
+get_boardgame_data(
+    sample,
+    boardgame_data=None,
+    batch_saves=True,
+    batch_size=20,
+    save_every_n_batches=2,
+    log_level="INFO",
+)
+PY
+```
+
+Repeat with `head(500)` and `head(1000)`; record elapsed time + max RSS.
+
+### B) `get_ratings` sample benchmark
+Use sampled game-data rows with highest `numratings` to model worst-case crawling pressure:
+
+```bash
+/usr/bin/time -v poetry run python - <<'PY'
+from pathlib import Path
+import pandas as pd
+from data_pipeline.src.ingest.get_ratings import get_boardgame_ratings
+
+data_dir = Path("data/pipeline")
+games = max(data_dir.glob("boardgame_data_*.parquet"), key=lambda p: p.stat().st_mtime)
+df = pd.read_parquet(games)
+
+# Worst-case leaning sample: highest rating-count titles.
+sample = df.sort_values("numratings", ascending=False).head(120).copy()
+get_boardgame_ratings(
+    boardgame_data=sample,
+    boardgame_ratings=None,
+    batch_saves=True,
+    batch_size=20,
+    log_level="INFO",
+    keep_partial_ratings=True,
+    update_numratings=False,
+)
+PY
+```
+
+Repeat with `head(240)` if needed for a second data point.
+
+### C) `create_embeddings` sample benchmark
+Benchmark CPU+memory of embedding generation on sampled ratings rows:
+
+```bash
+/usr/bin/time -v poetry run python - <<'PY'
+from pathlib import Path
+import pandas as pd
+from data_pipeline.src.features.create_embeddings import GameRecommender
+
+data_dir = Path("data/pipeline")
+ratings = max(data_dir.glob("boardgame_ratings_*.parquet"), key=lambda p: p.stat().st_mtime)
+df = pd.read_parquet(ratings)
+sample = df.head(500000).copy()
+
+rec = GameRecommender(min_ratings_per_user=3, exclude_expansions=False)
+rec.fit(sample)
+PY
+```
+
+Repeat with `head(1000000)` if memory headroom allows.
+
+### D) Extrapolation Method
+For each stage:
+- compute throughput from sample runs:
+  - games/sec for `get_game_data`
+  - games-with-ratings/sec for `get_ratings`
+  - ratings-rows/sec for `create_embeddings`
+- estimate full runtime:
+  - `estimated_seconds = full_input_size / measured_throughput`
+- use the highest observed sample max-RSS as baseline and add a safety margin (20-30%).
+
+### E) Quick Artifact Cleanup (Optional)
+If you want to remove benchmark artifacts generated by sample runs:
+
+```bash
+rm -f data/pipeline/boardgame_data_*.parquet
+rm -f data/pipeline/boardgame_ratings_*.parquet
+rm -f data/pipeline/ratings.duckdb
+```
+
+Only run cleanup when you are sure those files are benchmark artifacts and not needed for follow-up steps.
+
+## Run Log Template
+Copy one block per stage execution:
+
+```text
+Stage:
+Environment:
+Machine/profile:
+Start (UTC):
+End (UTC):
+Duration:
+Succeeded (Y/N):
+Retries used:
+Manual intervention required (Y/N):
+Health impact observed:
+Memory/OOM signals:
+Notes:
+```
+
+## Topology Decision Rules (Draft)
+- Choose `dev` monthly execution if all gates pass in at least one full representative run.
+- Choose temporary monthly worker if any gate fails on representative run.
+
+## If Temporary Worker Is Chosen
+Minimum workflow:
+
+1. Create worker app/machine with right sizing.
+2. Run full rebuild pipeline there.
+3. Export/copy validated outputs.
+4. Import/verify on `dev`.
+5. Tear down worker machine/volume.
+
+Keep this path only if it reduces operational risk enough to justify added steps.
+
+## Open Questions
+1. What wall-clock threshold is acceptable for your monthly run window?
+2. What amount of temporary `dev` slowdown is acceptable (if any)?
+3. Should optional PAX import be part of monthly baseline or ad hoc?
+
+## Decision Record
+When finalized, record:
+- Selected topology:
+- Rationale:
+- Trigger to revisit:
+- Date:

@@ -21,16 +21,16 @@ const tourSteps = [
     position: 'center'
   },
   {
-    id: 'pax-toggle',
+    id: 'library-toggle',
     title: 'All Board Games Toggle',
-    content: 'By default, you see only PAX library games. Toggle this on to include all board games for broader recommendations.',
-    target: '[data-tour="pax-toggle"]',
+    content: 'By default, you see only Library library games. Toggle this on to include all board games for broader recommendations.',
+    target: '[data-tour="library-toggle"]',
     position: 'bottom'
   },
   {
     id: 'library-indicator',
     title: 'Library Game Indicator',
-    content: 'Look for the book icon on game cards - it shows which games are available in the PAX library. Games without this icon are not at the convention.',
+    content: 'Look for the book icon on game cards - it shows which games are available in the Library library. Games without this icon are not at the convention.',
     target: '[data-tour="game-card"]:first-child',
     position: 'top',
     highlight: '[data-tour="like-buttons"]'

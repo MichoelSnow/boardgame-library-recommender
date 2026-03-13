@@ -1,7 +1,7 @@
 # Service Level Targets
 
 ## Purpose
-- Define the canonical performance, reliability, and recovery targets for `pax_tt_recommender`.
+- Define the canonical performance, reliability, and recovery targets for `bg_lib_recommender`.
 - Provide a single source of truth for Phase 4 architecture decisions and later operational validation.
 
 ## Scope
@@ -37,7 +37,7 @@
 - `Primary app path`:
   - the core user-facing flow for browsing/searching games, viewing game details, and loading recommendations
 - `Convention hours`:
-  - the active convention runtime window defined in [convention_runtime_policy.md](/home/msnow/git/pax_tt_recommender/docs/architecture/convention_runtime_policy.md)
+  - the active convention runtime window defined in [convention_runtime_policy.md](/home/msnow/git/bg_lib_recommender/docs/architecture/convention_runtime_policy.md)
 
 ## Usage
 - Architecture and migration plans should state how their implementation supports these targets.

@@ -146,7 +146,7 @@ def _bootstrap_base_schema() -> None:
     )
 
     op.create_table(
-        "pax_games",
+        "library_games",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(), nullable=True),
         sa.Column("name_raw", sa.String(), nullable=True),
@@ -207,7 +207,7 @@ def _bootstrap_base_schema() -> None:
             "suggested_players",
             ["recommendation_level"],
         ),
-        ("idx_pax_games_bgg_id", "pax_games", ["bgg_id"]),
+        ("idx_library_games_bgg_id", "library_games", ["bgg_id"]),
     ):
         op.create_index(index_name, table_name, columns, unique=False)
 

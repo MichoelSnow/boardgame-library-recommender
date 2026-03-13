@@ -1,6 +1,6 @@
-# fly.dev.rehearsal.toml app configuration file for pax-tt-app-dev rehearsal profile
+# fly.dev.rehearsal.toml app configuration file for bg-lib-app-dev rehearsal profile
 
-app = 'pax-tt-app-dev'
+app = 'bg-lib-app-dev'
 primary_region = 'iad'
 
 [env]

@@ -13,5 +13,5 @@ poetry run python scripts/perf/benchmark_recommendation_size.py \
   --sizes "1,5,10,20,35,50" \
   --iterations 20 \
   --limit 5 \
-  --pax-only true
+  --library-only true
 ```

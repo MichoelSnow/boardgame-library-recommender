@@ -104,7 +104,7 @@ flyctl deploy
 ### Database Schema
 - **BoardGame**: Primary entity with ratings, rankings, and metadata
 - **Related entities**: Mechanics, Categories, Designers, Artists, Publishers, etc.
-- **PAXGame**: Links PAX convention games to BoardGame records via bgg_id
+- **LibraryGame**: Links Library convention games to BoardGame records via bgg_id
 - **User/Auth**: Basic user authentication with admin roles
 - **Alembic migrations**: Database versioning in `backend/alembic/`
 
@@ -113,7 +113,7 @@ flyctl deploy
 - Game-to-index mapping stored in JSON files
 - Cosine similarity for recommendations with anti-recommendation support
 - Fallback to random games when embeddings unavailable
-- Integrated with PAX-only filtering
+- Integrated with Library-only filtering
 
 ## Key Technical Patterns
 
@@ -152,7 +152,7 @@ flyctl deploy
 ├── data/                 # Raw and processed data storage
 │   ├── crawler/         # BGG crawler outputs
 │   ├── processed/       # Normalized CSV files
-│   └── pax/            # PAX convention game data
+│   └── library/            # Library convention game data
 ├── backend/database/    # SQLite database and embeddings
 ├── backend/tests/       # Database and performance tests
 └── scripts/             # Build and deployment scripts

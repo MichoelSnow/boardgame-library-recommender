@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchCategories, fetchMechanics } from '../api/filters';
-import { fetchGameDetails, fetchGames, fetchPaxGameIds } from '../api/games';
+import { fetchGameDetails, fetchGames, fetchLibraryGameIds } from '../api/games';
 import { fetchRecommendationsForGame } from '../api/recommendations';
 import { fetchConventionKioskStatus } from '../api/convention';
 
@@ -22,7 +22,7 @@ export const useGamesQuery = ({
   gamesPerPage,
   currentPage,
   sortBy,
-  paxOnly,
+  libraryOnly,
   searchTerm,
   playerOptions,
   selectedDesigners,
@@ -44,14 +44,14 @@ export const useGamesQuery = ({
       weight,
       sortBy,
       currentPage,
-      paxOnly,
+      libraryOnly,
     ],
     queryFn: async () => {
       const params = {
         limit: gamesPerPage,
         skip: (currentPage - 1) * gamesPerPage,
         sort_by: sortBy,
-        pax_only: paxOnly,
+        library_only: libraryOnly,
       };
 
       if (searchTerm) params.search = searchTerm;
@@ -93,10 +93,10 @@ export const useGamesQuery = ({
     enabled: !isRecommendation,
   });
 
-export const usePaxGameIdsQuery = () =>
+export const useLibraryGameIdsQuery = () =>
   useQuery({
-    queryKey: ['pax_game_ids'],
-    queryFn: fetchPaxGameIds,
+    queryKey: ['library_game_ids'],
+    queryFn: fetchLibraryGameIds,
     staleTime: 10 * 60 * 1000,
   });
 

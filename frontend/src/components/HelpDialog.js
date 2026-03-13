@@ -62,7 +62,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Welcome to the PAX Tabletop Board Game Catalog! This tool helps you discover board games 
+                Welcome to the Library Tabletop Board Game Catalog! This tool helps you discover board games 
                 available at the convention and get personalized recommendations.
               </Typography>
               <Typography variant="subtitle2" gutterBottom>Quick Overview:</Typography>
@@ -77,7 +77,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                   <ListItemText primary="Get recommendations based on your preferences" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Focus on games specifically available at PAX" />
+                  <ListItemText primary="Focus on games specifically available at Library" />
                 </ListItem>
               </List>
               <Alert severity="info" sx={{ mt: 2 }}>
@@ -139,8 +139,8 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               
               <Typography variant="subtitle2" gutterBottom>Library Games Filter:</Typography>
               <Typography paragraph>
-                By default, the catalog shows only PAX library games. Use the "All Board Games" toggle to 
-                include non-library games for recommendations and information. Games in the PAX library are 
+                By default, the catalog shows only Library library games. Use the "All Board Games" toggle to 
+                include non-library games for recommendations and information. Games in the Library library are 
                 marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon.
               </Typography>
               
@@ -155,14 +155,14 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               
               <Typography variant="subtitle2" gutterBottom>Library Game Indicators:</Typography>
               <Typography paragraph>
-                Games available in the PAX library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
+                Games available in the Library library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
                 on each game card. When you toggle to "All Board Games", games without this icon are not available 
                 at the convention but are included for recommendation purposes.
               </Typography>
               <Typography paragraph>
                 Small games are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', color: 'primary.main' }} />
                 <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> 
-                combined icon. These games are available in the special small games section of the PAX library.
+                combined icon. These games are available in the special small games section of the Library library.
               </Typography>
             </AccordionDetails>
           </Accordion>
@@ -227,7 +227,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                   <ListItemText primary="✓ Viewing game details" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ All Board Games toggle" secondary="Filters recommendations between PAX library and all games" />
+                  <ListItemText primary="✓ All Board Games toggle" secondary="Filters recommendations between Library library and all games" />
                 </ListItem>
                 <ListItem>
                   <ListItemText primary="✓ Show Recommendations toggle" secondary="Switch between recommendation view and full library" />
@@ -326,7 +326,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary={<>1. Browse PAX library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon (with <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> for small games)</>}
+                    primary={<>1. Browse Library library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon (with <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> for small games)</>}
                   />
                 </ListItem>
                 <ListItem>
@@ -391,7 +391,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 "I can't find a specific game"
               </Typography>
               <Typography paragraph>
-                Try searching with just part of the name, or turn off the "PAX Games Only" filter 
+                Try searching with just part of the name, or turn off the "Library Games Only" filter 
                 if you're looking for games not at the convention.
               </Typography>
               

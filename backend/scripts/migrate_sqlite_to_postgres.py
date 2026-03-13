@@ -69,13 +69,13 @@ def normalize_row_for_target(
 ) -> dict:
     normalized_row = dict(row)
 
-    if table_name == "pax_games":
+    if table_name == "library_games":
         bgg_id = normalized_row.get("bgg_id")
         if bgg_id == 0:
             normalized_row["bgg_id"] = None
             if anomaly_counts is not None:
-                anomaly_counts["pax_games_zero_bgg_id"] = (
-                    anomaly_counts.get("pax_games_zero_bgg_id", 0) + 1
+                anomaly_counts["library_games_zero_bgg_id"] = (
+                    anomaly_counts.get("library_games_zero_bgg_id", 0) + 1
                 )
         elif (
             bgg_id is not None
@@ -84,8 +84,8 @@ def normalize_row_for_target(
         ):
             normalized_row["bgg_id"] = None
             if anomaly_counts is not None:
-                anomaly_counts["pax_games_orphan_bgg_id"] = (
-                    anomaly_counts.get("pax_games_orphan_bgg_id", 0) + 1
+                anomaly_counts["library_games_orphan_bgg_id"] = (
+                    anomaly_counts.get("library_games_orphan_bgg_id", 0) + 1
                 )
 
     return normalized_row

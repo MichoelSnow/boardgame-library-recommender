@@ -1,8 +1,8 @@
 # Fly Environment Strategy (Phase 1)
 
 ## Environments
-- `prod`: app `pax-tt-app` using `fly.toml`
-- `dev`: app `pax-tt-app-dev` using `fly.dev.toml`
+- `prod`: app `bg-lib-app` using `fly.toml`
+- `dev`: app `bg-lib-app-dev` using `fly.dev.toml`
 
 ## Persistent Volumes
 - `prod`: volume `boardgames_data` mounted at `/data`
@@ -40,11 +40,11 @@ Notes:
 ## Emergency Rollback (Prod)
 1. Identify last healthy release:
 ```bash
-fly releases -a pax-tt-app
+fly releases -a bg-lib-app
 ```
 2. Roll back:
 ```bash
-fly releases rollback <RELEASE_VERSION> -a pax-tt-app
+fly releases rollback <RELEASE_VERSION> -a bg-lib-app
 ```
 3. Re-run smoke checks.
 

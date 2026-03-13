@@ -1,44 +1,48 @@
 """
-BoardGameGeek (BGG) Rankings Crawler
+BoardGameGeek (BGG) Rankings Downloader
 
-This script crawls the current board game rankings from BoardGameGeek.com.
-This is the first script in the data collection pipeline and should be run before get_game_data.py.
+This script downloads the current board game rankings ZIP from a signed URL.
+It is the first step in the data collection pipeline and should be run before
+`get_game_data.py`.
 
 Execution order:
-1. get_ranks.py - Gets the current board game rankings
+1. get_ranks.py - Downloads board game rankings
 2. get_game_data.py - Gets detailed game information
 3. get_ratings.py - Gets user ratings for each game
 
-Usage:
-    python get_ranks.py
+How to obtain the signed URL:
+1. Log in to BoardGameGeek.
+2. Open https://boardgamegeek.com/data_dumps/bg_ranks
+3. Copy the current boardgame ranks ZIP link from that page.
 """
 
-from bs4 import BeautifulSoup
-import os
-import requests
-from zipfile import ZipFile
-from io import BytesIO
-from datetime import datetime
-import pandas as pd
-import logging
-import csv
-from pathlib import Path
-from time import sleep
+from __future__ import annotations
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
-from dotenv import load_dotenv, find_dotenv
+import argparse
+import csv
+from datetime import datetime
+from io import BytesIO
+import logging
+import os
+from pathlib import Path
+from zipfile import BadZipFile, ZipFile
+
+from dotenv import find_dotenv, load_dotenv
+import pandas as pd
+import requests
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 try:
     from ..common.logging_utils import build_log_handlers
 except ImportError:
     from data_pipeline.src.common.logging_utils import build_log_handlers
 
-# Configure logging
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -46,121 +50,107 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+RANKS_CSV_FILENAME = "boardgames_ranks.csv"
 
-def get_driver_and_cookies():
-    """
-    Initialize Selenium WebDriver and authenticate with BoardGameGeek.
-    Returns authentication cookies needed for subsequent API requests.
 
-    Returns:
-        dict: Authentication cookies for BGG API requests
-    """
-    logger.info("Initializing web driver and getting cookies")
-    LOGIN_USERNAME_FIELD = '//*[@id="inputUsername"]'
-    LOGIN_PASSWORD_FIELD = '//*[@id="inputPassword"]'
-    LOGIN_BUTTON = '//*[@id="mainbody"]/div/div/gg-login-page/div[1]/div/gg-login-form/form/fieldset/div[3]/button[1]'
+def _load_ranks_dataframe(zip_bytes: bytes, queried_at_utc: str) -> pd.DataFrame:
+    try:
+        with ZipFile(BytesIO(zip_bytes)) as archive:
+            if RANKS_CSV_FILENAME not in archive.namelist():
+                raise ValueError(
+                    f"Expected {RANKS_CSV_FILENAME} in ranks ZIP, but it was not found."
+                )
+            with archive.open(RANKS_CSV_FILENAME) as csv_file:
+                df = pd.read_csv(csv_file)
+    except BadZipFile as exc:
+        raise ValueError("Invalid ranks ZIP payload from BGG.") from exc
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Failed to load ranks CSV from ZIP: {exc}") from exc
+
+    required_columns = {"id", "name"}
+    missing_columns = required_columns - set(df.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"Ranks CSV is missing required columns: {missing}")
+
+    df["name"] = df["name"].str.replace("[“”]", '"', regex=True)
+    df["queried_at_utc"] = queried_at_utc
+    return df
+
+
+def _save_ranks_dataframe(df_ranks: pd.DataFrame, queried_at_utc: str) -> Path:
+    data_dir = Path(__file__).resolve().parents[3] / "data" / "ingest" / "ranks"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    output_file = (
+        data_dir / f"boardgame_ranks_{queried_at_utc[:10].replace('-', '')}.csv"
+    )
+    df_ranks.to_csv(
+        output_file,
+        index=False,
+        sep="|",
+        escapechar="\\",
+        quoting=csv.QUOTE_NONE,
+    )
+    return output_file
+
+
+@retry(
+    retry=retry_if_exception_type(requests.RequestException),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+def _http_get(url: str) -> requests.Response:
+    response = requests.get(url, timeout=15)
+    response.raise_for_status()
+    return response
+
+
+def get_boardgame_ranks(
+    ranks_zip_url: str,
+    save_file: bool = False,
+) -> pd.DataFrame:
+    if not ranks_zip_url.strip():
+        raise ValueError("ranks_zip_url is required")
+
+    logger.info("Fetching boardgame ranks from direct signed URL")
+    queried_at_utc = datetime.now().replace(microsecond=0).isoformat()
+    ranks_zip_response = _http_get(ranks_zip_url.strip())
+    df_bg_ranks = _load_ranks_dataframe(ranks_zip_response.content, queried_at_utc)
+    logger.info("Successfully loaded %d boardgames", len(df_bg_ranks))
+
+    if save_file:
+        output_file = _save_ranks_dataframe(df_bg_ranks, queried_at_utc)
+        logger.info("Saved rankings to %s", output_file)
+    return df_bg_ranks
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Get board game rankings from BGG.")
+    parser.add_argument(
+        "--ranks-zip-url",
+        default=None,
+        help=(
+            "Direct signed boardgame ranks ZIP URL. "
+            "Obtain it from https://boardgamegeek.com/data_dumps/bg_ranks "
+            "after logging in to BGG."
+        ),
+    )
+    args = parser.parse_args()
 
     load_dotenv(find_dotenv())
-    USERNAME = os.getenv("BGG_USERNAME")
-    PASSWORD = os.getenv("BGG_PASSWORD")
-    if not USERNAME or not PASSWORD:
-        logger.error("Missing BGG_USERNAME or BGG_PASSWORD in environment")
-        raise ValueError("Missing BGG_USERNAME or BGG_PASSWORD in environment")
+    ranks_zip_url = (args.ranks_zip_url or os.getenv("BGG_RANKS_ZIP_URL") or "").strip()
+    if not ranks_zip_url:
+        raise ValueError(
+            "Missing ranks ZIP URL. Provide --ranks-zip-url or set "
+            "BGG_RANKS_ZIP_URL. Get the signed link from "
+            "https://boardgamegeek.com/data_dumps/bg_ranks after logging in."
+        )
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    cookies = {}
-
-    driver = webdriver.Chrome(
-        service=Service("/usr/lib/chromium-browser/chromedriver"),
-        options=chrome_options,
-    )
-    logger.info("Chrome driver initialized successfully")
-
-    driver.get("https://boardgamegeek.com/login")
-    login = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, LOGIN_USERNAME_FIELD))
-    )
-    password = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, LOGIN_PASSWORD_FIELD))
-    )
-
-    login_button = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.XPATH, LOGIN_BUTTON))
-    )
-
-    login.send_keys(USERNAME)
-    password.send_keys(PASSWORD)
-
-    login_button.click()
-    sleep(1)
-    logger.info("Successfully logged in to BoardGameGeek")
-
-    selenium_cookies = driver.get_cookies()
-    for cookie in selenium_cookies:
-        cookies[cookie["name"]] = cookie["value"]
-    logger.info("Successfully retrieved cookies")
-    return cookies
-
-
-def get_boardgame_ranks(cookies: dict, save_file: bool = False):
-    """
-    Download the current board game rankings from BGG.
-
-    Args:
-        cookies (dict): Authentication cookies from get_driver_and_cookies()
-        save_file (bool): Whether to save the rankings to a CSV file
-
-    Returns:
-        pd.DataFrame: DataFrame containing board game rankings
-    """
-    logger.info("Fetching boardgame ranks")
-    bg_ranks_pg_url = "https://boardgamegeek.com/data_dumps/bg_ranks"
-    resp = requests.get(bg_ranks_pg_url, cookies=cookies)
-    soup = BeautifulSoup(resp.content, "html.parser")
-    bg_ranks_url = soup.find("div", {"id": "maincontent"})("a")[0]["href"]
-    bg_ranks_zip = requests.get(bg_ranks_url)
-    queried_at_utc = datetime.now().replace(microsecond=0).isoformat()
-
-    with ZipFile(BytesIO(bg_ranks_zip.content)) as archive:
-        with archive.open("boardgames_ranks.csv") as csv_file:
-            df_bg_ranks = pd.read_csv(csv_file)
-            df_bg_ranks["name"] = df_bg_ranks["name"].str.replace(
-                "[“”]", '"', regex=True
-            )
-            df_bg_ranks["queried_at_utc"] = queried_at_utc
-            logger.info(f"Successfully loaded {len(df_bg_ranks)} boardgames")
-            if save_file:
-                # Create data directory if it doesn't exist
-                data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-                data_dir.mkdir(parents=True, exist_ok=True)
-
-                output_file = (
-                    data_dir
-                    / f"boardgame_ranks_{queried_at_utc[:10].replace('-', '')}.csv"
-                )
-                df_bg_ranks.to_csv(
-                    output_file,
-                    index=False,
-                    sep="|",
-                    escapechar="\\",
-                    quoting=csv.QUOTE_NONE,
-                )
-                logger.info(f"Saved rankings to {output_file}")
-            return df_bg_ranks
-
-
-def main():
-    """Main function to get board game rankings."""
-    try:
-        cookies = get_driver_and_cookies()
-        _ = get_boardgame_ranks(cookies, save_file=True)
-        logger.info("Successfully completed getting board game rankings")
-    except Exception as e:
-        logger.error(f"Error getting board game rankings: {str(e)}")
-        raise
+    get_boardgame_ranks(ranks_zip_url=ranks_zip_url, save_file=True)
+    logger.info("Successfully completed getting board game rankings")
 
 
 if __name__ == "__main__":

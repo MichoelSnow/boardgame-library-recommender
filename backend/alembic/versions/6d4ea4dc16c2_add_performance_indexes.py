@@ -69,8 +69,8 @@ def upgrade() -> None:
         ["recommendation_level"],
     )
 
-    # PAX games index for pax_only filtering
-    op.create_index("ix_pax_games_bgg_id", "pax_games", ["bgg_id"])
+    # Library games index for library_only filtering
+    op.create_index("ix_library_games_bgg_id", "library_games", ["bgg_id"])
 
     # Composite indexes for common filter combinations
     op.create_index(
@@ -95,8 +95,8 @@ def downgrade() -> None:
         op.drop_index("ix_mechanics_composite", "mechanics")
         op.drop_index("ix_suggested_players_composite", "suggested_players")
 
-        # Drop PAX games index
-        op.drop_index("ix_pax_games_bgg_id", "pax_games")
+        # Drop Library games index
+        op.drop_index("ix_library_games_bgg_id", "library_games")
 
         # Drop relationship table indexes
         op.drop_index("ix_suggested_players_recommendation_level", "suggested_players")

@@ -57,7 +57,7 @@
 - Initial capability targets:
   - switch convention primary color theme from approved palette
   - create/manage users
-  - upload and validate PAX game IDs CSV
+  - upload and validate Library game IDs CSV
   - extend with additional operational controls after V1
 - Convention palette baseline:
   - `#904799`

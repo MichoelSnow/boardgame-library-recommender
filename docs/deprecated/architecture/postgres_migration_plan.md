@@ -1,16 +1,16 @@
 # Postgres Migration Plan
 
 ## Purpose
-- Define the execution plan for migrating `pax_tt_recommender` from SQLite-on-Fly-volume to self-managed Postgres on Fly.
+- Define the execution plan for migrating `bg_lib_recommender` from SQLite-on-Fly-volume to self-managed Postgres on Fly.
 - Reduce operational risk by validating locally first, then cutting over `dev`, then `prod`.
 - Keep the relational database migration separate from later image-storage and other infrastructure changes.
 
 ## Service-Level Reference
-- Canonical performance, reliability, recovery, and data-loss targets are defined in [service_level_targets.md](/home/msnow/git/pax_tt_recommender/docs/policies/service_level_targets.md).
+- Canonical performance, reliability, recovery, and data-loss targets are defined in [service_level_targets.md](/home/msnow/git/bg_lib_recommender/docs/policies/service_level_targets.md).
 - This migration is only complete when the Postgres-backed deployment can support those targets.
 
 ## Cutover Strategy Reference
-- Cross-cutting sequencing and rollback rules are defined in [migration_cutover_strategy.md](/home/msnow/git/pax_tt_recommender/docs/architecture/migration_cutover_strategy.md).
+- Cross-cutting sequencing and rollback rules are defined in [migration_cutover_strategy.md](/home/msnow/git/bg_lib_recommender/docs/architecture/migration_cutover_strategy.md).
 - This migration must follow the isolated-cutover rule and preserve the SQLite fallback path during stabilization.
 
 ## Scope
@@ -41,11 +41,11 @@
   - `/api/version`
 - The one-time SQLite -> Postgres migration utility now exists at:
   - `backend/scripts/migrate_sqlite_to_postgres.py`
-- The utility has focused unit coverage for table-ordering, batching, and legacy `pax_games` normalization edge cases.
+- The utility has focused unit coverage for table-ordering, batching, and legacy `library_games` normalization edge cases.
 - The utility has been run successfully end-to-end against local Postgres:
   - row-count parity is verified table-by-table during migration
-  - local source-data anomalies in `pax_games.bgg_id` are normalized to `NULL` when they do not map to a valid `games.id`
-  - a warning summary is emitted when those `pax_games.bgg_id` anomalies are normalized during migration
+  - local source-data anomalies in `library_games.bgg_id` are normalized to `NULL` when they do not map to a valid `games.id`
+  - a warning summary is emitted when those `library_games.bgg_id` anomalies are normalized during migration
 - The self-managed `dev` Postgres Fly app is provisioned and reachable.
 - `poetry run alembic upgrade head` succeeds against `dev` Postgres from the deployed app container.
 - The current `dev` SQLite dataset has been migrated successfully into `dev` Postgres.
@@ -60,7 +60,7 @@
 - The self-managed Postgres restore procedure has been tested successfully against a disposable `dev` restore database.
 - The self-managed `prod` Postgres Fly app is provisioned and reachable.
 - `poetry run alembic upgrade head` and the one-time SQLite -> Postgres migration path have been executed for `prod`.
-- `pax-tt-app` is cut over to `pax-tt-db-prod` via `DATABASE_URL`.
+- `bg-lib-app` is cut over to `bg-lib-db-prod` via `DATABASE_URL`.
 - Production release validation passed on the cutover release (release `v40`), with health checks, auth flow, recommendation checks, performance gate, and rollback target confirmation.
 - SQLite pre-cutover backup was retained through production validation and can be removed after post-cutover stabilization window per runbook.
 - Remaining items in this document are still execution tasks and should remain staged behind local-first validation.
@@ -108,7 +108,7 @@
 - Prefer the default local service on `localhost:5432`.
 - Create a dedicated database and user for this project.
 - Use an explicit `DATABASE_URL` such as:
-  - `postgresql://<user>:<password>@localhost:5432/pax_tt_recommender`
+  - `postgresql://<user>:<password>@localhost:5432/bg_lib_recommender`
 
 ### Local Validation Checklist
 1. Start local Postgres in WSL.
@@ -153,19 +153,19 @@ cd ..
 
 ## Dev Cutover
 1. Provision a self-managed Postgres Fly app for `dev`.
-2. Allocate Flycast private IP for `pax-tt-db-dev` if missing:
+2. Allocate Flycast private IP for `bg-lib-db-dev` if missing:
 ```bash
-fly ips list -a pax-tt-db-dev
-fly ips allocate-v6 --private -a pax-tt-db-dev
+fly ips list -a bg-lib-db-dev
+fly ips allocate-v6 --private -a bg-lib-db-dev
 ```
 3. Verify DB networking posture is private-only:
 ```bash
-fly ips list -a pax-tt-db-dev
+fly ips list -a bg-lib-db-dev
 ```
-4. Set `DATABASE_URL` for `pax-tt-app-dev` (Flycast host recommended for autostop mode).
+4. Set `DATABASE_URL` for `bg-lib-app-dev` (Flycast host recommended for autostop mode).
 5. Run:
 ```bash
-fly ssh console -a pax-tt-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 6. Load migrated data into `dev` Postgres.
 7. Deploy/cut the `dev` app over to Postgres.
@@ -177,19 +177,19 @@ poetry run python scripts/validate/validate_dev_deploy.py
 
 ## Prod Cutover
 1. Provision a self-managed Postgres Fly app for `prod`.
-2. Allocate Flycast private IP for `pax-tt-db-prod` if missing:
+2. Allocate Flycast private IP for `bg-lib-db-prod` if missing:
 ```bash
-fly ips list -a pax-tt-db-prod
-fly ips allocate-v6 --private -a pax-tt-db-prod
+fly ips list -a bg-lib-db-prod
+fly ips allocate-v6 --private -a bg-lib-db-prod
 ```
 3. Verify DB networking posture is private-only:
 ```bash
-fly ips list -a pax-tt-db-prod
+fly ips list -a bg-lib-db-prod
 ```
-4. Set `DATABASE_URL` for `pax-tt-app` (Flycast host recommended for autostop mode).
+4. Set `DATABASE_URL` for `bg-lib-app` (Flycast host recommended for autostop mode).
 5. Run:
 ```bash
-fly ssh console -a pax-tt-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 6. Load migrated data into `prod` Postgres.
 7. Deploy/cut the `prod` app over to Postgres.
@@ -240,7 +240,7 @@ fly volumes list -a <db-app>
 
 ```bash
 poetry run python scripts/db/fly_postgres_backup.py --env dev
-poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-before-cutover.sql
+poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-lib-prod-before-cutover.sql
 ```
 
 - The backup task is not complete until:
@@ -256,8 +256,8 @@ poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax
 - The repeatable local command is:
 
 ```bash
-poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/pax-tt-dev-postgres-backup-20260304T012020Z.sql
-poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax-tt-prod-before-cutover.sql --restore-db pax_tt_recommender_restore_test
+poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/bg-lib-dev-postgres-backup-20260304T012020Z.sql
+poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-lib-prod-before-cutover.sql --restore-db bg_lib_recommender_restore_test
 ```
 
 - The restore task is not complete until:
@@ -280,7 +280,7 @@ poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/pax
   - users
   - games
   - mechanics/categories relationships
-  - `pax_games`
+  - `library_games`
 - Verify auth/login behavior after migration.
 - Prefer a scriptable verification report where possible.
 

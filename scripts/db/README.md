@@ -8,7 +8,7 @@
 - How to use:
 ```bash
 poetry run python scripts/db/fly_postgres_backup.py --env dev
-poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax-tt-prod-backup.sql
+poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-lib-prod-backup.sql
 ```
 
 ## `fly_postgres_restore.py`
@@ -20,5 +20,5 @@ poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/pax
 ```bash
 poetry run python scripts/db/fly_postgres_restore.py \
   --env dev \
-  --input /tmp/pax-tt-dev-backup.sql
+  --input /tmp/bg-lib-dev-backup.sql
 ```

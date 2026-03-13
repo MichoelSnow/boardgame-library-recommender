@@ -387,25 +387,28 @@ def main():
     )
     args = parser.parse_args()
 
-    # Get the data directory using the project root
-    data_dir = PROJECT_ROOT / "data" / "pipeline"
-    save_dir = PROJECT_ROOT / "data" / "processed"
+    # Get input/output directories using the project root
+    ranks_dir = PROJECT_ROOT / "data" / "ingest" / "ranks"
+    game_data_dir = PROJECT_ROOT / "data" / "ingest" / "game_data"
+    processed_root_dir = PROJECT_ROOT / "data" / "transform" / "processed"
 
     # Find the most recent ranks file
-    ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+    ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
     if not ranks_files:
-        raise FileNotFoundError(f"No board game ranks files found in {data_dir}")
+        raise FileNotFoundError(f"No board game ranks files found in {ranks_dir}")
     latest_ranks = max(ranks_files, key=lambda x: x.stat().st_mtime)
 
     # Find the most recent data file
-    data_files = list(data_dir.glob("boardgame_data_*.parquet"))
+    data_files = list(game_data_dir.glob("boardgame_data_*.parquet"))
     if not data_files:
-        raise FileNotFoundError(f"No board game data files found in {data_dir}")
+        raise FileNotFoundError(f"No board game data files found in {game_data_dir}")
     latest_data = max(data_files, key=lambda x: x.stat().st_mtime)
 
     # Set output file path with Unix timestamp
     timestamp = int(time.time())
-    output_file_base = save_dir / "processed_games"
+    output_dir = processed_root_dir / str(timestamp)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file_base = output_dir / "processed_games"
 
     # Read the ranks file to check for expansions if needed
     if args.exclude_expansions:

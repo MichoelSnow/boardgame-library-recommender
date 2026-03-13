@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SECRET_KEY: "DUMMY_CI_ONLY_SECRET_KEY_NOT_FOR_PRODUCTION_12345"
-      DATABASE_PATH: "/tmp/pax_tt_ci.db"
+      DATABASE_PATH: "/tmp/bg_lib_ci.db"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

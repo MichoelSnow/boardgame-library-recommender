@@ -176,7 +176,7 @@ def get_recommendations(
     liked_games: Optional[List[int]] = None,
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
-    pax_only: Optional[bool] = False,
+    library_only: Optional[bool] = False,
 ) -> List[dict[str, object]]:
     """
     Get game recommendations using the game embeddings.
@@ -187,7 +187,7 @@ def get_recommendations(
         liked_games: Optional list of game IDs to use as positive recommendations
         disliked_games: Optional list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations
-        pax_only: If true, only recommend games that are in the PAX games table
+        library_only: If true, only recommend games that are in the Library games table
 
     Returns:
         List of recommended game payloads
@@ -287,9 +287,9 @@ def get_recommendations(
         game_query = db.query(*BOARD_GAME_SCALAR_COLUMNS).filter(
             models.BoardGame.id.in_(recommended_ids)
         )
-        if pax_only:
+        if library_only:
             game_query = game_query.filter(
-                exists().where(models.PAXGame.bgg_id == models.BoardGame.id)
+                exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
             )
 
         game_map: dict[int, dict[str, object]] = {}

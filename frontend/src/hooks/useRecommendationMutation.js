@@ -3,11 +3,11 @@ import { createRecommendations } from '../api/recommendations';
 
 export const useRecommendationMutation = () =>
   useMutation({
-    mutationFn: ({ likedGames, dislikedGames, limit = 50, paxOnly = false }) =>
+    mutationFn: ({ likedGames, dislikedGames, limit = 50, libraryOnly = false }) =>
       createRecommendations({
         liked_games: likedGames,
         disliked_games: dislikedGames,
         limit,
-        pax_only: paxOnly,
+        library_only: libraryOnly,
       }),
   });

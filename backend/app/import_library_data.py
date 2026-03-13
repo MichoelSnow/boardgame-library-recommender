@@ -1,8 +1,8 @@
 """
-PAX Data Import Script for Board Game Recommender
+Library Data Import Script for Board Game Recommender
 
-This script imports the PAX tabletop games data into the backend database.
-It handles the creation of PAX game records and links them to existing BoardGame records.
+This script imports the Library tabletop games data into the backend database.
+It handles the creation of Library game records and links them to existing BoardGame records.
 """
 
 import pandas as pd
@@ -25,22 +25,22 @@ from app.logging_utils import build_log_handlers  # noqa: E402
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=build_log_handlers("import_pax_data.log"),
+    handlers=build_log_handlers("import_library_data.log"),
 )
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 200  # Number of games to process before committing
 
 
-def run_image_sync_pax_only(backend: str) -> bool:
-    """Trigger optional image sync for PAX games after PAX import."""
+def run_image_sync_library_only(backend: str) -> bool:
+    """Trigger optional image sync for Library games after Library import."""
     if backend == "fly_local":
         command = [
             sys.executable,
             "-m",
             "data_pipeline.src.assets.sync_fly_images",
             "--scope",
-            "pax-only",
+            "library-only",
         ]
         log_label = "Fly-local image sync"
     elif backend == "r2_cdn":
@@ -49,7 +49,7 @@ def run_image_sync_pax_only(backend: str) -> bool:
             "-m",
             "data_pipeline.src.assets.sync_r2_images",
             "--scope",
-            "pax-only",
+            "library-only",
         ]
         log_label = "R2 image sync"
     else:
@@ -74,8 +74,8 @@ def run_image_sync_pax_only(backend: str) -> bool:
         return False
 
 
-def create_pax_game_record(game_data: pd.Series) -> models.PAXGame:
-    """Create a PAX game record from the data without saving to database."""
+def create_library_game_record(game_data: pd.Series) -> models.LibraryGame:
+    """Create a Library game record from the data without saving to database."""
     # Handle empty bgg_id values
     bgg_id = None
     if pd.notna(game_data["bgg_id"]) and game_data["bgg_id"] != "":
@@ -111,7 +111,7 @@ def create_pax_game_record(game_data: pd.Series) -> models.PAXGame:
         except (ValueError, TypeError):
             year_title_first_added = None
 
-    pax_game_create = schemas.PAXGameCreate(
+    library_game_create = schemas.LibraryGameCreate(
         name=game_data["name"],
         name_raw=None
         if pd.isna(game_data["name_raw"]) or game_data["name_raw"] == ""
@@ -130,17 +130,18 @@ def create_pax_game_record(game_data: pd.Series) -> models.PAXGame:
         convention_year=convention_year,
         year_title_first_added=year_title_first_added,
     )
-    return models.PAXGame(**pax_game_create.model_dump())
+    return models.LibraryGame(**library_game_create.model_dump())
 
 
-def process_pax_game_batch(games_batch: pd.DataFrame, db: Session) -> None:
-    """Process a batch of PAX games."""
+def process_library_game_batch(games_batch: pd.DataFrame, db: Session) -> None:
+    """Process a batch of Library games."""
     try:
-        # Create all PAX game records
-        pax_games = [
-            create_pax_game_record(game_data) for _, game_data in games_batch.iterrows()
+        # Create all Library game records
+        library_games = [
+            create_library_game_record(game_data)
+            for _, game_data in games_batch.iterrows()
         ]
-        db.bulk_save_objects(pax_games)
+        db.bulk_save_objects(library_games)
         db.commit()
 
     except Exception as e:
@@ -148,57 +149,59 @@ def process_pax_game_batch(games_batch: pd.DataFrame, db: Session) -> None:
         raise e
 
 
-def import_pax_data(data_dir: str, delete_existing: bool = False) -> None:
+def import_library_data(data_dir: str, delete_existing: bool = False) -> None:
     """
-    Import PAX tabletop games data into the database.
+    Import Library tabletop games data into the database.
 
     Args:
-        data_dir (str): Directory containing the PAX data files
-        delete_existing (bool): If True, deletes existing PAX games before import
+        data_dir (str): Directory containing the Library data files
+        delete_existing (bool): If True, deletes existing Library games before import
     """
-    logger.info(f"Starting PAX data import from {data_dir}")
+    logger.info(f"Starting Library data import from {data_dir}")
 
     # Create database tables if they don't exist
     logger.info("Creating database tables...")
     models.Base.metadata.create_all(bind=engine)
 
-    # Find the most recent PAX games file
-    pax_dir = Path(data_dir)
-    if not pax_dir.exists():
-        raise FileNotFoundError(f"PAX data directory not found: {data_dir}")
+    # Find the most recent Library games file
+    library_dir = Path(data_dir)
+    if not library_dir.exists():
+        raise FileNotFoundError(f"Library data directory not found: {data_dir}")
 
-    pax_files = list(pax_dir.glob("pax_tt_games_*.csv"))
-    if not pax_files:
-        raise FileNotFoundError(f"No PAX games files found in {data_dir}")
+    library_files = list(library_dir.glob("bg_lib_games_*.csv"))
+    if not library_files:
+        raise FileNotFoundError(f"No Library games files found in {data_dir}")
 
-    # Get the most recent file based on timestamp in filename
-    latest_file = max(pax_files, key=lambda x: int(x.stem.split("_")[-1]))
-    logger.info(f"Using most recent PAX games file: {latest_file}")
+    # Use mtime so files like bg_lib_games_unplugged_2024.csv remain valid.
+    latest_file = max(library_files, key=lambda x: x.stat().st_mtime)
+    logger.info(f"Using most recent Library games file: {latest_file}")
 
-    # Read the PAX data
+    # Read the Library data
     try:
-        pax_games_df = pd.read_csv(latest_file, sep="|", escapechar="\\")
-        logger.info(f"Successfully loaded PAX data for {len(pax_games_df)} games")
+        library_games_df = pd.read_csv(latest_file, sep="|", escapechar="\\")
+        logger.info(
+            f"Successfully loaded Library data for {len(library_games_df)} games"
+        )
     except Exception as e:
-        logger.error(f"Error reading PAX data file: {str(e)}")
+        logger.error(f"Error reading Library data file: {str(e)}")
         raise
 
-    # Delete existing PAX games if requested
+    # Delete existing Library games if requested
     if delete_existing:
         db = SessionLocal()
         try:
-            db.query(models.PAXGame).delete()
+            db.query(models.LibraryGame).delete()
             db.commit()
-            logger.info("Deleted existing PAX games")
+            logger.info("Deleted existing Library games")
         except Exception as e:
             db.rollback()
-            logger.error(f"Error deleting existing PAX games: {str(e)}")
+            logger.error(f"Error deleting existing Library games: {str(e)}")
             raise
         finally:
             db.close()
 
     # Process games in batches
-    num_games = len(pax_games_df)
+    num_games = len(library_games_df)
     num_batches = (num_games + BATCH_SIZE - 1) // BATCH_SIZE
 
     # Create database session
@@ -207,10 +210,10 @@ def import_pax_data(data_dir: str, delete_existing: bool = False) -> None:
         for i in range(num_batches):
             start_idx = i * BATCH_SIZE
             end_idx = min((i + 1) * BATCH_SIZE, num_games)
-            batch = pax_games_df.iloc[start_idx:end_idx]
+            batch = library_games_df.iloc[start_idx:end_idx]
 
             try:
-                process_pax_game_batch(batch, db)
+                process_library_game_batch(batch, db)
                 logger.info(
                     f"Processed batch {i + 1}/{num_batches} (games {start_idx + 1}-{end_idx})"
                 )
@@ -218,12 +221,12 @@ def import_pax_data(data_dir: str, delete_existing: bool = False) -> None:
                 logger.error(f"Error processing batch {i + 1}: {str(e)}")
                 raise e
 
-        logger.info(f"Successfully imported {num_games} PAX games")
+        logger.info(f"Successfully imported {num_games} Library games")
 
         # Log some statistics
         if num_games > 0:
-            games_with_bgg_id = pax_games_df[
-                pax_games_df["bgg_id"].notna() & (pax_games_df["bgg_id"] != "")
+            games_with_bgg_id = library_games_df[
+                library_games_df["bgg_id"].notna() & (library_games_df["bgg_id"] != "")
             ]
             logger.info(f"Games with BGG ID: {len(games_with_bgg_id)}")
             logger.info(f"Games without BGG ID: {num_games - len(games_with_bgg_id)}")
@@ -237,10 +240,10 @@ def import_pax_data(data_dir: str, delete_existing: bool = False) -> None:
                     .count()
                 )
                 logger.info(
-                    f"PAX games that link to existing BoardGame records: {existing_games}"
+                    f"Library games that link to existing BoardGame records: {existing_games}"
                 )
                 logger.info(
-                    f"PAX games with BGG ID but no matching BoardGame: {len(games_with_bgg_id) - existing_games}"
+                    f"Library games with BGG ID but no matching BoardGame: {len(games_with_bgg_id) - existing_games}"
                 )
 
     finally:
@@ -248,20 +251,20 @@ def import_pax_data(data_dir: str, delete_existing: bool = False) -> None:
 
 
 def main():
-    """Main function to import the most recent PAX data."""
+    """Main function to import the most recent Library data."""
     # Set up argument parser
     parser = argparse.ArgumentParser(
-        description="Import PAX tabletop games data into the database"
+        description="Import Library tabletop games data into the database"
     )
     parser.add_argument(
         "--delete-existing",
         action="store_true",
-        help="Delete existing PAX games before import",
+        help="Delete existing Library games before import",
     )
     parser.add_argument(
         "--sync-images",
         action="store_true",
-        help="After import, run image sync for PAX games.",
+        help="After import, run image sync for Library games.",
     )
     parser.add_argument(
         "--sync-images-backend",
@@ -276,26 +279,26 @@ def main():
     )
     args = parser.parse_args()
 
-    # Get the PAX data directory
-    pax_data_dir = project_root / "data" / "pax"
-    if not pax_data_dir.exists():
-        raise FileNotFoundError(f"PAX data directory not found: {pax_data_dir}")
+    # Get the Library data directory
+    library_data_dir = project_root / "data" / "library"
+    if not library_data_dir.exists():
+        raise FileNotFoundError(f"Library data directory not found: {library_data_dir}")
 
     # Import the data with delete_existing from command line args
-    import_pax_data(str(pax_data_dir), delete_existing=args.delete_existing)
+    import_library_data(str(library_data_dir), delete_existing=args.delete_existing)
 
     should_sync_images = args.sync_images or args.sync_images_r2
     sync_backend = "r2_cdn" if args.sync_images_r2 else args.sync_images_backend
 
     if should_sync_images:
-        if run_image_sync_pax_only(sync_backend):
+        if run_image_sync_library_only(sync_backend):
             logger.info(
-                "Image sync completed successfully after PAX import (backend=%s).",
+                "Image sync completed successfully after Library import (backend=%s).",
                 sync_backend,
             )
         else:
             logger.error(
-                "Image sync failed after PAX import (backend=%s).",
+                "Image sync failed after Library import (backend=%s).",
                 sync_backend,
             )
 

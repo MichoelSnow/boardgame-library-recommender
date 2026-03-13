@@ -7,7 +7,7 @@ application when it is run from this repository.
 
 - `app.log`: FastAPI application startup/runtime logs during local execution
 - `import_data.log`: Main board game data import process
-- `import_pax_data.log`: PAX data import process
+- `import_library_data.log`: Library data import process
 - `post_import.log`: Post-import SQL script runner
 - `sql_runner.log`: Standalone SQL runner
 - `data_processor.log`: Crawler data processing
@@ -28,7 +28,7 @@ application when it is run from this repository.
 
 ```bash
 tail -f logs/import_data.log
-tail -f logs/import_pax_data.log
+tail -f logs/import_library_data.log
 tail -f logs/data_processor.log
 tail -f logs/get_game_data.log
 tail -f logs/get_ratings.log

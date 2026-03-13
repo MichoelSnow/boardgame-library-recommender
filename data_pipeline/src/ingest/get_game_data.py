@@ -18,11 +18,19 @@ import requests
 import pandas as pd
 import logging
 import math
+import json
 from time import sleep, time
 from pathlib import Path
 import argparse
 import bs4
 import csv
+import duckdb
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -36,10 +44,179 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+BATCH_REQUEST_TIMEOUT_SECONDS = 20
+
+
+@retry(
+    retry=retry_if_exception_type(requests.RequestException),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+def _http_get_bgg_xml(url: str) -> requests.Response:
+    response = requests.get(url, timeout=BATCH_REQUEST_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return response
+
+
+def _initialize_game_data_store(conn: duckdb.DuckDBPyConnection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS boardgame_data (
+            id BIGINT PRIMARY KEY,
+            payload_json TEXT
+        );
+        """
+    )
+
+
+def _upsert_game_batch(
+    conn: duckdb.DuckDBPyConnection, game_dicts: list[dict[str, object]]
+) -> None:
+    if not game_dicts:
+        return
+    rows = [
+        {"id": int(game_dict["id"]), "payload_json": json.dumps(game_dict)}
+        for game_dict in game_dicts
+    ]
+    df_rows = pd.DataFrame(rows)
+    conn.register("game_data_tmp", df_rows)
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO boardgame_data (id, payload_json)
+        SELECT id, payload_json
+        FROM game_data_tmp;
+        """
+    )
+    conn.unregister("game_data_tmp")
+
+
+def _load_completed_ids(conn: duckdb.DuckDBPyConnection) -> set[int]:
+    completed_rows = conn.execute("SELECT id FROM boardgame_data").fetchall()
+    return {int(row[0]) for row in completed_rows}
+
+
+def _load_game_data_from_store(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    payload_rows = conn.execute(
+        "SELECT payload_json FROM boardgame_data ORDER BY id"
+    ).fetchall()
+    if not payload_rows:
+        return pd.DataFrame()
+    records = [json.loads(row[0]) for row in payload_rows]
+    return pd.DataFrame(records)
+
+
+def _seed_store_from_dataframe(
+    conn: duckdb.DuckDBPyConnection, boardgame_data: pd.DataFrame | None
+) -> None:
+    if boardgame_data is None:
+        return
+    row_count = conn.execute("SELECT COUNT(*) FROM boardgame_data").fetchone()[0]
+    if row_count > 0:
+        return
+    seed_dicts = boardgame_data.to_dict(orient="records")
+    _upsert_game_batch(conn, seed_dicts)
+
+
+def _run_game_data_ingest(
+    boardgame_ranks: pd.DataFrame,
+    boardgame_data: pd.DataFrame | None,
+    existing_store_path: Path | None,
+    batch_saves: bool,
+    batch_size: int,
+    save_every_n_batches: int,
+    log_level: str,
+    simple_mode: bool,
+) -> pd.DataFrame:
+    current_level = logger.level
+    logger.setLevel(getattr(logging, log_level.upper()))
+
+    logger.info("Starting to fetch data for %d boardgames", len(boardgame_ranks))
+    query_time = int(time())
+    data_dir = Path(__file__).resolve().parents[3] / "data" / "ingest" / "game_data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    filename_prefix = "boardgame_simple_data" if simple_mode else "boardgame_data"
+    save_path = (
+        existing_store_path or data_dir / f"{filename_prefix}_{query_time}.duckdb"
+    )
+    conn = duckdb.connect(str(save_path))
+    _initialize_game_data_store(conn)
+    _seed_store_from_dataframe(conn, boardgame_data)
+
+    try:
+        completed_ids = _load_completed_ids(conn)
+        boardgame_ids = [
+            int(game_id)
+            for game_id in boardgame_ranks["id"].tolist()
+            if int(game_id) not in completed_ids
+        ]
+        logger.info("Found %d new boardgames to process", len(boardgame_ids))
+
+        total_batches = (
+            math.ceil(len(boardgame_ids) / batch_size) if boardgame_ids else 0
+        )
+        for batch_num in range(total_batches):
+            logger.info("Processing batch %d of %d", batch_num + 1, total_batches)
+            batch_ids = boardgame_ids[
+                batch_num * batch_size : (batch_num + 1) * batch_size
+            ]
+            batch_id_strings = [str(game_id) for game_id in batch_ids]
+            bg_info_url = (
+                "https://www.boardgamegeek.com/xmlapi2/thing"
+                "?type=boardgame,boardgameexpansion&stats=1"
+                "&versions=1&ratingcomments=1&pagesize=100&page=1"
+                f"&id={','.join(batch_id_strings)}"
+            )
+            if simple_mode:
+                bg_info_url = (
+                    "https://www.boardgamegeek.com/xmlapi2/thing"
+                    "?type=boardgame,boardgameexpansion&stats=1"
+                    "&ratingcomments=1&pagesize=10&page=1"
+                    f"&id={','.join(batch_id_strings)}"
+                )
+
+            bgg_response = _http_get_bgg_xml(bg_info_url)
+            soup_xml = BeautifulSoup(bgg_response.content, "xml")
+            games_xml_list = soup_xml.find_all(
+                "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
+            )
+            if len(games_xml_list) == 0:
+                raise RuntimeError(
+                    f"BGG API returned zero items for batch URL: {bg_info_url}"
+                )
+
+            batch_game_dicts = []
+            for game_xml in games_xml_list:
+                game_dict = extract_basic_game_info(game_xml=game_xml)
+                if not simple_mode:
+                    game_dict = extract_polls(game_dict=game_dict, game_xml=game_xml)
+                    game_dict = extract_poll_player_count(
+                        game_dict=game_dict, game_xml=game_xml
+                    )
+                    game_dict = extract_version_info(
+                        game_dict=game_dict, game_xml=game_xml
+                    )
+                batch_game_dicts.append(game_dict)
+
+            _upsert_game_batch(conn, batch_game_dicts)
+            if batch_saves and (batch_num + 1) % save_every_n_batches == 0:
+                logger.info("Checkpointed batch %d to %s", batch_num + 1, save_path)
+            sleep(1)
+
+        boardgame_df = _load_game_data_from_store(conn)
+        logger.info("Successfully completed fetching all boardgame data")
+        logger.info("Saved final data to %s", save_path)
+        return boardgame_df
+    finally:
+        conn.close()
+        logger.setLevel(current_level)
+
 
 def get_boardgame_data(
     boardgame_ranks: pd.DataFrame,
     boardgame_data: pd.DataFrame = None,
+    existing_store_path: Path | None = None,
     batch_saves: bool = False,
     batch_size: int = 20,
     save_every_n_batches: int = 1,
@@ -60,69 +237,16 @@ def get_boardgame_data(
     Returns:
         pd.DataFrame: DataFrame containing detailed game information
     """
-    # Set logging level for this function
-    current_level = logger.level
-    logger.setLevel(getattr(logging, log_level.upper()))
-
-    logger.info(f"Starting to fetch data for {len(boardgame_ranks)} boardgames")
-    query_time = int(time())
-    data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    save_path = data_dir / f"boardgame_data_{query_time}.parquet"
-
-    boardgame_ids = boardgame_ranks["id"].tolist()
-    boardgame_master_dict = {}
-    if boardgame_data is not None:
-        logger.info("Using existing boardgame data as base")
-        boardgame_master_dict = {
-            str(x["id"]): x for x in boardgame_data.to_dict(orient="records")
-        }
-        boardgame_ids = list(
-            set(boardgame_ids).difference(
-                set(boardgame_data["id"].astype(int).tolist())
-            )
-        )
-    logger.info(f"Found {len(boardgame_ids)} new boardgames to process")
-
-    for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
-        logger.info(
-            f"Processing batch {batch_num + 1} of {math.ceil(len(boardgame_ids) / batch_size)}"
-        )
-        batch_ids = boardgame_ids[batch_num * batch_size : (batch_num + 1) * batch_size]
-        batch_ids = [str(x) for x in batch_ids]
-        logger.debug(f"Processing boardgame IDs: {batch_ids}")
-        bg_info_url = f"https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame,boardgameexpansion&stats=1&versions=1&ratingcomments=1&pagesize=100&page=1&id={','.join(batch_ids)}"
-        bgg_response = requests.get(bg_info_url)
-        soup_xml = BeautifulSoup(bgg_response.content, "xml")
-        games_xml_list = soup_xml.find_all(
-            "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
-        )
-
-        for game_xml in games_xml_list:
-            game_dict = extract_basic_game_info(game_xml=game_xml)
-            game_dict = extract_polls(game_dict=game_dict, game_xml=game_xml)
-            game_dict = extract_poll_player_count(
-                game_dict=game_dict, game_xml=game_xml
-            )
-            game_dict = extract_version_info(game_dict=game_dict, game_xml=game_xml)
-            boardgame_master_dict[game_dict["id"]] = game_dict
-            logger.debug(f"Completed processing game ID: {game_xml['id']}")
-
-        if batch_saves and (batch_num + 1) % save_every_n_batches == 0:
-            logger.info(f"Saving batch {batch_num + 1} data")
-            boardgame_data = pd.DataFrame(list(boardgame_master_dict.values()))
-            boardgame_data.to_parquet(save_path)
-            logger.info(f"Saved batch {batch_num + 1} data to {save_path}")
-        sleep(1)
-
-    boardgame_data = pd.DataFrame(list(boardgame_master_dict.values()))
-    logger.info("Successfully completed fetching all boardgame data")
-    boardgame_data.to_parquet(save_path)
-    logger.info(f"Saved final data to {save_path}")
-
-    # Restore original logging level
-    logger.setLevel(current_level)
-    return boardgame_data
+    return _run_game_data_ingest(
+        boardgame_ranks=boardgame_ranks,
+        boardgame_data=boardgame_data,
+        existing_store_path=existing_store_path,
+        batch_saves=batch_saves,
+        batch_size=batch_size,
+        save_every_n_batches=save_every_n_batches,
+        log_level=log_level,
+        simple_mode=False,
+    )
 
 
 def extract_basic_game_info(game_xml: bs4.element.Tag):
@@ -302,6 +426,7 @@ def extract_version_info(game_dict: dict, game_xml: bs4.element.Tag):
 def get_simple_game_data(
     boardgame_ranks: pd.DataFrame,
     boardgame_data: pd.DataFrame = None,
+    existing_store_path: Path | None = None,
     batch_saves: bool = False,
     batch_size: int = 20,
     save_every_n_batches: int = 1,
@@ -322,65 +447,16 @@ def get_simple_game_data(
     Returns:
         pd.DataFrame: DataFrame containing basic game information
     """
-    # Set logging level for this function
-    current_level = logger.level
-    logger.setLevel(getattr(logging, log_level.upper()))
-
-    logger.info(f"Starting to fetch simple data for {len(boardgame_ranks)} boardgames")
-    query_time = int(time())
-    data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    save_path = data_dir / f"boardgame_simple_data_{query_time}.parquet"
-
-    boardgame_ids = boardgame_ranks["id"].tolist()
-    boardgame_master_dict = {}
-    if boardgame_data is not None:
-        logger.info("Using existing boardgame data as base")
-        boardgame_master_dict = {
-            str(x["id"]): x for x in boardgame_data.to_dict(orient="records")
-        }
-        boardgame_ids = list(
-            set(boardgame_ids).difference(
-                set(boardgame_data["id"].astype(int).tolist())
-            )
-        )
-    logger.info(f"Found {len(boardgame_ids)} new boardgames to process")
-
-    for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
-        logger.info(
-            f"Processing batch {batch_num + 1} of {math.ceil(len(boardgame_ids) / batch_size)}"
-        )
-        batch_ids = boardgame_ids[batch_num * batch_size : (batch_num + 1) * batch_size]
-        batch_ids = [str(x) for x in batch_ids]
-        logger.debug(f"Processing boardgame IDs: {batch_ids}")
-
-        bg_info_url = f"https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame,boardgameexpansion&stats=1&ratingcomments=1&pagesize=10&page=1&id={','.join(batch_ids)}"
-        bgg_response = requests.get(bg_info_url)
-        soup_xml = BeautifulSoup(bgg_response.content, "xml")
-        games_xml_list = soup_xml.find_all(
-            "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
-        )
-
-        for game_xml in games_xml_list:
-            game_dict = extract_basic_game_info(game_xml=game_xml)
-            boardgame_master_dict[game_dict["id"]] = game_dict
-            logger.debug(f"Completed processing game ID: {game_xml['id']}")
-
-        if batch_saves and (batch_num + 1) % save_every_n_batches == 0:
-            logger.info(f"Saving batch {batch_num + 1} data")
-            boardgame_data = pd.DataFrame(list(boardgame_master_dict.values()))
-            boardgame_data.to_parquet(save_path)
-            logger.info(f"Saved batch {batch_num + 1} data to {save_path}")
-        sleep(1)
-
-    boardgame_data = pd.DataFrame(list(boardgame_master_dict.values()))
-    logger.info("Successfully completed fetching all boardgame data")
-    boardgame_data.to_parquet(save_path)
-    logger.info(f"Saved final data to {save_path}")
-
-    # Restore original logging level
-    logger.setLevel(current_level)
-    return boardgame_data
+    return _run_game_data_ingest(
+        boardgame_ranks=boardgame_ranks,
+        boardgame_data=boardgame_data,
+        existing_store_path=existing_store_path,
+        batch_saves=batch_saves,
+        batch_size=batch_size,
+        save_every_n_batches=save_every_n_batches,
+        log_level=log_level,
+        simple_mode=True,
+    )
 
 
 def main():
@@ -407,8 +483,11 @@ def main():
         args = parser.parse_args()
 
         # Get the most recent rankings file
-        data_dir = Path(__file__).resolve().parents[3] / "data" / "pipeline"
-        ranks_files = list(data_dir.glob("boardgame_ranks_*.csv"))
+        ranks_dir = Path(__file__).resolve().parents[3] / "data" / "ingest" / "ranks"
+        game_data_dir = (
+            Path(__file__).resolve().parents[3] / "data" / "ingest" / "game_data"
+        )
+        ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
         if not ranks_files:
             raise FileNotFoundError("No rankings files found")
 
@@ -420,33 +499,32 @@ def main():
             latest_ranks, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE
         )
 
-        # Get existing game data if continuing
-        existing_data = None
+        # Get existing DuckDB store if continuing
+        existing_store_path = None
         if args.continue_from_last:
-            # Choose the correct file pattern based on whether we're using simple mode
             file_pattern = (
-                "boardgame_simple_data_*.parquet"
+                "boardgame_simple_data_*.duckdb"
                 if args.simple
-                else "boardgame_data_*.parquet"
+                else "boardgame_data_*.duckdb"
             )
-            game_files = list(data_dir.glob(file_pattern))
+            game_files = list(game_data_dir.glob(file_pattern))
             if game_files:
                 latest_games = max(game_files, key=lambda x: x.stat().st_mtime)
-                logger.info(f"Continuing from game data file: {latest_games}")
-                existing_data = pd.read_parquet(latest_games)
+                logger.info(f"Continuing from game data store: {latest_games}")
+                existing_store_path = latest_games
 
         # Get game data
         if args.simple:
             df_games = get_simple_game_data(
                 df_ranks,
-                boardgame_data=existing_data,
+                existing_store_path=existing_store_path,
                 batch_saves=True,
                 save_every_n_batches=args.save_every_n_batches,
             )
         else:
             df_games = get_boardgame_data(
                 df_ranks,
-                boardgame_data=existing_data,
+                existing_store_path=existing_store_path,
                 batch_saves=True,
                 save_every_n_batches=args.save_every_n_batches,
             )

@@ -23,8 +23,8 @@ def test_get_table_copy_order_matches_expected_dependency_sequence():
         "implementations",
         "integrations",
         "language_dependence",
+        "library_games",
         "mechanics",
-        "pax_games",
         "publishers",
         "suggested_players",
         "user_suggestions",
@@ -67,27 +67,29 @@ def test_normalize_row_for_target_converts_legacy_zero_bgg_id_to_null():
     row = {"id": 1, "bgg_id": 0, "name": "Example"}
     anomaly_counts: dict[str, int] = {}
 
-    result = normalize_row_for_target("pax_games", row, anomaly_counts=anomaly_counts)
+    result = normalize_row_for_target(
+        "library_games", row, anomaly_counts=anomaly_counts
+    )
 
     assert result["bgg_id"] is None
     assert row["bgg_id"] == 0
-    assert anomaly_counts == {"pax_games_zero_bgg_id": 1}
+    assert anomaly_counts == {"library_games_zero_bgg_id": 1}
 
 
 def test_normalize_row_for_target_leaves_other_rows_unchanged():
     row = {"id": 2, "bgg_id": 123, "name": "Example"}
 
-    result = normalize_row_for_target("pax_games", row)
+    result = normalize_row_for_target("library_games", row)
 
     assert result == row
 
 
-def test_normalize_row_for_target_nulls_orphaned_pax_game_reference():
+def test_normalize_row_for_target_nulls_orphaned_library_game_reference():
     row = {"id": 3, "bgg_id": 63993, "name": "Example"}
     anomaly_counts: dict[str, int] = {}
 
     result = normalize_row_for_target(
-        "pax_games",
+        "library_games",
         row,
         valid_game_ids={1, 2, 3},
         anomaly_counts=anomaly_counts,
@@ -95,7 +97,7 @@ def test_normalize_row_for_target_nulls_orphaned_pax_game_reference():
 
     assert result["bgg_id"] is None
     assert row["bgg_id"] == 63993
-    assert anomaly_counts == {"pax_games_orphan_bgg_id": 1}
+    assert anomaly_counts == {"library_games_orphan_bgg_id": 1}
 
 
 def test_migrate_table_streams_rows_in_batches():

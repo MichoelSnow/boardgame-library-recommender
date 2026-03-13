@@ -26,6 +26,7 @@
  - Run shell commands with a 10-second timeout by default.
  - If a command exceeds 10 seconds, stop and ask the user to run it manually; do not change implementation solely to force the command under 10 seconds.
  - If a long-running command is interrupted or times out, check for partial artifacts (e.g., `node_modules` temp dirs) and either clean the affected paths or recommend a clean install before retrying.
+ - Never hardcode secrets in commands. Always reference values from environment variables (loaded via `set -a; source .env; set +a`).
 
 ## MCPs
   - Only use the Context7 MCP when I explicitly ask for it

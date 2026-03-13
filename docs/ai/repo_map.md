@@ -20,7 +20,7 @@
 ## High-Value Entry Points
 - API app/startup/security middleware: `backend/app/main.py`
 - Recommendation logic: `backend/app/recommender.py`, `data_pipeline/src/features/recommender.py`
-- Data import paths: `backend/app/import_data.py`, `backend/app/import_pax_data.py`
+- Data import paths: `backend/app/import_data.py`, `backend/app/import_library_data.py`
 - Deploy/validation scripts: `scripts/deploy/`, `scripts/validate/`
 - DB models and API schemas: `backend/app/models.py`, `backend/app/schemas.py`
 
