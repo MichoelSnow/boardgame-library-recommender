@@ -56,6 +56,9 @@ extend-exclude = ["data_pipeline/notebooks"]
 select = ["E", "F"]
 ignore = ["E501"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
