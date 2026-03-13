@@ -143,7 +143,9 @@ def collect_candidates(
     library_ids = {
         row[0]
         for row in db.execute(
-            select(models.LibraryGame.bgg_id).where(models.LibraryGame.bgg_id.isnot(None))
+            select(models.LibraryGame.bgg_id).where(
+                models.LibraryGame.bgg_id.isnot(None)
+            )
         ).all()
         if row[0] is not None
     }

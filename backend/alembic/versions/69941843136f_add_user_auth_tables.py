@@ -123,7 +123,9 @@ def downgrade() -> None:
         ["game_id"],
         unique=False,
     )
-    op.create_index(op.f("idx_library_games_bgg_id"), "library_games", ["bgg_id"], unique=False)
+    op.create_index(
+        op.f("idx_library_games_bgg_id"), "library_games", ["bgg_id"], unique=False
+    )
     op.create_index(
         op.f("idx_mechanics_game_id"), "mechanics", ["game_id"], unique=False
     )

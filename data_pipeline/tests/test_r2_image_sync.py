@@ -37,25 +37,53 @@ def test_parse_id_list_handles_empty_and_whitespace():
 def test_qualifies_for_sync_scopes():
     library_ids = {10}
     assert qualifies_for_sync(
-        game_id=10, game_rank=None, library_ids=library_ids, max_rank=100, scope="library-only"
+        game_id=10,
+        game_rank=None,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="library-only",
     )
     assert not qualifies_for_sync(
-        game_id=11, game_rank=200, library_ids=library_ids, max_rank=100, scope="library-only"
+        game_id=11,
+        game_rank=200,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="library-only",
     )
     assert qualifies_for_sync(
-        game_id=11, game_rank=99, library_ids=library_ids, max_rank=100, scope="top-rank-only"
+        game_id=11,
+        game_rank=99,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="top-rank-only",
     )
     assert not qualifies_for_sync(
-        game_id=11, game_rank=101, library_ids=library_ids, max_rank=100, scope="top-rank-only"
+        game_id=11,
+        game_rank=101,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="top-rank-only",
     )
     assert qualifies_for_sync(
-        game_id=10, game_rank=500, library_ids=library_ids, max_rank=100, scope="all-qualified"
+        game_id=10,
+        game_rank=500,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
     assert qualifies_for_sync(
-        game_id=11, game_rank=50, library_ids=library_ids, max_rank=100, scope="all-qualified"
+        game_id=11,
+        game_rank=50,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
     assert not qualifies_for_sync(
-        game_id=12, game_rank=500, library_ids=library_ids, max_rank=100, scope="all-qualified"
+        game_id=12,
+        game_rank=500,
+        library_ids=library_ids,
+        max_rank=100,
+        scope="all-qualified",
     )
 
 

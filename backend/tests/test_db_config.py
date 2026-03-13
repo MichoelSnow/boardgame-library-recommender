@@ -52,7 +52,9 @@ def test_get_engine_kwargs_sets_sqlite_connect_args():
 
 
 def test_get_engine_kwargs_omits_sqlite_connect_args_for_postgres():
-    result = db_config.get_engine_kwargs("postgresql://user:pass@localhost:5432/library")
+    result = db_config.get_engine_kwargs(
+        "postgresql://user:pass@localhost:5432/library"
+    )
 
     assert "connect_args" not in result
     assert result["pool_pre_ping"] is True

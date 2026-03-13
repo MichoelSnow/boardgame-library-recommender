@@ -138,7 +138,8 @@ def process_library_game_batch(games_batch: pd.DataFrame, db: Session) -> None:
     try:
         # Create all Library game records
         library_games = [
-            create_library_game_record(game_data) for _, game_data in games_batch.iterrows()
+            create_library_game_record(game_data)
+            for _, game_data in games_batch.iterrows()
         ]
         db.bulk_save_objects(library_games)
         db.commit()
@@ -178,7 +179,9 @@ def import_library_data(data_dir: str, delete_existing: bool = False) -> None:
     # Read the Library data
     try:
         library_games_df = pd.read_csv(latest_file, sep="|", escapechar="\\")
-        logger.info(f"Successfully loaded Library data for {len(library_games_df)} games")
+        logger.info(
+            f"Successfully loaded Library data for {len(library_games_df)} games"
+        )
     except Exception as e:
         logger.error(f"Error reading Library data file: {str(e)}")
         raise

@@ -123,7 +123,9 @@ def _run_game_data_ingest(
     data_dir.mkdir(parents=True, exist_ok=True)
 
     filename_prefix = "boardgame_simple_data" if simple_mode else "boardgame_data"
-    save_path = existing_store_path or data_dir / f"{filename_prefix}_{query_time}.duckdb"
+    save_path = (
+        existing_store_path or data_dir / f"{filename_prefix}_{query_time}.duckdb"
+    )
     conn = duckdb.connect(str(save_path))
     _initialize_game_data_store(conn)
     _seed_store_from_dataframe(conn, boardgame_data)
@@ -137,7 +139,9 @@ def _run_game_data_ingest(
         ]
         logger.info("Found %d new boardgames to process", len(boardgame_ids))
 
-        total_batches = math.ceil(len(boardgame_ids) / batch_size) if boardgame_ids else 0
+        total_batches = (
+            math.ceil(len(boardgame_ids) / batch_size) if boardgame_ids else 0
+        )
         for batch_num in range(total_batches):
             logger.info("Processing batch %d of %d", batch_num + 1, total_batches)
             batch_ids = boardgame_ids[
@@ -165,7 +169,7 @@ def _run_game_data_ingest(
             )
             if len(games_xml_list) == 0:
                 raise RuntimeError(
-                    "BGG API returned zero items for batch URL: " f"{bg_info_url}"
+                    f"BGG API returned zero items for batch URL: {bg_info_url}"
                 )
 
             batch_game_dicts = []
@@ -176,7 +180,9 @@ def _run_game_data_ingest(
                     game_dict = extract_poll_player_count(
                         game_dict=game_dict, game_xml=game_xml
                     )
-                    game_dict = extract_version_info(game_dict=game_dict, game_xml=game_xml)
+                    game_dict = extract_version_info(
+                        game_dict=game_dict, game_xml=game_xml
+                    )
                 batch_game_dicts.append(game_dict)
 
             _upsert_game_batch(conn, batch_game_dicts)

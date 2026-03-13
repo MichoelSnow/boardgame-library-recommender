@@ -115,7 +115,12 @@ async def test_multi_recommendations_empty_result(monkeypatch, api_client):
 
     response = await api_client.post(
         "/api/recommendations",
-        json={"liked_games": [1], "disliked_games": [], "limit": 5, "library_only": False},
+        json={
+            "liked_games": [1],
+            "disliked_games": [],
+            "limit": 5,
+            "library_only": False,
+        },
     )
 
     assert response.status_code == 200

@@ -7,6 +7,7 @@
     "axios",
     "css-minimizer-webpack-plugin",
     "css-select",
+    "flatted",
     "form-data",
     "glob",
     "jsonpath",

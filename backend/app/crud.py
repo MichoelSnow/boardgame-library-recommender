@@ -540,12 +540,18 @@ def get_library_games(
 
 def get_library_game(db: Session, library_game_id: int):
     """Get a specific Library game by ID."""
-    return db.query(models.LibraryGame).filter(models.LibraryGame.id == library_game_id).first()
+    return (
+        db.query(models.LibraryGame)
+        .filter(models.LibraryGame.id == library_game_id)
+        .first()
+    )
 
 
 def get_library_game_by_bgg_id(db: Session, bgg_id: int):
     """Get Library game by BGG ID."""
-    return db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id == bgg_id).first()
+    return (
+        db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id == bgg_id).first()
+    )
 
 
 def create_library_game(db: Session, library_game: schemas.LibraryGameCreate):
@@ -571,7 +577,9 @@ def get_library_games_by_convention(
     return query.all()
 
 
-def get_library_games_with_board_game_links(db: Session, skip: int = 0, limit: int = 100):
+def get_library_games_with_board_game_links(
+    db: Session, skip: int = 0, limit: int = 100
+):
     """Get Library games that have links to BoardGame records."""
     query = db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id.isnot(None))
 

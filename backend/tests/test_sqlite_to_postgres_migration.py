@@ -67,7 +67,9 @@ def test_normalize_row_for_target_converts_legacy_zero_bgg_id_to_null():
     row = {"id": 1, "bgg_id": 0, "name": "Example"}
     anomaly_counts: dict[str, int] = {}
 
-    result = normalize_row_for_target("library_games", row, anomaly_counts=anomaly_counts)
+    result = normalize_row_for_target(
+        "library_games", row, anomaly_counts=anomaly_counts
+    )
 
     assert result["bgg_id"] is None
     assert row["bgg_id"] == 0

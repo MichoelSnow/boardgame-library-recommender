@@ -1139,7 +1139,9 @@ def read_categories(db: Session = Depends(get_db)):
 async def get_library_game_ids(db: Session = Depends(get_db)):
     """Return a list of all Library game BGG IDs (integers)."""
     library_ids = (
-        db.query(models.LibraryGame.bgg_id).filter(models.LibraryGame.bgg_id.isnot(None)).all()
+        db.query(models.LibraryGame.bgg_id)
+        .filter(models.LibraryGame.bgg_id.isnot(None))
+        .all()
     )
     # library_ids is a list of tuples, extract the first element from each
     return [pid[0] for pid in library_ids if pid[0] is not None]
