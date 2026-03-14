@@ -47,7 +47,6 @@
 - [x] [P0] Wire import/update flows to trigger image-sync checks.
 - [x] [P0] Cut `dev` over to Fly-local image delivery and validate.
 - [ ] [P0] Cut `prod` over to Fly-local image delivery and validate (post-merge promotion only).
-- [ ] [P1] (Backup path) Validate Cloudflare R2 fallback path after primary Fly-local cutover is stable.
 - [ ] [P1] Confirm placeholder behavior is clean for missing images.
 - [x] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.

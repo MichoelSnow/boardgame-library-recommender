@@ -19,24 +19,39 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def table_exists(table_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return table_name in set(inspector.get_table_names())
+
+
+def index_exists(table_name: str, index_name: str) -> bool:
+    if not table_exists(table_name):
+        return False
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return index_name in {index["name"] for index in inspector.get_indexes(table_name)}
+
+
 def upgrade() -> None:
     """Upgrade schema."""
-    # Create user_suggestions table
-    op.create_table(
-        "user_suggestions",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
-        sa.Column("comment", sa.String(), nullable=False),
-        sa.Column("timestamp", sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["user_id"],
-            ["users.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
-        op.f("ix_user_suggestions_id"), "user_suggestions", ["id"], unique=False
-    )
+    if not table_exists("user_suggestions"):
+        op.create_table(
+            "user_suggestions",
+            sa.Column("id", sa.Integer(), nullable=False),
+            sa.Column("user_id", sa.Integer(), nullable=False),
+            sa.Column("comment", sa.String(), nullable=False),
+            sa.Column("timestamp", sa.DateTime(), nullable=True),
+            sa.ForeignKeyConstraint(
+                ["user_id"],
+                ["users.id"],
+            ),
+            sa.PrimaryKeyConstraint("id"),
+        )
+    if not index_exists("user_suggestions", op.f("ix_user_suggestions_id")):
+        op.create_index(
+            op.f("ix_user_suggestions_id"), "user_suggestions", ["id"], unique=False
+        )
 
 
 def downgrade() -> None:

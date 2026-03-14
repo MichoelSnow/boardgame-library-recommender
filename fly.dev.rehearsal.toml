@@ -4,7 +4,7 @@ app = 'bg-lib-app-dev'
 primary_region = 'iad'
 
 [env]
-  DATABASE_PATH = "/data/boardgames.db"
+  NODE_ENV = "production"
   RUNTIME_PROFILE = "rehearsal"
   APP_SERVER = "gunicorn"
   GUNICORN_WORKERS = "3"

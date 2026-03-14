@@ -44,7 +44,7 @@ function Navbar() {
           component="div"
           sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}
         >
-          Library Tabletop Board Game Catalog
+          Board Game Library & Recommendation Engine
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>

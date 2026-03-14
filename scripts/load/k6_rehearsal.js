@@ -2,7 +2,11 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 import { Rate, Trend } from "k6/metrics";
 
-const BASE_URL = __ENV.BASE_URL || "https://bg-lib-app-dev.fly.dev";
+if (!__ENV.BASE_URL && !__ENV.FLY_APP_NAME_DEV) {
+  throw new Error("Set BASE_URL or FLY_APP_NAME_DEV before running k6.");
+}
+
+const BASE_URL = __ENV.BASE_URL || `https://${__ENV.FLY_APP_NAME_DEV}.fly.dev`;
 const THINK_TIME_SECONDS = Number(__ENV.THINK_TIME_SECONDS || "0.3");
 const RECOMMENDATION_LIMIT = Number(__ENV.RECOMMENDATION_LIMIT || "5");
 const LIBRARY_ONLY = (__ENV.LIBRARY_ONLY || "true").toLowerCase() === "true";

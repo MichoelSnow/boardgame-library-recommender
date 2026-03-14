@@ -70,6 +70,8 @@ poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-
 
 poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/bg-lib-dev-backup.sql
 poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-lib-prod-backup.sql --restore-db bg_lib_recommender_restore_test
+poetry run python scripts/db/transform_canonical_schema.py --input .tmp/canonical_prod_schema.sql --output .tmp/canonical_repo_schema.sql
+poetry run python scripts/db/bootstrap_fly_postgres_baseline.py --env dev --schema-file .tmp/canonical_repo_schema.sql --reset-db
 ```
 
 ### 7) Run Focused Validation Components
@@ -101,7 +103,7 @@ poetry run python scripts/users/create_smoke_test_user.py --env prod
 poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --library-only true
 
 k6 run \
-  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
   -e GAME_IDS="<csv>" \
   -e VUS="10" \
   -e DURATION="3m" \

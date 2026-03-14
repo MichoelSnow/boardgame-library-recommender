@@ -2,6 +2,10 @@
 
 This repo organizes docs by lifecycle and audience.
 
+- `installation/`
+  - First-time setup and deployment guides.
+  - Use this first when bringing up a new local or Fly environment.
+  - Includes `migration.md` for environment-to-environment transfer workflows.
 - `core/`
   - Evergreen human-readable docs that should remain stable over time.
   - Operational and engineering references you expect to keep long-term.

@@ -41,15 +41,10 @@
 - Cache-fill behavior:
   - `/api/images/{game_id}/cached?image_url=<origin-url>` can fill missing originals and generate thumbnail sidecar
 
-## Backup Architecture (Retained, Not Primary)
-- Cloudflare R2 path remains available as backup/rollback support only.
-- It is not the first-line runtime path.
-
 ## Design Decisions
 - Keep stable keying by BGG ID (`games/<bgg_id>.<ext>`).
 - Keep thumbnails as a sidecar (`thumbnails/<bgg_id>.webp`) while retaining originals.
 - Prefer Fly-local serving for primary runtime simplicity/perf.
-- Preserve R2 tooling as a contingency path.
 
 ## Migration Sequence (Primary Path)
 1. Implement and validate Fly-local image serving in `dev`.
@@ -59,7 +54,7 @@
 5. Deploy `main` to `prod`.
 6. Seed `prod` image volume (BGG-origin sync).
 7. Run production validation.
-8. Keep R2 path available only as backup.
+8. Keep BGG -> Fly reseed commands documented for operational fallback.
 
 ## Validation Criteria
 - Catalog cards load via thumbnail path without broken-image icons.

@@ -17,10 +17,11 @@ build_default_output_path = MODULE.build_default_output_path
 build_pg_dump_command = MODULE.build_pg_dump_command
 
 
-def test_build_pg_dump_command_for_dev():
+def test_build_pg_dump_command_for_dev(monkeypatch):
+    monkeypatch.setenv("FLY_DB_APP_NAME_DEV", "test-db-dev")
     command = build_pg_dump_command("dev", "bg_lib_app", "bg_lib_recommender")
 
-    assert command[:5] == ["fly", "ssh", "console", "-a", "bg-lib-db-dev"]
+    assert command[:5] == ["fly", "ssh", "console", "-a", "test-db-dev"]
     assert command[5] == "-C"
     assert "pg_dump -U bg_lib_app -d bg_lib_recommender" in command[6]
     assert "--clean --if-exists --no-owner --no-privileges" in command[6]

@@ -35,9 +35,6 @@
 - `CONVENTION_KIOSK_KEY`
   - Kiosk enrollment secret.
   - Rotate before convention events and on incident.
-- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
-  - Image storage access.
-  - Rotate every 6 months.
 - Optional operational secrets in scripts/workflows:
   - `SMOKE_TEST_PASSWORD_DEV`, `SMOKE_TEST_PASSWORD_PROD`
   - `ADMIN_PASSWORD`
@@ -84,11 +81,11 @@
    ```bash
    fly secrets set -a bg-lib-app-dev SECRET_KEY="<new-secret>"
    ```
-   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`, `R2_*`).
+   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`).
 3. Validate `dev`:
    - `/api/version` responds
    - auth works (`/api/token` + `/api/users/me/`)
-   - image paths work if rotating `R2_*`
+   - image paths still resolve after deploy
 4. Set the same rotation in `prod`:
    ```bash
    fly secrets set -a bg-lib-app SECRET_KEY="<new-secret>"
@@ -101,7 +98,7 @@
 3. Validate local auth/login and any affected script paths.
 
 ## Minimal-Maintenance Rotation Checklist
-1. Rotate `SECRET_KEY`, `FLY_API_TOKEN`, and `R2_SECRET_ACCESS_KEY` every 6 months.
+1. Rotate `SECRET_KEY` and `FLY_API_TOKEN` every 6 months.
 2. Rotate `CONVENTION_KIOSK_KEY` before each convention period.
 3. Rotate everything immediately on exposure/suspected compromise.
 4. Keep one short log entry per rotation event (date + keys + verification result).

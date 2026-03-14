@@ -13,6 +13,7 @@ scripts/deploy/fly_deploy.sh prod
 - Requirements:
   - `fly` CLI authenticated
   - `git` available
+  - `.env` with `FLY_APP_NAME_DEV` / `FLY_APP_NAME_PROD`
 
 ## `fly_stack.sh`
 - What it does:
@@ -31,6 +32,36 @@ scripts/deploy/fly_stack.sh dev status
 - Requirements:
   - `fly` CLI authenticated
   - `jq` installed
+  - `.env` with `FLY_APP_NAME_*` and `FLY_DB_APP_NAME_*`
+
+## `generate_env_secrets.sh`
+- What it does:
+  - Generates strong random secrets and writes deployment/local env keys to `.env` (or provided env-file path).
+  - Sets non-secret deployment defaults (DB/user/ports/Fly app-name scaffolding) with consistent naming.
+  - Replaces managed keys atomically to avoid duplicate stale entries.
+  - Rewrites deploy target app names in:
+    - `fly.dev.toml`
+    - `fly.toml`
+    - `fly.db.dev.toml`
+    - `fly.db.prod.toml`
+    - `.github/workflows/fly-deploy.yml`
+    - `.github/workflows/fly-deploy-prod.yml`
+  - Enforces `chmod 600` on the target env file.
+- When to use:
+  - First-time setup before local/Fly deployment.
+  - Credential rotation for local deployment env files.
+- How to use:
+```bash
+bash scripts/deploy/generate_env_secrets.sh .env
+```
+- Optional custom Fly app-name prefix:
+```bash
+bash scripts/deploy/generate_env_secrets.sh .env my-unique-prefix
+```
+or:
+```bash
+APP_PREFIX=my-unique-prefix bash scripts/deploy/generate_env_secrets.sh .env
+```
 
 ## `prepare_fly_rollback.py`
 - What it does:

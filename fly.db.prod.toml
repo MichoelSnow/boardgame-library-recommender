@@ -1,6 +1,6 @@
 # fly.db.prod.toml app configuration file for bg-lib-db-prod
 
-app = "bg-lib-db-prod"
+app = 'bg-lib-db'
 primary_region = "iad"
 
 [build]

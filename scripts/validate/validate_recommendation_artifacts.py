@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime, timezone
 import logging
+import os
 import subprocess
 import sys
 from pathlib import PurePosixPath
@@ -12,10 +13,17 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
-APP_NAMES = {
-    "dev": "bg-lib-app-dev",
-    "prod": "bg-lib-app",
-}
+SUPPORTED_ENVS = ("dev", "prod")
+
+
+def get_app_name(environment: str) -> str:
+    env_var = f"FLY_APP_NAME_{environment.upper()}"
+    app_name = os.getenv(env_var, "").strip()
+    if not app_name:
+        raise RuntimeError(
+            f"Missing required env var {env_var} for environment '{environment}'."
+        )
+    return app_name
 
 
 def run_fly_ls(app_name: str) -> list[str]:
@@ -70,7 +78,7 @@ def format_timestamp(timestamp: str) -> str:
 
 
 def validate_artifacts(environment: str) -> int:
-    app_name = APP_NAMES[environment]
+    app_name = get_app_name(environment)
     paths = run_fly_ls(app_name)
 
     embedding_paths = sorted(
@@ -136,7 +144,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--env",
-        choices=sorted(APP_NAMES.keys()),
+        choices=sorted(SUPPORTED_ENVS),
         required=True,
         help="Target Fly environment to validate.",
     )

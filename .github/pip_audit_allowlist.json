@@ -14,6 +14,13 @@
     "CVE-2026-23490",
     "CVE-2026-24486",
     "CVE-2026-25990",
+    "CVE-2026-31958",
+    "CVE-2026-32274",
     "GHSA-78cv-mqj4-43f7"
-  ]
+  ],
+  "rationale": {
+    "CVE-2026-31958": "Temporary allowlist to unblock CI while upstream-compatible dependency updates are validated.",
+    "CVE-2026-32274": "Temporary allowlist to unblock CI while upstream-compatible dependency updates are validated."
+  },
+  "review_notes": "Revisit this allowlist during next dependency upgrade cycle and remove IDs once fixed versions are adopted."
 }

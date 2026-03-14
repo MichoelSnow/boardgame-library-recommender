@@ -9,6 +9,7 @@
 - `flyctl` authenticated.
 - Required secrets configured for target app.
 - Run DB migration on deploy before considering release valid.
+- Load `.env` so `FLY_*` app-name variables are available for commands that reference them.
 
 ## Standard Dev Flow After Merge to Main
 1. Ensure stack is running: 
@@ -17,7 +18,7 @@ scripts/deploy/fly_stack.sh dev up
 ```
 2. Migrate:
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 3. Validate:
 ```bash
@@ -35,7 +36,7 @@ scripts/deploy/fly_deploy.sh dev
 ```
 3. Migrate:
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 4. Validate:
 ```bash
@@ -55,7 +56,7 @@ scripts/deploy/fly_stack.sh prod up
 ```
 4. Migrate:
 ```bash
-fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a "${FLY_APP_NAME_PROD}" -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 5. Validate:
 ```bash
@@ -69,7 +70,7 @@ poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
 ```
 2. Roll back release:
 ```bash
-fly releases rollback <RELEASE_VERSION> -a bg-lib-app
+fly releases rollback <RELEASE_VERSION> -a "${FLY_APP_NAME_PROD}"
 ```
 3. Re-run smoke/validation checks.
 

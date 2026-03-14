@@ -11,9 +11,12 @@ if str(SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_ROOT))
 
 try:
-    from fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
+    from fly_postgres_common import DB_APP_ENV_VAR_BY_ENV, build_ssh_console_command
 except ModuleNotFoundError:
-    from scripts.fly_postgres_common import DB_APP_BY_ENV, build_ssh_console_command
+    from scripts.fly_postgres_common import (
+        DB_APP_ENV_VAR_BY_ENV,
+        build_ssh_console_command,
+    )
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +62,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--env",
         required=True,
-        choices=sorted(DB_APP_BY_ENV.keys()),
+        choices=sorted(DB_APP_ENV_VAR_BY_ENV.keys()),
         help="Target Fly database environment.",
     )
     parser.add_argument(

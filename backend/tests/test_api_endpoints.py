@@ -211,3 +211,10 @@ async def test_openapi_contract_contains_core_paths(api_client):
     assert "/api/games/" in schema["paths"]
     assert "/api/recommendations" in schema["paths"]
     assert "/api/token" in schema["paths"]
+
+
+@pytest.mark.anyio
+async def test_spa_login_route_refresh_serves_index_html(api_client):
+    response = await api_client.get("/login")
+    assert response.status_code == 200
+    assert "<!doctype html>" in response.text.lower()

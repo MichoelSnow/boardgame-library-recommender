@@ -61,33 +61,18 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 200  # Number of games to process before committing
 
 
-def run_image_sync(max_rank: int, backend: str) -> bool:
+def run_image_sync(max_rank: int) -> bool:
     """Trigger optional image sync for qualifying games after import."""
-    if backend == "fly_local":
-        command = [
-            sys.executable,
-            "-m",
-            "data_pipeline.src.assets.sync_fly_images",
-            "--scope",
-            "all-qualified",
-            "--max-rank",
-            str(max_rank),
-        ]
-        log_label = "Fly-local image sync"
-    elif backend == "r2_cdn":
-        command = [
-            sys.executable,
-            "-m",
-            "data_pipeline.src.assets.sync_r2_images",
-            "--scope",
-            "all-qualified",
-            "--max-rank",
-            str(max_rank),
-        ]
-        log_label = "R2 image sync"
-    else:
-        logger.error("Unsupported image sync backend: %s", backend)
-        return False
+    command = [
+        sys.executable,
+        "-m",
+        "data_pipeline.src.assets.sync_fly_images",
+        "--scope",
+        "all-qualified",
+        "--max-rank",
+        str(max_rank),
+    ]
+    log_label = "Fly-local image sync"
 
     logger.info("Running %s command: %s", log_label, " ".join(command))
     import subprocess
@@ -540,17 +525,6 @@ def main():
         help="After import, run image sync for qualifying games.",
     )
     parser.add_argument(
-        "--sync-images-backend",
-        choices=["fly_local", "r2_cdn"],
-        default="fly_local",
-        help="Image sync backend (default: fly_local).",
-    )
-    parser.add_argument(
-        "--sync-images-r2",
-        action="store_true",
-        help="Deprecated alias for --sync-images --sync-images-backend r2_cdn.",
-    )
-    parser.add_argument(
         "--sync-images-max-rank",
         type=int,
         default=10000,
@@ -585,20 +559,11 @@ def main():
     # Import the data with delete_existing from command line args
     import_all_data(str(latest_dir), timestamp, delete_existing=args.delete_existing)
 
-    should_sync_images = args.sync_images or args.sync_images_r2
-    sync_backend = "r2_cdn" if args.sync_images_r2 else args.sync_images_backend
-
-    if should_sync_images:
-        if run_image_sync(max_rank=args.sync_images_max_rank, backend=sync_backend):
-            logger.info(
-                "Image sync completed successfully after data import (backend=%s).",
-                sync_backend,
-            )
+    if args.sync_images:
+        if run_image_sync(max_rank=args.sync_images_max_rank):
+            logger.info("Image sync completed successfully after data import.")
         else:
-            logger.error(
-                "Image sync failed after data import (backend=%s).",
-                sync_backend,
-            )
+            logger.error("Image sync failed after data import.")
 
 
 if __name__ == "__main__":

@@ -31,102 +31,17 @@ bg_lib_recommender/
 └── logs/           # Local logs and deploy trace artifacts (ignored)
 ```
 
-## Quick Start (Local)
+## Quick Start
 
-### 1) Install dependencies
+For first-time setup and deployment, use the installation guide:
 
-```bash
-poetry install
-cd frontend && npm ci
-```
+- [docs/installation/deployment.md](docs/installation/deployment.md)
 
-### 2) Configure environment (`.env` in repo root)
+This covers:
 
-At minimum:
-
-```env
-SECRET_KEY=<32+ char secret>
-DATABASE_PATH=backend/database/boardgames.db
-```
-
-### 3) Download/process BGG data and seed local DB
-
-The app is not useful until data has been ingested and imported.
-
-```bash
-poetry run python -m data_pipeline.src.ingest.get_ranks
-poetry run python -m data_pipeline.src.ingest.get_game_data
-poetry run python -m data_pipeline.src.ingest.get_ratings
-poetry run python -m data_pipeline.src.transform.data_processor
-poetry run python -m data_pipeline.src.features.create_embeddings
-poetry run python backend/app/import_data.py
-```
-
-Optional library list import:
-
-```bash
-poetry run python backend/app/import_library_data.py
-```
-
-If you prefer hosted environments, use the repository workflows/scripts documented under `scripts/` and `docs/core`.
-
-### 4) Create your first user (admin)
-
-```bash
-printf '%s' '<strong-password>' | poetry run python backend/app/main.py --username <admin-username> --password-stdin --admin
-```
-
-### 5) Run backend
-
-```bash
-poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-`backend.app.runtime_profile --serve` is intended for runtime-profile/server-mode bootstrapping and currently defaults to port `8080`.
-
-### 6) Run frontend
-
-```bash
-cd frontend
-npm start
-```
-
-## Common Workflows
-
-### Data pipeline
-
-Run stage modules (details in data pipeline README):
-
-```bash
-poetry run python -m data_pipeline.src.ingest.get_ranks
-poetry run python -m data_pipeline.src.ingest.get_game_data
-poetry run python -m data_pipeline.src.ingest.get_ratings
-poetry run python -m data_pipeline.src.transform.data_processor
-poetry run python -m data_pipeline.src.features.create_embeddings
-```
-
-### Dev/Prod stack orchestration
-
-```bash
-scripts/deploy/fly_stack.sh dev up
-scripts/deploy/fly_stack.sh dev down
-scripts/deploy/fly_stack.sh prod up
-scripts/deploy/fly_stack.sh prod down
-```
-
-### Validation
-
-```bash
-poetry run python scripts/validate/validate_dev_deploy.py
-poetry run python scripts/validate/validate_prod_release.py
-```
-
-Notebook hygiene checks:
-
-```bash
-python scripts/validate/validate_notebook_outputs.py
-python scripts/validate/validate_notebook_secrets.py
-```
+- clone -> local SQLite
+- clone -> local Postgres
+- clone -> Fly.io Postgres from scratch
 
 ## Architecture Overview
 
@@ -171,6 +86,7 @@ For detailed architecture and policy docs, use the docs index:
   - [docs/active/backlog.md](docs/active/backlog.md)
 - Core docs:
   - [docs/core/README.md](docs/core/README.md)
+  - [docs/installation/deployment.md](docs/installation/deployment.md)
   - [docs/core/architecture.md](docs/core/architecture.md)
   - [docs/core/runbook.md](docs/core/runbook.md)
   - [docs/core/security.md](docs/core/security.md)

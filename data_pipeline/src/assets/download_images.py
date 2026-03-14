@@ -7,18 +7,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import argparse
 import time
-from typing import Optional
 
 try:
     from ..common.logging_utils import build_log_handlers
-    from .r2_sync import R2ImageSyncer, build_r2_image_key, download_image_content
+    from .sync_fly_images import download_image_content
 except ImportError:
     from data_pipeline.src.common.logging_utils import build_log_handlers
-    from data_pipeline.src.assets.r2_sync import (
-        R2ImageSyncer,
-        build_r2_image_key,
-        download_image_content,
-    )
+    from data_pipeline.src.assets.sync_fly_images import download_image_content
 
 # Configure logging
 logging.basicConfig(
@@ -58,10 +53,7 @@ def download_image(
     url,
     filename,
     *,
-    game_id: Optional[int] = None,
     overwrite=False,
-    syncer: Optional[R2ImageSyncer] = None,
-    r2_overwrite_existing: bool = False,
 ):
     """Download a single image."""
     if not url:
@@ -79,16 +71,6 @@ def download_image(
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        if syncer is not None and game_id:
-            key = build_r2_image_key(game_id, image_url=url, content_type=content_type)
-            if not r2_overwrite_existing and syncer.object_exists(key):
-                logger.debug(
-                    "R2 object already exists for game_id=%s key=%s", game_id, key
-                )
-            else:
-                syncer.upload_bytes(
-                    key=key, content=image_bytes, content_type=content_type
-                )
         return True
     except Exception as e:
         logger.error(f"Error downloading {url}: {str(e)}")
@@ -99,8 +81,6 @@ def process_games_data(
     overwrite=False,
     exclude_expansions=False,
     max_rank=5000,
-    sync_r2=False,
-    r2_overwrite_existing=False,
 ):
     """Process the most recent games data file and download images."""
     # Find the most recent processed games file
@@ -133,12 +113,7 @@ def process_games_data(
             if filepath.exists() and not overwrite:
                 skipped_count += 1
                 continue
-            game_id = None
-            try:
-                game_id = int(row["id"])
-            except Exception:
-                game_id = None
-            download_tasks.append((row["image"], filename, game_id))
+            download_tasks.append((row["image"], filename))
 
     if skipped_count > 0:
         logger.info(f"Skipping {skipped_count} existing images")
@@ -151,8 +126,6 @@ def process_games_data(
     BATCH_SIZE = 10
     successful_downloads = 0
 
-    syncer = R2ImageSyncer.from_env() if sync_r2 else None
-
     for i in range(0, len(download_tasks), BATCH_SIZE):
         batch = download_tasks[i : i + BATCH_SIZE]
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -161,12 +134,9 @@ def process_games_data(
                     download_image,
                     url,
                     filename,
-                    game_id=game_id,
                     overwrite=overwrite,
-                    syncer=syncer,
-                    r2_overwrite_existing=r2_overwrite_existing,
                 )
-                for url, filename, game_id in batch
+                for url, filename in batch
             ]
 
             for future in tqdm(
@@ -204,16 +174,6 @@ def main():
         default=5000,
         help="Maximum rank to download images for (default: 5000)",
     )
-    parser.add_argument(
-        "--sync-r2",
-        action="store_true",
-        help="Upload downloaded images to Cloudflare R2 using canonical games/<bgg_id>.<ext> keys.",
-    )
-    parser.add_argument(
-        "--r2-overwrite-existing",
-        action="store_true",
-        help="Overwrite existing R2 objects when --sync-r2 is enabled.",
-    )
     args = parser.parse_args()
 
     try:
@@ -222,8 +182,6 @@ def main():
             overwrite=args.overwrite_existing,
             exclude_expansions=args.exclude_expansions,
             max_rank=args.max_rank,
-            sync_r2=args.sync_r2,
-            r2_overwrite_existing=args.r2_overwrite_existing,
         )
     except Exception as e:
         logger.error(f"Error in main: {str(e)}")

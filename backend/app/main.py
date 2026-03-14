@@ -11,6 +11,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.responses import (
     JSONResponse,
     StreamingResponse,
@@ -75,9 +76,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
-
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 # Define images directory (local default, Fly override via IMAGE_STORAGE_DIR)
@@ -94,6 +92,29 @@ app = FastAPI(
     description="API for board game recommendations and filtering",
     version=get_app_version(),
 )
+
+
+class SPAStaticFiles(StaticFiles):
+    """Serve index.html for client-side routes while preserving API 404 behavior."""
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404:
+                raise
+
+            request_path = scope.get("path", "")
+            is_api_or_system_path = request_path.startswith(
+                ("/api", "/health", "/openapi", "/docs", "/redoc")
+            )
+            has_file_extension = "." in Path(request_path).name
+
+            if is_api_or_system_path or has_file_extension:
+                raise
+
+            return await super().get_response("index.html", scope)
+
 
 GameSortField = Literal[
     "rank",
@@ -402,11 +423,14 @@ def get_cors_origins() -> List[str]:
     if env_value.strip():
         origins = [origin.strip() for origin in env_value.split(",") if origin.strip()]
     elif node_env == "production":
+        prod_app_name = os.getenv("FLY_APP_NAME_PROD", "").strip()
+        dev_app_name = os.getenv("FLY_APP_NAME_DEV", "").strip()
         # Production defaults to explicit origins only (no wildcard).
-        origins = [
-            "https://bg-lib-app.fly.dev",
-            "https://bg-lib-app-dev.fly.dev",
-        ]
+        origins = []
+        if prod_app_name:
+            origins.append(f"https://{prod_app_name}.fly.dev")
+        if dev_app_name:
+            origins.append(f"https://{dev_app_name}.fly.dev")
     else:
         origins = [
             "http://localhost:3000",
@@ -536,11 +560,6 @@ async def run_with_timeout(func, *args, timeout_seconds=25, **kwargs):
     except Exception as e:
         logger.error(f"Database operation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database error")
-
-
-def get_r2_public_base_url() -> str | None:
-    """Return configured public CDN base URL for image delivery, if present."""
-    return os.getenv("R2_PUBLIC_BASE_URL", "").strip().rstrip("/") or None
 
 
 def infer_extension_from_content_type(content_type: str | None) -> str | None:
@@ -854,7 +873,6 @@ async def get_cached_image(
     Resolve an image by game ID using the configured backend.
 
     - `fly_local`: redirect to mounted local files and cache-fill from origin on misses.
-    - `r2_cdn`: redirect to configured public CDN key path.
     - fallback/unknown: proxy origin image.
     """
     resolved_image_url = (image_url or "").strip()
@@ -911,17 +929,6 @@ async def get_cached_image(
             )
             return RedirectResponse(
                 url=f"/api/proxy-image/{quote(resolved_image_url, safe='')}",
-                status_code=status.HTTP_307_TEMPORARY_REDIRECT,
-            )
-
-    if image_backend == "r2_cdn":
-        r2_public_base_url = get_r2_public_base_url()
-        if r2_public_base_url:
-            key = build_image_storage_relative_path(
-                game_id, image_url=resolved_image_url
-            )
-            return RedirectResponse(
-                url=f"{r2_public_base_url}/{key}",
                 status_code=status.HTTP_307_TEMPORARY_REDIRECT,
             )
 
@@ -1340,7 +1347,9 @@ def create_suggestion(
 # Serve static frontend files
 if os.path.exists(STATIC_DIR):
     logger.info(f"Mounting React frontend from {STATIC_DIR}")
-    app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="frontend")
+    app.mount(
+        "/", SPAStaticFiles(directory=str(STATIC_DIR), html=True), name="frontend"
+    )
 else:
     logger.warning(f"Frontend build directory not found at {STATIC_DIR}")
 
