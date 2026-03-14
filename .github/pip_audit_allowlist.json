@@ -1,9 +1,11 @@
 {
   "allowed_vulnerability_ids": [
-    "CVE-2024-23342"
+    "CVE-2024-23342",
+    "GHSA-wj6h-64fc-37mp"
   ],
   "rationale": {
-    "CVE-2024-23342": "Transitive advisory via python-jose -> ecdsa with no currently adopted fix path in this repo; tracked for periodic re-evaluation."
+    "CVE-2024-23342": "Transitive advisory via python-jose -> ecdsa with no currently adopted fix path in this repo; tracked for periodic re-evaluation.",
+    "GHSA-wj6h-64fc-37mp": "Equivalent advisory alias for the same unresolved python-jose -> ecdsa issue; allowlisted to avoid ID-format drift breaking CI."
   },
   "review_notes": "Allowlist contains only currently observed unresolved advisories. Revisit each dependency upgrade cycle and remove when a validated fix lands."
 }
