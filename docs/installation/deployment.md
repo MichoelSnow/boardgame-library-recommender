@@ -15,11 +15,22 @@ This guide intentionally gets you to an **empty but working app**. Data ingest/i
 Install required tools:
 
 - `git`
-- `python` 3.10
+- `pyenv` (recommended) and `python` 3.13
 - `poetry`
 - `node` + `npm`
 - `flyctl` (for Fly.io mode)
 - `psql` client (recommended for DB checks)
+
+Recommended `pyenv` setup for multi-version testing:
+
+```bash
+pyenv install -s 3.13.2
+pyenv local 3.13.2
+python --version
+```
+
+Expected:
+- `python --version` prints `Python 3.13.x`
 
 ## 2. Clone and Install
 
@@ -27,6 +38,7 @@ Install required tools:
 git clone <your-fork-or-repo-url>
 cd <repo-directory>
 
+poetry env use 3.13
 poetry install
 cd frontend && npm ci
 cd ..
