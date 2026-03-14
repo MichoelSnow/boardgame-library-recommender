@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc curl sqlite
 COPY pyproject.toml poetry.lock ./
 
 # Install poetry and dependencies
-RUN pip install --no-cache-dir poetry && \
+RUN pip install --no-cache-dir "poetry==2.3.2" && \
     poetry config virtualenvs.create false && \
     poetry install --without dev --no-root && \
     rm -rf /root/.cache/pip

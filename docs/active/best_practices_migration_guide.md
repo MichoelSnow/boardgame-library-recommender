@@ -364,19 +364,19 @@ Related Phase 4 planning docs:
 - [x] [P0] Replace `superfly/flyctl-actions/setup-flyctl@master` with direct Flyctl install to reduce JS action runtime drift risk.
 - [x] [P1] Add explicit migration gate commands for Python/frontend audit baseline checks.
 - [x] [P1] Require Dependabot alert/PR triage before environment promotion.
-- [ ] [P1] Upgrade project tooling to Poetry `2.3.x`.
-- [ ] [P1] Update team/dev setup docs to install and use Poetry `2.3.x`.
-- [ ] [P1] Update CI and deploy workflows to use Poetry `2.3.x`.
+- [x] [P1] Upgrade project tooling to Poetry `2.3.x`.
+- [x] [P1] Update team/dev setup docs to install and use Poetry `2.3.x`.
+- [x] [P1] Update CI and deploy workflows to use Poetry `2.3.x`.
 - [x] [P1] Run dependency compatibility audit for Python `3.13`.
-- [ ] [P1] If all dependencies pass on Python `3.13`, set project target to Python `3.13`.
+- [x] [P1] If all dependencies pass on Python `3.13`, set project target to Python `3.13`.
 - [ ] [P1] If any critical dependency fails on Python `3.13`, set target to Python `3.12` and document blockers.
-- [ ] [P1] Update `pyproject.toml` Python constraint to selected target version.
-- [ ] [P1] Regenerate lockfile under the selected Python target.
-- [ ] [P1] Run full backend, frontend, and pipeline test suite on selected Python target in CI.
-- [ ] [P1] Add rollback note for toolchain migration (previous Poetry/Python baseline and restore steps).
+- [x] [P1] Update `pyproject.toml` Python constraint to selected target version.
+- [x] [P1] Regenerate lockfile under the selected Python target.
+- [x] [P1] Run full backend, frontend, and pipeline test suite on selected Python target in CI.
+- [x] [P1] Add rollback note for toolchain migration (previous Poetry/Python baseline and restore steps).
 - [x] [P1] Update setup docs with exact Poetry and Python install/verification commands.
-- [ ] [P0] Add startup config validation for required env vars and value ranges.
-- [ ] [P1] Upgrade React/testing-library stack and resolve frontend test-tooling deprecation warnings (including `act` warning paths).
+- [x] [P0] Add startup config validation for required env vars and value ranges.
+- [x] [P1] Upgrade React/testing-library stack and resolve frontend test-tooling deprecation warnings (including `act` warning paths).
 
 ### Phase 10: Observability and Operational Readiness (2-4 days)
 - [x] [P1] Add structured logs with request IDs.
