@@ -10,7 +10,10 @@ import { getMswState } from '../test/msw/state';
 describe('auth flow integration', () => {
   test('logs in and redirects to home route', async () => {
     render(
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter
+        initialEntries={['/login']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -32,18 +35,28 @@ describe('auth flow integration', () => {
   });
 
   test('shows login error for invalid credentials', async () => {
-    render(
-      <MemoryRouter initialEntries={['/login']}>
-        <AuthProvider>
-          <LoginPage />
-        </AuthProvider>
-      </MemoryRouter>
-    );
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    try {
+      render(
+        <MemoryRouter
+          initialEntries={['/login']}
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
+          <AuthProvider>
+            <LoginPage />
+          </AuthProvider>
+        </MemoryRouter>
+      );
 
-    await userEvent.type(screen.getByLabelText(/username/i), 'demo');
-    await userEvent.type(screen.getByLabelText(/password/i), 'wrong');
-    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+      await userEvent.type(screen.getByLabelText(/username/i), 'demo');
+      await userEvent.type(screen.getByLabelText(/password/i), 'wrong');
+      await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
-    expect(await screen.findByText(/failed to log in/i)).toBeInTheDocument();
+      expect(await screen.findByText(/failed to log in/i)).toBeInTheDocument();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });
