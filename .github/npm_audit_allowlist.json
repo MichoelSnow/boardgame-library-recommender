@@ -5,6 +5,7 @@
     "@svgr/webpack",
     "@tootallnate/once",
     "axios",
+    "bfj",
     "css-minimizer-webpack-plugin",
     "css-select",
     "flatted",
