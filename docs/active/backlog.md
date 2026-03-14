@@ -14,6 +14,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [ ] Add tag search (larger effort; likely requires query/index review).
 - [ ] Add optional recommendation sharing via email/SMS (requires abuse/rate-limit controls).
 - [ ] Allow multiple selection in player count.
+- [ ] When you activate recommendations it should minimize any open sorting/filtering panels.
 
 ## Admin and Operations Features
 - [ ] Build admin console for convention operations.

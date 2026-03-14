@@ -7,9 +7,7 @@ Use this file for common operational commands that are easy to forget.
 Load environment variables from local `.env`:
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 ```
 
 Fly app variable conventions used below:
