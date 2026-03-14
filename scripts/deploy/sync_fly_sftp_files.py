@@ -240,6 +240,7 @@ def stage_batch_files(
     remote_leaf: str,
     staging_root: Path,
 ) -> Path:
+    staging_root.mkdir(parents=True, exist_ok=True)
     batch_root = Path(tempfile.mkdtemp(prefix="batch_", dir=staging_root))
     staged_leaf_root = batch_root / remote_leaf
     staged_leaf_root.mkdir(parents=True, exist_ok=True)
@@ -330,6 +331,31 @@ def remove_remote_directory_if_exists(app_name: str, directory_path: str) -> Non
     )
 
 
+@retry(
+    retry=retry_if_exception_type(subprocess.CalledProcessError),
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(2),
+    reraise=True,
+)
+def clear_remote_staging_root(app_name: str, staging_root: str) -> None:
+    remote_command = "sh -lc " + shlex.quote(
+        f"mkdir -p {shlex.quote(staging_root)} "
+        f"&& find {shlex.quote(staging_root)} -mindepth 1 -maxdepth 1 -exec rm -rf -- {{}} +"
+    )
+    run_command(
+        [
+            "fly",
+            "ssh",
+            "console",
+            "-a",
+            app_name,
+            "-C",
+            remote_command,
+        ],
+        capture_output=False,
+    )
+
+
 def main() -> int:
     args = parse_args()
     configure_logging(args.verbose)
@@ -389,6 +415,8 @@ def main() -> int:
     ensure_remote_directory(args.app, remote_parent_dir)
     remote_stage_parent = "/data/.fly_sftp_sync_stage"
     ensure_remote_directory(args.app, remote_stage_parent)
+    LOGGER.info("Clearing stale remote staging dirs under %s", remote_stage_parent)
+    clear_remote_staging_root(args.app, remote_stage_parent)
 
     staging_root = Path(args.staging_dir).expanduser().resolve()
     staging_root.mkdir(parents=True, exist_ok=True)

@@ -38,8 +38,10 @@ rewrite_fly_app_name() {
     return 0
   fi
 
-  local tmp
-  tmp="$(mktemp)"
+  local dir base tmp
+  dir="$(dirname "${file_path}")"
+  base="$(basename "${file_path}")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")"
   awk -v new_app="${app_name}" '
     BEGIN { replaced=0 }
     /^app[[:space:]]*=[[:space:]]*["\x27][^"\x27]+["\x27][[:space:]]*$/ && replaced==0 {
@@ -59,8 +61,10 @@ rewrite_workflow_deploy_app_name() {
     return 0
   fi
 
-  local tmp
-  tmp="$(mktemp)"
+  local dir base tmp
+  dir="$(dirname "${file_path}")"
+  base="$(basename "${file_path}")"
+  tmp="$(mktemp "${dir}/.${base}.tmp.XXXXXX")"
   awk -v new_app="${app_name}" '
     BEGIN { replaced=0 }
     /^[[:space:]]+-a[[:space:]]+.*\\[[:space:]]*$/ && replaced==0 {
