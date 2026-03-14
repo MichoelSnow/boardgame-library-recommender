@@ -10,7 +10,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-fastapi = "^0.115.12"
+fastapi = "^0.135.1"
 sqlalchemy = "^2.0.41"
 requests = "^2.32.3"
 pandas = "^2.2.3"
