@@ -76,6 +76,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Ensure base tables exist for local/test SQLite execution paths.
+models.Base.metadata.create_all(bind=engine)
+
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 # Define images directory (local default, Fly override via IMAGE_STORAGE_DIR)

@@ -1,4 +1,4 @@
-# Library Tabletop Recommender
+# Boardgame Library Recommender
 
 ## Summary
 
