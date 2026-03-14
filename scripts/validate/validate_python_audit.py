@@ -52,14 +52,39 @@ def run_pip_audit() -> dict[str, Any]:
         ) from exc
 
 
+def extract_vuln_ids(vuln: dict[str, Any]) -> set[str]:
+    """Return normalized advisory IDs from one vulnerability record."""
+    ids: set[str] = set()
+
+    primary_id = vuln.get("id")
+    if primary_id:
+        ids.add(str(primary_id))
+
+    advisory = vuln.get("advisory")
+    if isinstance(advisory, dict):
+        advisory_id = advisory.get("id")
+        if advisory_id:
+            ids.add(str(advisory_id))
+        advisory_aliases = advisory.get("aliases", [])
+        if isinstance(advisory_aliases, list):
+            ids.update(str(alias) for alias in advisory_aliases if alias)
+    elif advisory:
+        ids.add(str(advisory))
+
+    aliases = vuln.get("aliases", [])
+    if isinstance(aliases, list):
+        ids.update(str(alias) for alias in aliases if alias)
+
+    return ids
+
+
 def extract_vulnerability_ids(audit_payload: dict[str, Any]) -> set[str]:
     dependency_records = audit_payload.get("dependencies", [])
     advisory_ids: set[str] = set()
     for dep in dependency_records:
         for vuln in dep.get("vulns", []):
-            advisory_id = vuln.get("id")
-            if advisory_id:
-                advisory_ids.add(str(advisory_id))
+            if isinstance(vuln, dict):
+                advisory_ids.update(extract_vuln_ids(vuln))
     return advisory_ids
 
 
@@ -73,9 +98,11 @@ def extract_unexpected_advisories(
         package_name = str(dep.get("name", "unknown"))
         package_version = str(dep.get("version", "unknown"))
         for vuln in dep.get("vulns", []):
-            advisory_id = str(vuln.get("id", ""))
-            if advisory_id and advisory_id not in allowed_ids:
-                rows.append((advisory_id, package_name, package_version))
+            if not isinstance(vuln, dict):
+                continue
+            for advisory_id in sorted(extract_vuln_ids(vuln)):
+                if advisory_id and advisory_id not in allowed_ids:
+                    rows.append((advisory_id, package_name, package_version))
     rows.sort(key=lambda row: (row[0], row[1], row[2]))
     return rows
 

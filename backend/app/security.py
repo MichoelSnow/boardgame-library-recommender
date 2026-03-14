@@ -34,8 +34,8 @@ def verify_password(plain_password, hashed_password):
     try:
         return pwd_context.verify(plain_password, hashed_password)
     except ValueError:
-        # bcrypt >=5 raises on passwords >72 bytes; treat as invalid credentials.
-        logger.warning("Password verification failed due to invalid password format.")
+        # Treat backend validation/parsing errors as invalid credentials.
+        logger.warning("Password verification failed: invalid format or length.")
         return False
 
 
