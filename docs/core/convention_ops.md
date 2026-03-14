@@ -105,7 +105,7 @@ Primary path:
 - Seed from BGG to Fly local image volume.
 
 Backup path:
-- R2 sync is backup-only unless operationally required.
+- Reseed from BGG origin into Fly-local image storage when needed.
 
 ## Related Operations
 For exact commands and operational sequences, use:

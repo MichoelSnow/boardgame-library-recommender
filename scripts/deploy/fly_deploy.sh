@@ -19,16 +19,34 @@ if [ $# -ne 1 ]; then
   exit 1
 fi
 
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 environment="$1"
+
+require_var() {
+  local name="$1"
+  local value="${!name:-}"
+  if [ -z "${value}" ]; then
+    echo "Error: required env var ${name} is not set."
+    exit 1
+  fi
+}
 
 case "$environment" in
   prod)
     config_file="fly.toml"
-    app_name="bg-lib-app"
+    require_var "FLY_APP_NAME_PROD"
+    app_name="${FLY_APP_NAME_PROD}"
     ;;
   dev)
     config_file="fly.dev.toml"
-    app_name="bg-lib-app-dev"
+    require_var "FLY_APP_NAME_DEV"
+    app_name="${FLY_APP_NAME_DEV}"
     ;;
   *)
     usage

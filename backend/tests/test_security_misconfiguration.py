@@ -14,10 +14,10 @@ def test_get_cors_origins_accepts_explicit_origins_in_production(monkeypatch):
     monkeypatch.setenv("NODE_ENV", "production")
     monkeypatch.setenv(
         "CORS_ALLOWED_ORIGINS",
-        "https://bg-lib-app.fly.dev,https://bg-lib-app-dev.fly.dev",
+        "https://prod.example.com,https://dev.example.com",
     )
     origins = main.get_cors_origins()
     assert origins == [
-        "https://bg-lib-app.fly.dev",
-        "https://bg-lib-app-dev.fly.dev",
+        "https://prod.example.com",
+        "https://dev.example.com",
     ]

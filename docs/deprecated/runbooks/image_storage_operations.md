@@ -121,33 +121,5 @@ fly volumes list -a bg-lib-app
 fly volumes extend <PROD_APP_VOLUME_ID> --size 10 -a bg-lib-app
 ```
 
-## 7. Backup Path (R2 CDN)
-- R2/CDN code path is retained for rollback (`IMAGE_BACKEND=r2_cdn`) but is not the primary runtime path.
-- Use BGG -> Fly-local commands in Section 4 as the first-line operational workflow.
-- Use R2 commands only when explicitly running backup/rollback image-seeding procedures.
-
-## 8. Count Objects in R2 (Backup-Only)
-
-```bash
-fly ssh console -a bg-lib-app-dev -C "python -c 'import os,boto3; from botocore.config import Config; s3=boto3.client(\"s3\", endpoint_url=os.environ[\"R2_ENDPOINT_URL\"], aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"], aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"], region_name=os.getenv(\"R2_REGION\",\"auto\"), config=Config(connect_timeout=5, read_timeout=20, retries={\"max_attempts\":3})); bucket=os.environ[\"R2_BUCKET_NAME\"]; paginator=s3.get_paginator(\"list_objects_v2\"); pages=list(paginator.paginate(Bucket=bucket, Prefix=\"games/\")); count=sum(len(p.get(\"Contents\",[])) for p in pages); print(f\"R2 objects under games/: {count} (pages={len(pages)})\")'"
-```
-
-## 9. Cloudflare/R2 Backup Commands
-
-Copy existing images from R2 to Fly volume (no local staging).
-
-Dev:
-
-```bash
-fly ssh console -a bg-lib-app-dev -C "python -c 'import os,boto3,pathlib; from botocore.config import Config; s3=boto3.client(\"s3\", endpoint_url=os.environ[\"R2_ENDPOINT_URL\"], aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"], aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"], region_name=os.getenv(\"R2_REGION\",\"auto\"), config=Config(connect_timeout=5, read_timeout=20, retries={\"max_attempts\":3})); bucket=os.environ[\"R2_BUCKET_NAME\"]; root=pathlib.Path(os.getenv(\"IMAGE_STORAGE_DIR\",\"/data/images\")); root.mkdir(parents=True, exist_ok=True); ns={\"s3\":s3,\"bucket\":bucket,\"root\":root,\"downloaded\":0,\"skipped\":0}; exec(\"for page in s3.get_paginator(\\\"list_objects_v2\\\").paginate(Bucket=bucket, Prefix=\\\"games/\\\"):\\n    for obj in page.get(\\\"Contents\\\", []):\\n        key=obj[\\\"Key\\\"]\\n        p=root / key\\n        if p.exists():\\n            skipped += 1\\n            continue\\n        p.parent.mkdir(parents=True, exist_ok=True)\\n        s3.download_file(bucket, key, str(p))\\n        downloaded += 1\", ns, ns); print(f\"R2->Fly copy complete: downloaded={ns['downloaded']} skipped_existing={ns['skipped']} dest={root}\")'"
-```
-
-Prod:
-
-```bash
-fly ssh console -a bg-lib-app -C "python -c 'import os,boto3,pathlib; from botocore.config import Config; s3=boto3.client(\"s3\", endpoint_url=os.environ[\"R2_ENDPOINT_URL\"], aws_access_key_id=os.environ[\"R2_ACCESS_KEY_ID\"], aws_secret_access_key=os.environ[\"R2_SECRET_ACCESS_KEY\"], region_name=os.getenv(\"R2_REGION\",\"auto\"), config=Config(connect_timeout=5, read_timeout=20, retries={\"max_attempts\":3})); bucket=os.environ[\"R2_BUCKET_NAME\"]; root=pathlib.Path(os.getenv(\"IMAGE_STORAGE_DIR\",\"/data/images\")); root.mkdir(parents=True, exist_ok=True); ns={\"s3\":s3,\"bucket\":bucket,\"root\":root,\"downloaded\":0,\"skipped\":0}; exec(\"for page in s3.get_paginator(\\\"list_objects_v2\\\").paginate(Bucket=bucket, Prefix=\\\"games/\\\"):\\n    for obj in page.get(\\\"Contents\\\", []):\\n        key=obj[\\\"Key\\\"]\\n        p=root / key\\n        if p.exists():\\n            skipped += 1\\n            continue\\n        p.parent.mkdir(parents=True, exist_ok=True)\\n        s3.download_file(bucket, key, str(p))\\n        downloaded += 1\", ns, ns); print(f\"R2->Fly copy complete: downloaded={ns['downloaded']} skipped_existing={ns['skipped']} dest={root}\")'"
-```
-
-Resume behavior:
-- Safe to rerun.
-- Existing files are skipped; only missing files are copied.
+## 7. Backup Path
+- Use BGG -> Fly-local commands in Section 4 as the operational fallback path.

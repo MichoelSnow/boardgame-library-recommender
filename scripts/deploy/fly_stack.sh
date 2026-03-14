@@ -23,17 +23,37 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 environment="$1"
 action="$2"
 
+require_var() {
+  local name="$1"
+  local value="${!name:-}"
+  if [ -z "${value}" ]; then
+    echo "Error: required env var ${name} is not set."
+    exit 1
+  fi
+}
+
 case "${environment}" in
   dev)
-    app_name="bg-lib-app-dev"
-    db_name="bg-lib-db-dev"
+    require_var "FLY_APP_NAME_DEV"
+    require_var "FLY_DB_APP_NAME_DEV"
+    app_name="${FLY_APP_NAME_DEV}"
+    db_name="${FLY_DB_APP_NAME_DEV}"
     ;;
   prod)
-    app_name="bg-lib-app"
-    db_name="bg-lib-db-prod"
+    require_var "FLY_APP_NAME_PROD"
+    require_var "FLY_DB_APP_NAME_PROD"
+    app_name="${FLY_APP_NAME_PROD}"
+    db_name="${FLY_DB_APP_NAME_PROD}"
     ;;
   *)
     usage

@@ -19,21 +19,24 @@ build_restore_command = MODULE.build_restore_command
 build_verify_command = MODULE.build_verify_command
 
 
-def test_build_drop_database_command_for_dev():
+def test_build_drop_database_command_for_dev(monkeypatch):
+    monkeypatch.setenv("FLY_DB_APP_NAME_DEV", "test-db-dev")
     command = build_drop_database_command("dev", "bg_lib_app", "restore_db")
 
-    assert command[:5] == ["fly", "ssh", "console", "-a", "bg-lib-db-dev"]
+    assert command[:5] == ["fly", "ssh", "console", "-a", "test-db-dev"]
     assert "DROP DATABASE IF EXISTS restore_db WITH (FORCE);" in command[6]
 
 
-def test_build_create_database_command_for_prod():
+def test_build_create_database_command_for_prod(monkeypatch):
+    monkeypatch.setenv("FLY_DB_APP_NAME_PROD", "test-db-prod")
     command = build_create_database_command("prod", "bg_lib_app", "restore_db")
 
-    assert command[:5] == ["fly", "ssh", "console", "-a", "bg-lib-db-prod"]
+    assert command[:5] == ["fly", "ssh", "console", "-a", "test-db-prod"]
     assert "CREATE DATABASE restore_db;" in command[6]
 
 
-def test_build_restore_and_verify_commands():
+def test_build_restore_and_verify_commands(monkeypatch):
+    monkeypatch.setenv("FLY_DB_APP_NAME_DEV", "test-db-dev")
     restore_command = build_restore_command("dev", "bg_lib_app", "restore_db")
     verify_command = build_verify_command("dev", "bg_lib_app", "restore_db")
 

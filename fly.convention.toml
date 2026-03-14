@@ -4,7 +4,7 @@ app = 'bg-lib-app'
 primary_region = 'iad'
 
 [env]
-  DATABASE_PATH = "/data/boardgames.db"
+  NODE_ENV = "production"
   RUNTIME_PROFILE = "convention"
   APP_SERVER = "gunicorn"
   GUNICORN_WORKERS = "3"
@@ -34,6 +34,7 @@ primary_region = 'iad'
 
 [[vm]]
   size = 'shared-cpu-4x'
+  memory = 2048
 
 [mounts]
   source = "boardgames_data"

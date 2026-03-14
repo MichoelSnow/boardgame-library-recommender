@@ -3,10 +3,9 @@ set -euo pipefail
 
 echo "Checking for required database files..."
 
-if [ ! -f /data/boardgames.db ]; then
-  echo "Warning: Database file not found in /data/. Creating new SQLite database."
-  sqlite3 /data/boardgames.db "VACUUM;"
-  chmod 666 /data/boardgames.db
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "Error: DATABASE_URL is required for Fly deployments."
+  exit 1
 fi
 
 embedding_files=$(ls /data/game_embeddings_*.npz 2>/dev/null | wc -l || true)

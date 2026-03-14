@@ -18,7 +18,7 @@ project_root = backend_dir.parent
 sys.path.append(str(backend_dir))
 
 from app import models, schemas  # noqa: E402
-from app.database import SessionLocal, engine  # noqa: E402
+from app.database import SessionLocal, engine, SQLALCHEMY_DATABASE_URL  # noqa: E402
 from app.logging_utils import build_log_handlers  # noqa: E402
 
 # Configure logging
@@ -32,29 +32,16 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 200  # Number of games to process before committing
 
 
-def run_image_sync_library_only(backend: str) -> bool:
+def run_image_sync_library_only() -> bool:
     """Trigger optional image sync for Library games after Library import."""
-    if backend == "fly_local":
-        command = [
-            sys.executable,
-            "-m",
-            "data_pipeline.src.assets.sync_fly_images",
-            "--scope",
-            "library-only",
-        ]
-        log_label = "Fly-local image sync"
-    elif backend == "r2_cdn":
-        command = [
-            sys.executable,
-            "-m",
-            "data_pipeline.src.assets.sync_r2_images",
-            "--scope",
-            "library-only",
-        ]
-        log_label = "R2 image sync"
-    else:
-        logger.error("Unsupported image sync backend: %s", backend)
-        return False
+    command = [
+        sys.executable,
+        "-m",
+        "data_pipeline.src.assets.sync_fly_images",
+        "--scope",
+        "library-only",
+    ]
+    log_label = "Fly-local image sync"
 
     logger.info("Running %s command: %s", log_label, " ".join(command))
 
@@ -159,9 +146,15 @@ def import_library_data(data_dir: str, delete_existing: bool = False) -> None:
     """
     logger.info(f"Starting Library data import from {data_dir}")
 
-    # Create database tables if they don't exist
-    logger.info("Creating database tables...")
-    models.Base.metadata.create_all(bind=engine)
+    # Keep Alembic as schema authority for Postgres deployments.
+    if SQLALCHEMY_DATABASE_URL.startswith("sqlite:///"):
+        logger.info("Ensuring SQLite tables exist before import...")
+        models.Base.metadata.create_all(bind=engine)
+    else:
+        logger.info(
+            "Skipping table creation for non-SQLite database. "
+            "Run Alembic migrations before import."
+        )
 
     # Find the most recent Library games file
     library_dir = Path(data_dir)
@@ -266,17 +259,6 @@ def main():
         action="store_true",
         help="After import, run image sync for Library games.",
     )
-    parser.add_argument(
-        "--sync-images-backend",
-        choices=["fly_local", "r2_cdn"],
-        default="fly_local",
-        help="Image sync backend (default: fly_local).",
-    )
-    parser.add_argument(
-        "--sync-images-r2",
-        action="store_true",
-        help="Deprecated alias for --sync-images --sync-images-backend r2_cdn.",
-    )
     args = parser.parse_args()
 
     # Get the Library data directory
@@ -287,20 +269,11 @@ def main():
     # Import the data with delete_existing from command line args
     import_library_data(str(library_data_dir), delete_existing=args.delete_existing)
 
-    should_sync_images = args.sync_images or args.sync_images_r2
-    sync_backend = "r2_cdn" if args.sync_images_r2 else args.sync_images_backend
-
-    if should_sync_images:
-        if run_image_sync_library_only(sync_backend):
-            logger.info(
-                "Image sync completed successfully after Library import (backend=%s).",
-                sync_backend,
-            )
+    if args.sync_images:
+        if run_image_sync_library_only():
+            logger.info("Image sync completed successfully after Library import.")
         else:
-            logger.error(
-                "Image sync failed after Library import (backend=%s).",
-                sync_backend,
-            )
+            logger.error("Image sync failed after Library import.")
 
 
 if __name__ == "__main__":

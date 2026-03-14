@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from backend.app import main, security
 
@@ -211,3 +212,24 @@ async def test_openapi_contract_contains_core_paths(api_client):
     assert "/api/games/" in schema["paths"]
     assert "/api/recommendations" in schema["paths"]
     assert "/api/token" in schema["paths"]
+
+
+@pytest.mark.anyio
+async def test_spa_login_route_refresh_serves_index_html(tmp_path):
+    static_dir = tmp_path / "frontend_build"
+    static_dir.mkdir()
+    (static_dir / "index.html").write_text(
+        "<!doctype html><html><body><div id='root'></div></body></html>",
+        encoding="utf-8",
+    )
+
+    app = FastAPI()
+    app.mount("/", main.SPAStaticFiles(directory=str(static_dir), html=True))
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
+        response = await client.get("/login")
+
+    assert response.status_code == 200
+    assert "<!doctype html>" in response.text.lower()

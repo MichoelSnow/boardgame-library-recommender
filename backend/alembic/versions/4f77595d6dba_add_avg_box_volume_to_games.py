@@ -19,9 +19,24 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def column_exists(table_name: str, column_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return column_name in {
+        column["name"] for column in inspector.get_columns(table_name)
+    }
+
+
+def index_exists(table_name: str, index_name: str) -> bool:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    return index_name in {index["name"] for index in inspector.get_indexes(table_name)}
+
+
 def upgrade() -> None:
-    # Add the avg_volume column to games table
-    op.add_column("games", sa.Column("avg_box_volume", sa.Integer(), nullable=True))
+    # Add the avg_volume column to games table.
+    if not column_exists("games", "avg_box_volume"):
+        op.add_column("games", sa.Column("avg_box_volume", sa.Integer(), nullable=True))
 
     # Execute SQL to calculate and populate the avg_volume values
     op.execute("""
@@ -40,10 +55,11 @@ def upgrade() -> None:
     )
     """)
 
-    # Create an index on avg_volume for better query performance
-    op.create_index(
-        op.f("ix_games_avg_box_volume"), "games", ["avg_box_volume"], unique=False
-    )
+    # Create an index on avg_volume for better query performance.
+    if not index_exists("games", op.f("ix_games_avg_box_volume")):
+        op.create_index(
+            op.f("ix_games_avg_box_volume"), "games", ["avg_box_volume"], unique=False
+        )
 
 
 def downgrade() -> None:

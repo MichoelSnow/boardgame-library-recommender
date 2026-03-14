@@ -9,7 +9,7 @@
   - production traffic must be HTTPS/TLS only.
   - auth/token endpoints must not be exposed over plain HTTP.
 - At rest:
-  - rely on provider-managed encryption for Fly volumes and configured object storage.
+  - rely on provider-managed encryption for Fly volumes and Postgres storage.
 
 ## Secret Management
 - Owner: repository maintainer.
@@ -18,7 +18,7 @@
 
 ### High-impact secret set
 - GitHub: `FLY_API_TOKEN`, `GEMINI_API_KEY`
-- Fly apps: `SECRET_KEY`, `DATABASE_URL`, `CONVENTION_KIOSK_KEY`, `R2_*`
+- Fly apps: `SECRET_KEY`, `DATABASE_URL`, `CONVENTION_KIOSK_KEY`
 - Local: `.env` equivalents used for auth/deploy/ingest paths
 
 ### Emergency rotation steps
@@ -44,16 +44,16 @@
 1. Generate a new value.
 2. Set in `dev`:
    ```bash
-   fly secrets set -a bg-lib-app-dev SECRET_KEY="<new-secret>"
+   fly secrets set -a "${FLY_APP_NAME_DEV}" SECRET_KEY="<new-secret>"
    ```
-   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`, `R2_*`).
+   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`).
 3. Validate `dev`:
    - `/api/version` responds
    - auth works (`/api/token` + `/api/users/me/`)
-   - image paths work if rotating `R2_*`
+   - image paths still resolve after deploy
 4. Set the same rotation in `prod`:
    ```bash
-   fly secrets set -a bg-lib-app SECRET_KEY="<new-secret>"
+   fly secrets set -a "${FLY_APP_NAME_PROD}" SECRET_KEY="<new-secret>"
    ```
 5. Validate `prod` with the same checks.
 

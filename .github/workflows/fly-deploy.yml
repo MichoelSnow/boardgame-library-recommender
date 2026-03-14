@@ -21,7 +21,7 @@ jobs:
         run: |
           flyctl deploy --remote-only \
             -c fly.dev.toml \
-            -a bg-lib-app-dev \
+            -a "bg-lib-app-dev" \
             --build-arg GIT_SHA="${{ env.DEPLOY_GIT_SHA }}" \
             --build-arg BUILD_TIMESTAMP="${{ env.BUILD_TIMESTAMP }}"
         env:

@@ -196,8 +196,7 @@ fly ssh console -a bg-lib-app -C 'sh -lc "cd /app && poetry run python -m data_p
 
 Note:
 - Use BGG -> Fly local seeding as first-line workflow.
-- Cloudflare/R2 operations are backup-only. Use:
-  - [image_storage_operations.md#9-cloudflare-r2-backup-commands](image_storage_operations.md#9-cloudflare-r2-backup-commands)
+- Use the fallback guidance in `image_storage_operations.md` Section 7 when reseeding is needed.
 
 ### B4. Validate Deploy/Release
 

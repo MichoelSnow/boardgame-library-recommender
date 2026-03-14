@@ -22,6 +22,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
     - #D9272D (east)
     - #007DBB (west)
     - #F4B223 (aus)
+  - Add ability to name the Library/Convention.  This should affect things like the Navbar, Help dialog, and other UI elements.
 - [ ] Add librarian picks workflow.
   - V1: unordered list CRUD for librarian accounts, read for all users.
 - [ ] Add user activity logging (for example last login time).

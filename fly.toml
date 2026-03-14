@@ -7,7 +7,7 @@ app = 'bg-lib-app'
 primary_region = 'iad'
 
 [env]
-  DATABASE_PATH = "/data/boardgames.db"
+  NODE_ENV = "production"
   RUNTIME_PROFILE = "standard"
   APP_SERVER = "uvicorn"
   CONVENTION_MODE = "false"

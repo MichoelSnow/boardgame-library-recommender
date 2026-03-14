@@ -187,7 +187,7 @@ Deployment verification rule:
 - [x] [P1] frontend architecture (`docs/core/architecture.md`)
 - [x] [P1] migration cutover strategy (`docs/core/architecture.md`)
 - [x] [P1] data contract ownership (`docs/core/ownership_and_slos.md`)
-- [x] [P1] Select and finalize the primary image-storage runtime path for Phase 4 implementation (Fly-local with R2 backup retained).
+- [x] [P1] Select and finalize the primary image-storage runtime path for Phase 4 implementation (Fly-local).
 
 ### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
 - [x] [P1] Implement `DATABASE_URL` support with SQLite fallback.

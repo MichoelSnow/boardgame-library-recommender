@@ -62,7 +62,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Welcome to the Library Tabletop Board Game Catalog! This tool helps you discover board games 
+                Welcome to the Board Game Library! This tool helps you discover board games 
                 available at the convention and get personalized recommendations.
               </Typography>
               <Typography variant="subtitle2" gutterBottom>Quick Overview:</Typography>

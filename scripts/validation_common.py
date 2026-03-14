@@ -73,16 +73,20 @@ APP_CONFIG = {
     "local": {
         "app_name": "local",
         "base_url": os.getenv("LOCAL_APP_BASE_URL", "http://127.0.0.1:8000"),
-    },
-    "dev": {
-        "app_name": "bg-lib-app-dev",
-        "base_url": "https://bg-lib-app-dev.fly.dev",
-    },
-    "prod": {
-        "app_name": "bg-lib-app",
-        "base_url": "https://bg-lib-app.fly.dev",
-    },
+    }
 }
+
+for environment in ("dev", "prod"):
+    app_env_var = f"FLY_APP_NAME_{environment.upper()}"
+    base_url_env_var = f"{environment.upper()}_APP_BASE_URL"
+    app_name = os.getenv(app_env_var, "").strip()
+    base_url = os.getenv(base_url_env_var, "").strip()
+    if not base_url and app_name:
+        base_url = f"https://{app_name}.fly.dev"
+    APP_CONFIG[environment] = {
+        "app_name": app_name,
+        "base_url": base_url,
+    }
 
 
 def _is_retryable_http_error(exc: BaseException) -> bool:
@@ -108,11 +112,23 @@ def _build_retry_condition():
 
 
 def get_base_url(environment: str) -> str:
-    return APP_CONFIG[environment]["base_url"]
+    base_url = APP_CONFIG[environment]["base_url"]
+    if not base_url:
+        raise RuntimeError(
+            f"Missing base URL for {environment}. "
+            f"Set {environment.upper()}_APP_BASE_URL or FLY_APP_NAME_{environment.upper()}."
+        )
+    return base_url
 
 
 def get_app_name(environment: str) -> str:
-    return APP_CONFIG[environment]["app_name"]
+    app_name = APP_CONFIG[environment]["app_name"]
+    if not app_name and environment in {"dev", "prod"}:
+        raise RuntimeError(
+            f"Missing app name for {environment}. "
+            f"Set FLY_APP_NAME_{environment.upper()}."
+        )
+    return app_name
 
 
 def build_url(environment: str, path: str, query: dict[str, Any] | None = None) -> str:

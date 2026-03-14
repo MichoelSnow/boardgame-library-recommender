@@ -1,6 +1,6 @@
 # fly.db.dev.toml app configuration file for bg-lib-db-dev
 
-app = "bg-lib-db-dev"
+app = 'bg-lib-db-dev'
 primary_region = "iad"
 
 [build]

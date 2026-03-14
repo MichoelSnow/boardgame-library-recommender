@@ -12,6 +12,10 @@ source .env
 set +a
 ```
 
+Fly app variable conventions used below:
+- `FLY_APP_NAME_DEV`, `FLY_APP_NAME_PROD`
+- `FLY_DB_APP_NAME_DEV`, `FLY_DB_APP_NAME_PROD`
+
 ## 1. Local Development
 
 Backend (local dev):
@@ -64,8 +68,8 @@ scripts/deploy/fly_deploy.sh prod
 Run migrations inside Fly app machine:
 
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
-fly ssh console -a bg-lib-app -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
+fly ssh console -a "${FLY_APP_NAME_PROD}" -C 'sh -lc "cd /app/backend && poetry run alembic upgrade head"'
 ```
 
 ## 4. Validation
@@ -107,9 +111,9 @@ psql "$DATABASE_URL" -c "SELECT id, user_id, comment, timestamp FROM user_sugges
 Get Most recent suggestions from fly in dev and prod:
 
 ```bash
-fly ssh console -a bg-lib-db-dev -C 'sh -lc "psql -U bg_lib_app -d bg_lib_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
+fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C 'sh -lc "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 
-fly ssh console -a bg-lib-db-prod -C 'sh -lc "psql -U bg_lib_app -d bg_lib_recommender -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
+fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C 'sh -lc "psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c \"SELECT id, user_id, comment, timestamp FROM user_suggestions ORDER BY timestamp DESC LIMIT 20;\""'
 ```
 
 ## 6. Quality Gates
@@ -181,24 +185,24 @@ poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-
 Machine state:
 
 ```bash
-fly machines list -a bg-lib-app-dev
-fly machines list -a bg-lib-db-dev
-fly machines list -a bg-lib-app
-fly machines list -a bg-lib-db-prod
+fly machines list -a "${FLY_APP_NAME_DEV}"
+fly machines list -a "${FLY_DB_APP_NAME_DEV}"
+fly machines list -a "${FLY_APP_NAME_PROD}"
+fly machines list -a "${FLY_DB_APP_NAME_PROD}"
 ```
 
 App logs:
 
 ```bash
-fly logs -a bg-lib-app-dev | tee -a logs/bg-lib-app-dev.fly.log
-fly logs -a bg-lib-app | tee -a logs/bg-lib-app.fly.log
+fly logs -a "${FLY_APP_NAME_DEV}" | tee -a "logs/${FLY_APP_NAME_DEV}.fly.log"
+fly logs -a "${FLY_APP_NAME_PROD}" | tee -a "logs/${FLY_APP_NAME_PROD}.fly.log"
 ```
 
 Common error patterns:
 
 ```bash
-fly logs -a bg-lib-app-dev | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
-fly logs -a bg-lib-app | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+fly logs -a "${FLY_APP_NAME_DEV}" | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
+fly logs -a "${FLY_APP_NAME_PROD}" | rg -n "ERROR|CRITICAL|WORKER TIMEOUT|Out of memory|Killed process|Traceback"
 ```
 
 ## 10. Alerting and Workflow Toggles
@@ -250,7 +254,7 @@ k6 rehearsal:
 
 ```bash
 k6 run \
-  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
   -e GAME_IDS="<csv>" \
   -e VUS="10" \
   -e DURATION="3m" \
@@ -262,38 +266,21 @@ k6 run \
 Seed all qualified images directly from BGG to Fly dev volume:
 
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000"'
 ```
 
 Dry run candidate count:
 
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope all-qualified --max-rank 10000 --dry-run"'
 ```
 
 Library-only seed:
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope library-only"'
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "cd /app && poetry run python -m data_pipeline.src.assets.sync_fly_images --scope library-only"'
 ```
 
 Count image files on Fly volume:
 ```bash
-fly ssh console -a bg-lib-app-dev -C 'sh -lc "find /data/images/games -type f | wc -l"'
-```
-
-## 14. R2 Commands (Backup-Only)
-
-R2 dry run candidates:
-```bash
-poetry run python -m data_pipeline.src.assets.sync_r2_images --dry-run --scope all-qualified --max-rank 10000 2>&1 \
-  | awk -F': ' '/Candidates selected/ {print $2}'
-```
-
-Count R2 objects:
-```bash
-export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-export AWS_DEFAULT_REGION="${R2_REGION:-auto}"
-aws s3 ls "s3://$R2_BUCKET_NAME" --recursive --summarize \
-  --endpoint-url "$R2_ENDPOINT_URL"
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C 'sh -lc "find /data/images/games -type f | wc -l"'
 ```

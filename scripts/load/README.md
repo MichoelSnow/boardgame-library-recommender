@@ -25,7 +25,7 @@ scripts/deploy/fly_stack.sh dev up
 ```
 
 ### Default behavior
-- Base URL: `https://bg-lib-app-dev.fly.dev`
+- Base URL: `https://${FLY_APP_NAME_DEV}.fly.dev` (or `BASE_URL` override)
 - VUs: `20`
 - Duration: `5m`
 - Think time: `0.3s`
@@ -67,7 +67,7 @@ scripts/deploy/fly_stack.sh dev up
 Mixed profile (recommended baseline):
 ```bash
 k6 run \
-  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
   -e GAME_IDS="224517,167791,174430,173346,266192,161936,13,822,30549,68448" \
   -e LIKED_MIN="1" \
   -e LIKED_MAX="50" \
@@ -80,7 +80,7 @@ k6 run \
 Recommendations-only stress:
 ```bash
 k6 run \
-  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
   -e GAME_IDS="224517,167791,174430,173346,266192,161936,13,822,30549,68448" \
   -e LIKED_MIN="1" \
   -e LIKED_MAX="50" \
@@ -97,7 +97,7 @@ k6 run \
 Games-only stress:
 ```bash
 k6 run \
-  -e BASE_URL="https://bg-lib-app-dev.fly.dev" \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
   -e WEIGHT_API="0" \
   -e WEIGHT_VERSION="0" \
   -e WEIGHT_RECOMMENDATIONS="0" \
@@ -117,5 +117,5 @@ k6 run \
   - p95 latency metrics
 - Correlate with app logs during the run:
 ```bash
-fly logs -a bg-lib-app-dev | rg -n "CRITICAL|WORKER TIMEOUT|ERROR|Out of memory|Killed process"
+fly logs -a "${FLY_APP_NAME_DEV}" | rg -n "CRITICAL|WORKER TIMEOUT|ERROR|Out of memory|Killed process"
 ```
