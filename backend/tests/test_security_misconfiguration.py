@@ -21,3 +21,19 @@ def test_get_cors_origins_accepts_explicit_origins_in_production(monkeypatch):
         "https://prod.example.com",
         "https://dev.example.com",
     ]
+
+
+def test_validate_startup_config_rejects_invalid_rate_limit_value(monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_AUTH_PER_MIN", "abc")
+    with pytest.raises(
+        RuntimeError, match="RATE_LIMIT_AUTH_PER_MIN must be an integer"
+    ):
+        main.validate_startup_config()
+
+
+def test_validate_startup_config_rejects_invalid_boolean_value(monkeypatch):
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "maybe")
+    with pytest.raises(
+        RuntimeError, match="RATE_LIMIT_ENABLED must be a boolean-like value"
+    ):
+        main.validate_startup_config()

@@ -15,11 +15,23 @@ This guide intentionally gets you to an **empty but working app**. Data ingest/i
 Install required tools:
 
 - `git`
-- `python` 3.10
-- `poetry`
+- `pyenv` (recommended) and `python` 3.13
+- `poetry` 2.3.x (validated on 2.3.2)
 - `node` + `npm`
 - `flyctl` (for Fly.io mode)
 - `psql` client (recommended for DB checks)
+
+Recommended `pyenv` setup for multi-version testing:
+
+```bash
+pyenv install -s 3.13.2
+pyenv local 3.13.2
+python --version
+```
+
+Expected:
+- `python --version` prints `Python 3.13.x`
+- `poetry --version` prints `Poetry (version 2.3.x)`
 
 ## 2. Clone and Install
 
@@ -27,9 +39,18 @@ Install required tools:
 git clone <your-fork-or-repo-url>
 cd <repo-directory>
 
+poetry env use 3.13
 poetry install
 cd frontend && npm ci
 cd ..
+```
+
+Optional explicit Poetry pin in local environment:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install "poetry==2.3.2"
+poetry --version
 ```
 
 ## 3. Generate Strong Secrets
@@ -344,3 +365,20 @@ fly ssh console -a "${FLY_APP_NAME_DEV}" -C "sh -lc \"printf '%s' '<strong-passw
 - At this stage the app is expected to be mostly empty until pipeline data is imported.
 - Recommendation endpoints will remain degraded until embeddings are generated and placed on runtime storage.
 - Next doc (separate): data pipeline ingest/import workflow.
+
+## 9. Toolchain Rollback (Phase 9)
+
+If Python/Poetry modernization introduces regressions, use this rollback path:
+
+1. Restore previous baseline in branch (or checkout previous release tag/commit).
+2. Revert runtime image to previous Python base image in `Dockerfile`.
+3. Restore previous `pyproject.toml` Python constraint and lockfile.
+4. Re-deploy dev first, validate, then promote.
+
+Minimum verification after rollback:
+
+```bash
+poetry run pytest -q
+poetry run python scripts/validate/validate_python_audit.py
+poetry run python scripts/validate/validate_frontend_audit.py
+```

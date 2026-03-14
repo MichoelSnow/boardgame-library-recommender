@@ -9,8 +9,8 @@ RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-# Use Python 3.10 slim image
-FROM python:3.10-slim
+# Use Python 3.13 slim image
+FROM python:3.13-slim
 
 # Set working directory
 WORKDIR /app
@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc curl sqlite
 COPY pyproject.toml poetry.lock ./
 
 # Install poetry and dependencies
-RUN pip install --no-cache-dir poetry && \
+RUN pip install --no-cache-dir "poetry==2.3.2" && \
     poetry config virtualenvs.create false && \
     poetry install --without dev --no-root && \
     rm -rf /root/.cache/pip

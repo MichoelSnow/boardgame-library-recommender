@@ -7,6 +7,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 
 def parse_args() -> argparse.Namespace:
@@ -24,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_pip_audit() -> dict:
+def run_pip_audit() -> dict[str, Any]:
     command = ["pip-audit", "--format", "json", "--progress-spinner", "off"]
     try:
         result = subprocess.run(
@@ -44,18 +45,66 @@ def run_pip_audit() -> dict:
     try:
         return json.loads(payload_text)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Failed to parse pip-audit JSON output: {exc}") from exc
+        preview = payload_text[:400].replace("\n", " ")
+        raise RuntimeError(
+            "Failed to parse pip-audit JSON output. "
+            f"pip-audit likely failed before JSON emission. Preview: {preview}"
+        ) from exc
 
 
-def extract_vulnerability_ids(audit_payload: dict) -> set[str]:
+def extract_vuln_ids(vuln: dict[str, Any]) -> set[str]:
+    """Return normalized advisory IDs from one vulnerability record."""
+    ids: set[str] = set()
+
+    primary_id = vuln.get("id")
+    if primary_id:
+        ids.add(str(primary_id))
+
+    advisory = vuln.get("advisory")
+    if isinstance(advisory, dict):
+        advisory_id = advisory.get("id")
+        if advisory_id:
+            ids.add(str(advisory_id))
+        advisory_aliases = advisory.get("aliases", [])
+        if isinstance(advisory_aliases, list):
+            ids.update(str(alias) for alias in advisory_aliases if alias)
+    elif advisory:
+        ids.add(str(advisory))
+
+    aliases = vuln.get("aliases", [])
+    if isinstance(aliases, list):
+        ids.update(str(alias) for alias in aliases if alias)
+
+    return ids
+
+
+def extract_vulnerability_ids(audit_payload: dict[str, Any]) -> set[str]:
     dependency_records = audit_payload.get("dependencies", [])
     advisory_ids: set[str] = set()
     for dep in dependency_records:
         for vuln in dep.get("vulns", []):
-            advisory_id = vuln.get("id")
-            if advisory_id:
-                advisory_ids.add(str(advisory_id))
+            if isinstance(vuln, dict):
+                advisory_ids.update(extract_vuln_ids(vuln))
     return advisory_ids
+
+
+def extract_unexpected_advisories(
+    audit_payload: dict[str, Any], allowed_ids: set[str]
+) -> list[tuple[str, str, str]]:
+    """Return (advisory_id, package_name, package_version) tuples."""
+    dependency_records = audit_payload.get("dependencies", [])
+    rows: list[tuple[str, str, str]] = []
+    for dep in dependency_records:
+        package_name = str(dep.get("name", "unknown"))
+        package_version = str(dep.get("version", "unknown"))
+        for vuln in dep.get("vulns", []):
+            if not isinstance(vuln, dict):
+                continue
+            for advisory_id in sorted(extract_vuln_ids(vuln)):
+                if advisory_id and advisory_id not in allowed_ids:
+                    rows.append((advisory_id, package_name, package_version))
+    rows.sort(key=lambda row: (row[0], row[1], row[2]))
+    return rows
 
 
 def load_allowlist(path: Path) -> set[str]:
@@ -92,9 +141,14 @@ def main() -> int:
 
     unexpected = sorted(advisory_ids - allowed_ids)
     if unexpected:
+        unexpected_rows = extract_unexpected_advisories(audit_payload, allowed_ids)
         print("ERROR: New Python dependency advisories detected:")
         for advisory_id in unexpected:
-            print(f"- {advisory_id}")
+            matching_rows = [
+                row for row in unexpected_rows if row[0] == advisory_id
+            ] or [(advisory_id, "unknown", "unknown")]
+            for _, package_name, package_version in matching_rows:
+                print(f"- {advisory_id} ({package_name}=={package_version})")
         print("")
         print("Update dependencies or add advisory IDs to allowlist with rationale.")
         return 1

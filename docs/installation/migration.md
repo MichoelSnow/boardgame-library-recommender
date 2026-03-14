@@ -248,3 +248,53 @@ Required outcomes:
 - Login/auth works
 - Library games and images render
 - Recommendation endpoints return non-empty results with artifacts present
+
+## 5. Phase 9 Hardening Gate (Dependency + CI Runtime)
+
+Run this gate before finalizing migration cutover.
+
+### 5.1 Python and Frontend Audit Baselines
+
+```bash
+poetry run python scripts/validate/validate_python_audit.py
+poetry run python scripts/validate/validate_frontend_audit.py
+```
+
+If either command fails:
+- Update vulnerable dependency versions first.
+- Only use allowlists for unresolved advisories, with rationale in:
+  - `.github/pip_audit_allowlist.json`
+  - `.github/npm_audit_allowlist.json`
+
+### 5.2 Dependabot Alert Triage
+
+Open Dependabot PRs and alerts, then clear or justify all active findings before
+promotion.
+
+Suggested check:
+
+```bash
+gh pr list --search "label:dependencies state:open" --limit 50
+```
+
+### 5.3 GitHub Actions Node Runtime Hardening
+
+This repo now enforces Node 24 action runtime to avoid the Node 20 deprecation
+path and removes Fly deploy dependence on a Node-based Fly action.
+
+Current baseline:
+- `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` in workflows.
+- `actions/checkout@v5`.
+- Fly deploy workflows install `flyctl` via `https://fly.io/install.sh` instead
+  of `superfly/flyctl-actions/setup-flyctl@master`.
+
+Quick verification:
+
+```bash
+rg -n "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24|actions/checkout@v5|setup-flyctl@master|install.sh" .github/workflows
+```
+
+Expected:
+- At least one `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` hit.
+- `actions/checkout@v5` hits.
+- No `setup-flyctl@master` hits.

@@ -8,6 +8,8 @@ on:
         description: "Branch, tag, or commit SHA to deploy to production"
         required: false
         default: "main"
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   deploy:
@@ -15,10 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-prod
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.git_ref }}
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Install flyctl
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh
+          echo "${HOME}/.fly/bin" >> "${GITHUB_PATH}"
       - name: Build metadata
         run: |
           echo "BUILD_TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"

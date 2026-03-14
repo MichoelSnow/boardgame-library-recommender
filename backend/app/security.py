@@ -6,12 +6,14 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Optional
 from sqlalchemy.orm import Session
+import logging
 import os
 
 from . import crud, schemas
 from .database import SessionLocal
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 # Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,7 +31,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except ValueError:
+        # Treat backend validation/parsing errors as invalid credentials.
+        logger.warning("Password verification failed: invalid format or length.")
+        return False
 
 
 def get_password_hash(password):

@@ -4,13 +4,15 @@ on:
   schedule:
     - cron: "*/20 * * * *"
   workflow_dispatch:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   prod-health-alerts:
     runs-on: ubuntu-latest
     concurrency: prod-health-alerts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Restore alert state cache
         uses: actions/cache@v4

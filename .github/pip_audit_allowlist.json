@@ -1,26 +1,11 @@
 {
   "allowed_vulnerability_ids": [
     "CVE-2024-23342",
-    "CVE-2024-47081",
-    "CVE-2025-30167",
-    "CVE-2025-50181",
-    "CVE-2025-50182",
-    "CVE-2025-53000",
-    "CVE-2025-54121",
-    "CVE-2025-62727",
-    "CVE-2025-66418",
-    "CVE-2025-66471",
-    "CVE-2026-21441",
-    "CVE-2026-23490",
-    "CVE-2026-24486",
-    "CVE-2026-25990",
-    "CVE-2026-31958",
-    "CVE-2026-32274",
-    "GHSA-78cv-mqj4-43f7"
+    "GHSA-wj6h-64fc-37mp"
   ],
   "rationale": {
-    "CVE-2026-31958": "Temporary allowlist to unblock CI while upstream-compatible dependency updates are validated.",
-    "CVE-2026-32274": "Temporary allowlist to unblock CI while upstream-compatible dependency updates are validated."
+    "CVE-2024-23342": "Transitive advisory via python-jose -> ecdsa with no currently adopted fix path in this repo; tracked for periodic re-evaluation.",
+    "GHSA-wj6h-64fc-37mp": "Equivalent advisory alias for the same unresolved python-jose -> ecdsa issue; allowlisted to avoid ID-format drift breaking CI."
   },
-  "review_notes": "Revisit this allowlist during next dependency upgrade cycle and remove IDs once fixed versions are adopted."
+  "review_notes": "Allowlist contains only currently observed unresolved advisories. Revisit each dependency upgrade cycle and remove when a validated fix lands."
 }

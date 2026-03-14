@@ -448,6 +448,48 @@ def get_cors_origins() -> List[str]:
     return origins
 
 
+def validate_startup_config() -> None:
+    """Fail fast on invalid startup env values."""
+
+    def _validate_optional_positive_int_env(
+        name: str, *, minimum: int = 1, maximum: int | None = None
+    ) -> None:
+        raw_value = os.getenv(name, "").strip()
+        if not raw_value:
+            return
+        try:
+            value = int(raw_value)
+        except ValueError as exc:
+            raise RuntimeError(f"{name} must be an integer.") from exc
+        if value < minimum:
+            raise RuntimeError(f"{name} must be >= {minimum}.")
+        if maximum is not None and value > maximum:
+            raise RuntimeError(f"{name} must be <= {maximum}.")
+
+    def _validate_optional_bool_env(name: str) -> None:
+        raw_value = os.getenv(name, "").strip()
+        if not raw_value:
+            return
+        normalized = raw_value.lower()
+        allowed = {"1", "0", "true", "false", "yes", "no", "on", "off"}
+        if normalized not in allowed:
+            raise RuntimeError(
+                f"{name} must be a boolean-like value: 1/0/true/false/yes/no/on/off."
+            )
+
+    _validate_optional_positive_int_env("RATE_LIMIT_AUTH_PER_MIN", minimum=1)
+    _validate_optional_positive_int_env("RATE_LIMIT_RECOMMENDATIONS_PER_MIN", minimum=1)
+    _validate_optional_positive_int_env("RATE_LIMIT_API_PER_MIN", minimum=1)
+    _validate_optional_positive_int_env("DB_KEEPALIVE_INTERVAL_SECONDS", minimum=5)
+
+    _validate_optional_bool_env("RATE_LIMIT_ENABLED")
+    _validate_optional_bool_env("TRUST_X_FORWARDED_FOR")
+    _validate_optional_bool_env("DB_KEEPALIVE_ENABLED")
+
+
+# Validate startup config once so invalid values fail before serving traffic.
+validate_startup_config()
+
 # Resolve CORS config once at startup so invalid production config fails fast.
 cors_origins = get_cors_origins()
 logger.info("Configured CORS origins: %s", cors_origins)
