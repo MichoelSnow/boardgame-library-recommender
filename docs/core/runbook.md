@@ -90,6 +90,7 @@ Record per prod promotion:
 1. Merge this feature branch (no version bump here).
 2. Validate on dev.
 3. Create a small release-version branch that only bumps `pyproject.toml`.
+    - set the commit message/PR title to begin with `chore(release):` in order to not trigger the pr-agent
 4. Merge that bump branch.
 5. Validate dev on that exact SHA.
 6. Promote that exact SHA to prod.
