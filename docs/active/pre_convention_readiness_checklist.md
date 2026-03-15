@@ -67,16 +67,15 @@
 
 ## Runtime and Scaling
 - [x] [P0] Implement convention runtime profile/config.
-- [ ] [P0] Add per-event convention schedule config:
-  - `CONVENTION_TIMEZONE`
-  - `CONVENTION_WARM_START`
-  - `CONVENTION_WARM_END`
-- [ ] [P0] Add scheduled convention-hours warm-mode enable/disable procedure.
+- [x] [P0] Keep convention runtime switching explicit/manual for first-run operations (no scheduled auto-switch routine).
 - [x] [P0] Add initial production convention runtime target:
   - one always-running machine
   - `Gunicorn` + `3` Uvicorn workers
 - [x] [P1] Ensure `dev` can temporarily mirror convention runtime settings for rehearsal.
-- [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
+- [x] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
+  - Validation command:
+    - `poetry run python scripts/validate/validate_fly_health_checks.py --env prod`
+    - `curl -sS "https://${FLY_APP_NAME_PROD}.fly.dev/api/version"`
 
 ## Admin Panel and Convention UX Controls
 - [x] [P0] Implement an authenticated admin panel before convention launch (initial scope: kiosk setup at `/kiosk/setup`).

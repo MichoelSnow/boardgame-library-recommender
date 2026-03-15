@@ -173,6 +173,7 @@ awk '
   printf 'FLY_APP_NAME_PROD=%s\n' "${FLY_APP_NAME_PROD}"
   printf 'FLY_DB_APP_NAME_DEV=%s\n' "${FLY_DB_APP_NAME_DEV}"
   printf 'FLY_DB_APP_NAME_PROD=%s\n' "${FLY_DB_APP_NAME_PROD}"
+
 } >> "${tmp_file}"
 
 normalized_file="$(mktemp)"
