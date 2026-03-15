@@ -56,9 +56,14 @@
 - [x] [P0] Wire import/update flows to trigger image-sync checks.
 - [x] [P0] Cut `dev` over to Fly-local image delivery and validate.
 - [x] [P0] Cut `prod` over to Fly-local image delivery and validate (post-merge promotion only).
-- [ ] [P1] Confirm placeholder behavior is clean for missing images.
+- [x] [P1] Confirm placeholder behavior is clean for missing images.
+  - Frontend now falls back to `/assets/images/game-placeholder.svg` after exhausting image candidates.
+  - Covered by `frontend/src/components/GameCard.test.js`.
 - [x] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
-- [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
+- [x] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
+  - Added description decoding + mojibake repair utility in `frontend/src/utils/textEncoding.js`.
+  - Wired game description rendering through this utility in `frontend/src/components/GameDetails.js`.
+  - Covered by `frontend/src/utils/textEncoding.test.js`.
 
 ## Runtime and Scaling
 - [x] [P0] Implement convention runtime profile/config.

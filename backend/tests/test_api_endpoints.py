@@ -273,7 +273,9 @@ async def test_convention_kiosk_admin_endpoints_allow_admin_when_enabled(
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
-async def test_convention_guest_token_requires_kiosk_enrollment(monkeypatch, api_client):
+async def test_convention_guest_token_requires_kiosk_enrollment(
+    monkeypatch, api_client
+):
     monkeypatch.setenv("CONVENTION_MODE", "true")
     monkeypatch.setenv("CONVENTION_GUEST_ENABLED", "true")
 

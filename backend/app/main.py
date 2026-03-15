@@ -481,9 +481,10 @@ def validate_startup_config() -> None:
     _validate_optional_bool_env("CONVENTION_MODE")
     _validate_optional_bool_env("CONVENTION_GUEST_ENABLED")
 
-    if convention_kiosk.is_convention_mode_enabled() and not os.getenv(
-        "CONVENTION_GUEST_ENABLED", ""
-    ).strip():
+    if (
+        convention_kiosk.is_convention_mode_enabled()
+        and not os.getenv("CONVENTION_GUEST_ENABLED", "").strip()
+    ):
         raise RuntimeError(
             "CONVENTION_GUEST_ENABLED must be explicitly set when CONVENTION_MODE is enabled."
         )
@@ -1382,7 +1383,9 @@ def change_password(
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
     if getattr(current_user, "is_guest", False):
-        raise HTTPException(status_code=403, detail="Guest sessions cannot change password")
+        raise HTTPException(
+            status_code=403, detail="Guest sessions cannot change password"
+        )
     success = crud.change_user_password(
         db=db,
         user_id=current_user.id,
