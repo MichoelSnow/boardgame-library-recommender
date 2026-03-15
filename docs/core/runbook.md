@@ -10,6 +10,7 @@
 - Required secrets configured for target app.
 - Run DB migration on deploy before considering release valid.
 - Load `.env` so `FLY_*` app-name variables are available for commands that reference them.
+  - `set -a && source .env && set +a`
 
 ## Standard Dev Flow After Merge to Main
 1. Ensure stack is running: 
@@ -107,6 +108,57 @@ git push origin prod-v0.X.Y
 If GitHub workflow is unavailable:
 - `scripts/deploy/fly_deploy.sh prod`
 - run migration and prod validation immediately after.
+
+## Convention Mode and Rehearsal
+
+### Dev Testing of Convention Mode
+
+1. Deploy `dev` with convention profile config:
+```bash
+fly deploy --app "${FLY_APP_NAME_DEV}" --config fly.convention.dev.toml 
+```
+2. Bring `dev` stack up:
+```bash
+scripts/deploy/fly_stack.sh dev up
+```
+3. Verify runtime profile and convention flags:
+```bash
+curl -sS "https://${FLY_APP_NAME_DEV}.fly.dev/api/version"
+curl -sS "https://${FLY_APP_NAME_DEV}.fly.dev/api/convention/kiosk/status"
+```
+4. Run convention-critical functional checks:
+```bash
+poetry run python scripts/validate/validate_auth_flow.py --env dev
+poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev --game-id 224517
+poetry run python scripts/validate/validate_performance_gate.py --env dev
+```
+5. Run rehearsal load test:
+```bash
+k6 run \
+  -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
+  -e GAME_IDS="224517,167791,174430,173346,266192,161936,13,822,30549,68448" \
+  -e VUS="10" \
+  -e DURATION="3m" \
+  -e THINK_TIME_SECONDS="2.0" \
+  scripts/load/k6_rehearsal.js
+```
+6. Confirm logs are clean of crash/timeouts during rehearsal:
+```bash
+fly logs -a "${FLY_APP_NAME_DEV}" | rg -n "CRITICAL|WORKER TIMEOUT|ERROR|Out of memory|Killed process"
+```
+
+Pass criteria:
+- k6 thresholds pass (`http_req_failed`, `http_req_duration`, recommendation and games error/latency metrics).
+- No worker-timeout or OOM patterns in app logs.
+- Auth and recommendation validation scripts pass.
+
+Admin kiosk enrollment flow:
+- Open `/kiosk/setup` on the target device browser.
+- Log in as an admin user.
+- Click `Enroll This Device` to set the kiosk cookie for that browser profile.
+- The setup flow immediately logs out the admin session and transitions the browser into guest mode.
+- In guest mode, the navbar shows `Reset Session` (not `Logout`) and hides user-management actions.
+- Use `Remove Kiosk Mode` only from the same admin page when intentionally decommissioning kiosk mode on that device.
 
 ## Incident Triage Steps
 1. Confirm app/machine status (`fly machines list` for app + db).

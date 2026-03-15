@@ -802,12 +802,7 @@ async def convention_kiosk_status(request: Request):
     }
 
 
-@app.post("/api/convention/kiosk/enroll")
-async def convention_kiosk_enroll(
-    response: Response,
-    payload: KioskEnrollRequest,
-    x_convention_kiosk_key: Optional[str] = Header(default=None),
-):
+def _ensure_convention_kiosk_enrollment_enabled() -> None:
     if (
         not convention_kiosk.is_convention_mode_enabled()
         or not convention_kiosk.is_convention_guest_enabled()
@@ -816,16 +811,8 @@ async def convention_kiosk_enroll(
             status_code=404, detail="Convention kiosk enrollment is disabled."
         )
 
-    expected_key = convention_kiosk.get_expected_kiosk_key()
-    if not expected_key:
-        raise HTTPException(
-            status_code=503, detail="Convention kiosk key is not configured."
-        )
 
-    provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
-    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
-        raise HTTPException(status_code=401, detail="Invalid kiosk key.")
-
+def _set_kiosk_cookie(response: Response) -> None:
     kiosk_token = convention_kiosk.issue_kiosk_cookie_token(
         secret_key=security.SECRET_KEY,
         algorithm=security.ALGORITHM,
@@ -840,6 +827,47 @@ async def convention_kiosk_enroll(
         path="/",
     )
 
+
+def _require_admin(current_user: schemas.User) -> None:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+
+@app.post("/api/convention/kiosk/enroll")
+async def convention_kiosk_enroll(
+    response: Response,
+    payload: KioskEnrollRequest,
+    x_convention_kiosk_key: Optional[str] = Header(default=None),
+):
+    _ensure_convention_kiosk_enrollment_enabled()
+
+    expected_key = convention_kiosk.get_expected_kiosk_key()
+    if not expected_key:
+        raise HTTPException(
+            status_code=503, detail="Convention kiosk key is not configured."
+        )
+
+    provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
+    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
+        raise HTTPException(status_code=401, detail="Invalid kiosk key.")
+
+    _set_kiosk_cookie(response)
+
+    return {
+        "convention_mode": True,
+        "kiosk_mode": True,
+        "expires_in": convention_kiosk.KIOSK_COOKIE_TTL_SECONDS,
+    }
+
+
+@app.post("/api/convention/kiosk/admin/enroll")
+async def convention_kiosk_enroll_admin(
+    response: Response,
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    _ensure_convention_kiosk_enrollment_enabled()
+    _set_kiosk_cookie(response)
     return {
         "convention_mode": True,
         "kiosk_mode": True,
@@ -854,6 +882,42 @@ async def convention_kiosk_unenroll(response: Response):
         path="/",
     )
     return {"kiosk_mode": False}
+
+
+@app.post("/api/convention/kiosk/admin/unenroll")
+async def convention_kiosk_unenroll_admin(
+    response: Response,
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    response.delete_cookie(
+        key=convention_kiosk.KIOSK_COOKIE_NAME,
+        path="/",
+    )
+    return {"kiosk_mode": False}
+
+
+@app.post("/api/convention/guest-token", response_model=schemas.Token)
+async def issue_convention_guest_token(request: Request):
+    _ensure_convention_kiosk_enrollment_enabled()
+
+    cookie_token = request.cookies.get(convention_kiosk.KIOSK_COOKIE_NAME)
+    if not convention_kiosk.is_valid_kiosk_cookie_token(
+        token=cookie_token,
+        secret_key=security.SECRET_KEY,
+        algorithm=security.ALGORITHM,
+    ):
+        raise HTTPException(status_code=401, detail="Kiosk enrollment is required.")
+
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={
+            "sub": security.CONVENTION_GUEST_USERNAME,
+            "token_type": security.CONVENTION_GUEST_TOKEN_TYPE,
+        },
+        expires_delta=access_token_expires,
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # Move the root endpoint to /api and keep this as a fallback for API requests
@@ -1351,6 +1415,8 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
+    if getattr(current_user, "is_guest", False):
+        raise HTTPException(status_code=403, detail="Guest sessions cannot change password")
     success = crud.change_user_password(
         db=db,
         user_id=current_user.id,
@@ -1368,24 +1434,31 @@ def create_suggestion(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
+    author_user_id = current_user.id
+    author_username = current_user.username
+    if getattr(current_user, "is_guest", False):
+        guest_user = crud.get_or_create_guest_user(db)
+        author_user_id = guest_user.id
+        author_username = guest_user.username
+
     logger.info(
         "Creating suggestion for user_id=%s username=%s",
-        current_user.id,
-        current_user.username,
+        author_user_id,
+        author_username,
     )
     db_suggestion = crud.create_user_suggestion(
-        db=db, user_id=current_user.id, suggestion=suggestion
+        db=db, user_id=author_user_id, suggestion=suggestion
     )
     logger.info(
         "Created suggestion id=%s for user_id=%s",
         db_suggestion.id,
-        current_user.id,
+        author_user_id,
     )
     return schemas.UserSuggestionResponse(
         id=db_suggestion.id,
         comment=db_suggestion.comment,
         timestamp=db_suggestion.timestamp.isoformat(),
-        username=current_user.username,
+        username=author_username,
     )
 
 

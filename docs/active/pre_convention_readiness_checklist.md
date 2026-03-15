@@ -15,18 +15,23 @@
 - `P2`: useful, but can defer if the core launch path is stable
 
 ## Access and Auth
-- [ ] [P0] Implement convention mode with explicit `CONVENTION_MODE` toggle.
-- [ ] [P0] Implement kiosk guest auto-login flow for approved devices via `POST /api/convention/guest-token`.
+- [x] [P0] Implement convention mode with explicit `CONVENTION_MODE` toggle.
+- [x] [P0] Implement kiosk device enrollment/status flow for approved devices via:
+  - `GET /api/convention/kiosk/status`
+  - `POST /api/convention/kiosk/enroll`
+  - `POST /api/convention/kiosk/unenroll`
+- [x] [P1] Add explicit `POST /api/convention/guest-token` flow on top of kiosk enrollment.
 - [ ] [P0] Add required convention guest config:
   - `CONVENTION_GUEST_ENABLED`
   - `CONVENTION_KIOSK_KEY`
   - optional `CONVENTION_KIOSK_IP_ALLOWLIST`
 - [ ] [P0] Implement guest read-only access allowlist for convention endpoints.
-- [ ] [P0] Keep write endpoints authenticated during convention mode.
-- [ ] [P0] Implement shared-device guest session state using `sessionStorage`.
-- [ ] [P0] Add explicit `Reset Session` control for shared devices.
-- [ ] [P0] Implement 3-minute inactivity auto-clear for guest session state.
+- [x] [P0] Keep write endpoints authenticated during convention mode (except explicitly allowed guest suggestion submission).
+- [x] [P0] Implement shared-device guest session state using `sessionStorage`.
+- [x] [P0] Add explicit `Reset Session` control for shared devices.
+- [ ] [P0] Implement 5-minute inactivity auto-clear for guest session state.
 - [ ] [P1] Validate convention-mode endpoint allowlist against the final frontend flows.
+- [x] [P0] Implement admin-only kiosk setup UI (`/kiosk/setup`) for enroll/unenroll without manual kiosk-key entry on shared devices.
 
 ## Data and Storage
 - [x] [P0] Add `DATABASE_URL` support with SQLite fallback.
@@ -46,7 +51,7 @@
 - [x] [P0] Build the ongoing image-sync script for qualifying games.
 - [x] [P0] Wire import/update flows to trigger image-sync checks.
 - [x] [P0] Cut `dev` over to Fly-local image delivery and validate.
-- [ ] [P0] Cut `prod` over to Fly-local image delivery and validate (post-merge promotion only).
+- [x] [P0] Cut `prod` over to Fly-local image delivery and validate (post-merge promotion only).
 - [ ] [P1] Confirm placeholder behavior is clean for missing images.
 - [x] [P1] Fix the missing placeholder asset path so image fallbacks do not request `/placeholder.png` and return `404`.
 - [ ] [P1] Fix mojibake in game description text for non-English content (for example BGG `407176`) so UTF-8 descriptions render correctly in the game dialog.
@@ -65,7 +70,7 @@
 - [ ] [P0] Confirm health checks remain enabled and passing under convention runtime settings.
 
 ## Admin Panel and Convention UX Controls
-- [ ] [P0] Implement an authenticated admin panel before convention launch.
+- [x] [P0] Implement an authenticated admin panel before convention launch (initial scope: kiosk setup at `/kiosk/setup`).
 - [ ] [P0] Add admin capability to switch convention primary color theme at runtime.
 - [ ] [P0] Add admin capability to create/manage users.
 - [ ] [P0] Add admin capability to upload Library game IDs CSV and run validation/import flow.
@@ -85,7 +90,7 @@
 - [x] [P0] Alert on database connectivity failure.
 - [ ] [P1] Alert on sustained latency breach.
 - [ ] [P1] Alert on auth anomaly threshold.
-- [ ] [P1] Add alert dedupe/cooldown controls.
+- [x] [P1] Add alert dedupe/cooldown controls.
 - [ ] [P1] Add recovery notifications for major alert classes.
 - [ ] [P0] Test the full production alert path before convention launch.
   - Static smoke check:

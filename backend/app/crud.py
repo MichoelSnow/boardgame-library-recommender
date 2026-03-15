@@ -6,6 +6,7 @@ from sqlalchemy.sql import or_, and_
 from . import models, schemas, security
 from typing import Any, List, Optional
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -634,6 +635,25 @@ def create_user_suggestion(
     db.commit()
     db.refresh(db_suggestion)
     return db_suggestion
+
+
+def get_or_create_guest_user(
+    db: Session, username: str = security.CONVENTION_GUEST_USERNAME
+):
+    guest_user = get_user_by_username(db, username)
+    if guest_user:
+        return guest_user
+
+    guest_user = models.User(
+        username=username.lower(),
+        hashed_password=security.get_password_hash(secrets.token_urlsafe(48)),
+        is_admin=False,
+        is_active=True,
+    )
+    db.add(guest_user)
+    db.commit()
+    db.refresh(guest_user)
+    return guest_user
 
 
 def change_user_password(

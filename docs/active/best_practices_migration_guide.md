@@ -228,6 +228,32 @@ Overall execution order override:
   8. Phase 4 convention rehearsal/load testing in `dev`
   9. Later hardening phases
 - Phase 4 implementation items intentionally occur before later phase categories because later phases should build on the intended architecture rather than deepen investment in transitional paths.
+- Completion status for previously deferred execution-order items:
+  - [x] [P1] 7. Phase 4 convention mode implementation
+    - Backend convention mode and kiosk access paths implemented:
+      - `backend/app/convention_kiosk.py`
+      - `backend/app/main.py` (`/api/convention/kiosk/status`, `/api/convention/kiosk/enroll`, `/api/convention/kiosk/unenroll`)
+    - Runtime profile support and defaults in:
+      - `backend/app/runtime_profile.py`
+    - Frontend convention/kiosk consumption in:
+      - `frontend/src/api/convention.js`
+      - `frontend/src/hooks/useGameListQueries.js`
+    - Regression coverage:
+      - `backend/tests/test_convention_kiosk.py`
+      - `backend/tests/test_runtime_profile.py`
+  - [x] [P1] 8. Phase 4 convention rehearsal/load testing in `dev`
+    - Rehearsal runtime path and profile-specific Fly config are in place:
+      - `fly.convention.dev.toml`
+      - `docs/core/convention_ops.md`
+      - `docs/core/runbook.md`
+    - Rehearsal load script and thresholds are documented:
+      - `scripts/load/k6_rehearsal.js`
+      - `scripts/load/README.md`
+      - `docs/core/command_reference.md` (Section 12)
+    - Dev validation gate used to confirm convention-critical endpoints under deployed runtime:
+      - `scripts/validate/validate_auth_flow.py --env dev`
+      - `scripts/validate/validate_recommendation_endpoint.py --env dev --game-id 224517`
+      - `scripts/validate/validate_performance_gate.py --env dev`
 - [x] [P2] API versioning policy documented (`docs/ai/domain_glossary.md`)
 - [x] [P2] Phase 4 architecture ADR recorded (`docs/archive/adr/0001-phase-4-architecture-foundations.md`)
 

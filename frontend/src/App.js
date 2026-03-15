@@ -8,7 +8,9 @@ import Navbar from './components/Navbar';
 import './App.css';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import LoginPage from './pages/LoginPage';
+import KioskSetupPage from './pages/KioskSetupPage';
 import { useLocation } from 'react-router-dom';
 
 // Create a client with optimized caching
@@ -55,6 +57,14 @@ const AppContent = () => {
               <GameList />
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path="/kiosk/setup"
+          element={
+            <AdminRoute>
+              <KioskSetupPage />
+            </AdminRoute>
+          }
         />
         <Route path="/login" element={<LoginPage />} />
       </Routes>

@@ -208,7 +208,7 @@ rewrite_fly_app_name "fly.toml" "${FLY_APP_NAME_PROD}"
 rewrite_fly_app_name "fly.db.dev.toml" "${FLY_DB_APP_NAME_DEV}"
 rewrite_fly_app_name "fly.db.prod.toml" "${FLY_DB_APP_NAME_PROD}"
 rewrite_fly_app_name "fly.convention.toml" "${FLY_APP_NAME_PROD}"
-rewrite_fly_app_name "fly.dev.rehearsal.toml" "${FLY_APP_NAME_DEV}"
+rewrite_fly_app_name "fly.convention.dev.toml" "${FLY_APP_NAME_DEV}"
 rewrite_workflow_deploy_app_name ".github/workflows/fly-deploy.yml" "${FLY_APP_NAME_DEV}"
 rewrite_workflow_deploy_app_name ".github/workflows/fly-deploy-prod.yml" "${FLY_APP_NAME_PROD}"
 

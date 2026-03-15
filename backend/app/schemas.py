@@ -325,6 +325,7 @@ class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    is_guest: bool = False
 
     class Config:
         from_attributes = True

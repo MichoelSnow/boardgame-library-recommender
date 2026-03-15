@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -42,6 +42,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
 
   const { user, login } = useContext(AuthContext);
+  const location = useLocation();
 
   const handleTabChange = (event, newValue) => {
     setError('');
@@ -63,7 +64,7 @@ const LoginPage = () => {
   };
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={location.state?.from?.pathname || '/'} replace />;
   }
 
   return (

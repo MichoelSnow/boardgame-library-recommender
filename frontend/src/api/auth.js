@@ -19,3 +19,8 @@ export const fetchCurrentUser = async () => {
   const response = await apiClient.get('/users/me/');
   return response.data;
 };
+
+export const fetchConventionGuestToken = async () => {
+  const response = await apiClient.post('/convention/guest-token');
+  return response.data;
+};

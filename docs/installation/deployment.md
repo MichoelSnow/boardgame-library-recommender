@@ -72,9 +72,7 @@ If no prefix is provided, the script defaults to `${USER}-bg`.
 Load env values into your current shell when running commands from this guide:
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 ```
 
 What it does:
@@ -100,9 +98,7 @@ Uses generated `.env` values (`SECRET_KEY`, `DATABASE_PATH`).
 ### 4.1 Run migrations and start backend
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 
 unset DATABASE_URL
 poetry run alembic upgrade head
@@ -139,9 +135,7 @@ docker run --name boardgame-pg-local \
 ### 5.2 Set `DATABASE_URL`, run migrations, start backend
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 
 export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD_LOCAL}@${POSTGRES_HOST_LOCAL}:${POSTGRES_PORT_LOCAL}/${POSTGRES_DB}"
 poetry run alembic upgrade head

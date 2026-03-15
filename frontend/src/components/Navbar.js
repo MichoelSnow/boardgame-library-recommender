@@ -22,6 +22,7 @@ import PasswordChangeModal from './PasswordChangeModal';
 function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
+  const isGuestUser = Boolean(user?.is_guest);
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -77,7 +78,7 @@ function Navbar() {
             </Tooltip>
           )}
 
-          {user && (
+          {user && !isGuestUser && (
             <Tooltip title="Change your password">
               <Button
                 color="inherit"
@@ -93,7 +94,9 @@ function Navbar() {
           )}
           
           {user && (
-            <Button color="inherit" onClick={logout}>Logout</Button>
+            <Button color="inherit" onClick={logout}>
+              {isGuestUser ? 'Reset Session' : 'Logout'}
+            </Button>
           )}
         </Box>
       </Toolbar>

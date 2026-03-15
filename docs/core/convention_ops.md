@@ -43,8 +43,8 @@ Use explicit Fly config files per profile/environment to avoid ad hoc edits duri
   - convention production profile (warm runtime + convention process settings).
 - `fly.dev.toml`
   - standard development profile baseline.
-- `fly.dev.rehearsal.toml`
-  - dev rehearsal profile for convention-like load validation windows.
+- `fly.convention.dev.toml`
+  - dev convention profile for full convention-mode validation windows.
 
 Policy:
 - Treat these files as source-controlled runtime contracts.

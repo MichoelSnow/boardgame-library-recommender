@@ -11,6 +11,10 @@ def _override_current_user():
     return SimpleNamespace(id=1, username="tester", is_active=True, is_admin=False)
 
 
+def _override_admin_user():
+    return SimpleNamespace(id=2, username="admin", is_active=True, is_admin=True)
+
+
 @pytest.fixture(autouse=True)
 def override_main_db_dependency():
     def _override_db():
@@ -212,6 +216,133 @@ async def test_openapi_contract_contains_core_paths(api_client):
     assert "/api/games/" in schema["paths"]
     assert "/api/recommendations" in schema["paths"]
     assert "/api/token" in schema["paths"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_convention_kiosk_admin_endpoints_require_auth(api_client):
+    enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
+    unenroll_response = await api_client.post("/api/convention/kiosk/admin/unenroll")
+
+    assert enroll_response.status_code == 401
+    assert unenroll_response.status_code == 401
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_convention_kiosk_admin_endpoints_require_admin(api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
+
+    enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
+    unenroll_response = await api_client.post("/api/convention/kiosk/admin/unenroll")
+
+    assert enroll_response.status_code == 403
+    assert unenroll_response.status_code == 403
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_convention_kiosk_admin_endpoints_allow_admin_when_enabled(
+    monkeypatch, api_client
+):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setenv("CONVENTION_MODE", "true")
+    monkeypatch.setenv("CONVENTION_GUEST_ENABLED", "true")
+
+    enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
+    assert enroll_response.status_code == 200
+    assert enroll_response.json()["kiosk_mode"] is True
+
+    status_response = await api_client.get("/api/convention/kiosk/status")
+    assert status_response.status_code == 200
+    assert status_response.json()["convention_mode"] is True
+    assert status_response.json()["kiosk_mode"] is True
+
+    unenroll_response = await api_client.post("/api/convention/kiosk/admin/unenroll")
+    assert unenroll_response.status_code == 200
+    assert unenroll_response.json()["kiosk_mode"] is False
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_convention_guest_token_requires_kiosk_enrollment(monkeypatch, api_client):
+    monkeypatch.setenv("CONVENTION_MODE", "true")
+    monkeypatch.setenv("CONVENTION_GUEST_ENABLED", "true")
+
+    response = await api_client.post("/api/convention/guest-token")
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_convention_guest_token_works_after_admin_enroll(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setenv("CONVENTION_MODE", "true")
+    monkeypatch.setenv("CONVENTION_GUEST_ENABLED", "true")
+
+    enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
+    assert enroll_response.status_code == 200
+
+    guest_response = await api_client.post("/api/convention/guest-token")
+    assert guest_response.status_code == 200
+    payload = guest_response.json()
+    assert payload["token_type"] == "bearer"
+    assert payload["access_token"]
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", ["asyncio"])
+async def test_guest_session_cannot_use_write_endpoints(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setenv("CONVENTION_MODE", "true")
+    monkeypatch.setenv("CONVENTION_GUEST_ENABLED", "true")
+    enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
+    assert enroll_response.status_code == 200
+    main.app.dependency_overrides.clear()
+
+    token_response = await api_client.post("/api/convention/guest-token")
+    assert token_response.status_code == 200
+    token = token_response.json()["access_token"]
+
+    password_response = await api_client.put(
+        "/api/users/me/password",
+        json={"current_password": "x", "new_password": "abcdef"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert password_response.status_code == 403
+
+    monkeypatch.setattr(
+        main.crud,
+        "get_or_create_guest_user",
+        lambda db: SimpleNamespace(id=99, username=security.CONVENTION_GUEST_USERNAME),
+    )
+    monkeypatch.setattr(
+        main.crud,
+        "create_user_suggestion",
+        lambda db, user_id, suggestion: SimpleNamespace(
+            id=22,
+            comment=suggestion.comment,
+            timestamp=SimpleNamespace(isoformat=lambda: "2026-03-15T00:00:00Z"),
+        ),
+    )
+    suggestion_response = await api_client.post(
+        "/api/suggestions/",
+        json={"comment": "guest suggestion"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert suggestion_response.status_code == 200
+    assert suggestion_response.json()["username"] == security.CONVENTION_GUEST_USERNAME
 
 
 @pytest.mark.anyio

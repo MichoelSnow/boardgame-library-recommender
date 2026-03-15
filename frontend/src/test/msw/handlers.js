@@ -35,6 +35,14 @@ export const handlers = [
     return res(ctx.status(401), ctx.json({ detail: 'Not authenticated' }));
   }),
 
+  rest.get(`${API_BASE}/convention/kiosk/status`, (req, res, ctx) =>
+    res(ctx.status(200), ctx.json({ convention_mode: false, kiosk_mode: false }))
+  ),
+
+  rest.post(`${API_BASE}/convention/guest-token`, (req, res, ctx) =>
+    res(ctx.status(401), ctx.json({ detail: 'Kiosk enrollment is required.' }))
+  ),
+
   rest.get(`${API_BASE}/games/`, (req, res, ctx) => {
     const state = getMswState();
     state.lastGamesQuery = req.url.searchParams.toString();
