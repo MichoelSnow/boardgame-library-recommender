@@ -240,8 +240,8 @@ fly ips allocate-v6 --private -a "${FLY_DB_APP_NAME_PROD}"
 ### 6.8 Set app secrets
 
 ```bash
-fly secrets set -a "${FLY_APP_NAME_DEV}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_DEV}@${FLY_DB_APP_NAME_DEV}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_DEV}" CONVENTION_KIOSK_KEY="${CONVENTION_KIOSK_KEY_DEV}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_DEV}.fly.dev,https://${FLY_APP_NAME_PROD}.fly.dev"
-fly secrets set -a "${FLY_APP_NAME_PROD}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_PROD}@${FLY_DB_APP_NAME_PROD}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_PROD}" CONVENTION_KIOSK_KEY="${CONVENTION_KIOSK_KEY_PROD}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_PROD}.fly.dev,https://${FLY_APP_NAME_DEV}.fly.dev"
+fly secrets set -a "${FLY_APP_NAME_DEV}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_DEV}@${FLY_DB_APP_NAME_DEV}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_DEV}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_DEV}.fly.dev,https://${FLY_APP_NAME_PROD}.fly.dev"
+fly secrets set -a "${FLY_APP_NAME_PROD}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_PROD}@${FLY_DB_APP_NAME_PROD}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_PROD}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_PROD}.fly.dev,https://${FLY_APP_NAME_DEV}.fly.dev"
 ```
 
 Use `.flycast` hostnames for Fly Postgres app URLs so DB autostart works reliably when app machines wake from stopped state.

@@ -18,18 +18,17 @@
 - [x] [P0] Implement convention mode with explicit `CONVENTION_MODE` toggle.
 - [x] [P0] Implement kiosk device enrollment/status flow for approved devices via:
   - `GET /api/convention/kiosk/status`
-  - `POST /api/convention/kiosk/enroll`
-  - `POST /api/convention/kiosk/unenroll`
+  - `POST /api/convention/kiosk/admin/enroll`
+  - `POST /api/convention/kiosk/admin/unenroll`
 - [x] [P1] Add explicit `POST /api/convention/guest-token` flow on top of kiosk enrollment.
 - [ ] [P0] Add required convention guest config:
   - `CONVENTION_GUEST_ENABLED`
-  - `CONVENTION_KIOSK_KEY`
-  - optional `CONVENTION_KIOSK_IP_ALLOWLIST`
+- [ ] [P2] Optional: `CONVENTION_KIOSK_IP_ALLOWLIST` (currently deferred).
 - [ ] [P0] Implement guest read-only access allowlist for convention endpoints.
 - [x] [P0] Keep write endpoints authenticated during convention mode (except explicitly allowed guest suggestion submission).
 - [x] [P0] Implement shared-device guest session state using `sessionStorage`.
 - [x] [P0] Add explicit `Reset Session` control for shared devices.
-- [ ] [P0] Implement 5-minute inactivity auto-clear for guest session state.
+- [x] [P0] Implement 5-minute inactivity auto-clear for guest session state.
 - [ ] [P1] Validate convention-mode endpoint allowlist against the final frontend flows.
 - [x] [P0] Implement admin-only kiosk setup UI (`/kiosk/setup`) for enroll/unenroll without manual kiosk-key entry on shared devices.
 

@@ -232,7 +232,7 @@ Overall execution order override:
   - [x] [P1] 7. Phase 4 convention mode implementation
     - Backend convention mode and kiosk access paths implemented:
       - `backend/app/convention_kiosk.py`
-      - `backend/app/main.py` (`/api/convention/kiosk/status`, `/api/convention/kiosk/enroll`, `/api/convention/kiosk/unenroll`)
+      - `backend/app/main.py` (`/api/convention/kiosk/status`, `/api/convention/kiosk/admin/enroll`, `/api/convention/kiosk/admin/unenroll`)
     - Runtime profile support and defaults in:
       - `backend/app/runtime_profile.py`
     - Frontend convention/kiosk consumption in:

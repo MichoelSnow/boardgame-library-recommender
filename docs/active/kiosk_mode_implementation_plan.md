@@ -39,7 +39,7 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
   - view recommendations
   - view public user-curated recommendation lists (for example librarian picks)
   - use temporary personalization within the current session
-- Guest users should not be allowed to submit suggestions in V1.
+- Guest users may submit suggestions in V1; suggestions are stored under the fixed guest identity.
 - Guest users should have access only to an explicit allowlist of user-facing read endpoints required for these flows.
 
 ### Authenticated Write Users
@@ -65,7 +65,7 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 - Provide a clear `Reset Session` control to clear guest state quickly.
 - Ensure guest session state is not stored durably across device users in the short term.
 - Avoid `localStorage` for guest personalization unless there is a specific reason and explicit clearing logic.
-- Add automatic session clearing after `3` minutes of inactivity in addition to explicit reset control.
+- Add automatic session clearing after `5` minutes of inactivity in addition to explicit reset control.
 
 ## Security and Abuse Considerations
 - Convention mode is not a substitute for network-edge protection.
@@ -85,25 +85,19 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 ### Required Controls
 - `CONVENTION_MODE=true` must be set.
 - `CONVENTION_GUEST_ENABLED=true` must be set.
-- Request must include `X-Convention-Kiosk-Key: <value>`.
-- Header value must match `CONVENTION_KIOSK_KEY` secret.
-- Optional defense-in-depth:
-  - if `CONVENTION_KIOSK_IP_ALLOWLIST` is set, caller IP must be in that allowlist.
+- Caller must already be enrolled as a kiosk browser/device (valid signed kiosk cookie marker).
 
 ### Success Response (`200`)
 ```json
 {
   "access_token": "<jwt>",
-  "token_type": "bearer",
-  "expires_in": 28800,
-  "role": "guest"
+  "token_type": "bearer"
 }
 ```
 
 ### Failure Responses
 - `404` when convention guest mode is disabled.
-- `401` when kiosk key is missing/invalid.
-- `403` when IP allowlist is configured and caller is not allowed.
+- `401` when kiosk enrollment marker is missing/invalid.
 
 ### Token Contract
 - Token subject: fixed guest identity (for example `guest_kiosk`).
@@ -142,14 +136,16 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 - Use explicit device enrollment for kiosk mode; do not rely on build-time frontend env flags as the primary selector.
 - On a designated kiosk device (one-time per browser profile):
   1. open kiosk setup UI (for example `/kiosk/setup`)
-  2. submit kiosk key to `POST /api/convention/kiosk/enroll`
-  3. backend validates mode + key and marks browser as kiosk (signed cookie or equivalent server-validated session marker)
+  2. sign in as admin and click `Enroll This Device`
+  3. backend validates mode + admin auth and marks browser as kiosk (signed cookie/server-validated marker)
 - On app start:
   1. call kiosk status endpoint (for example `GET /api/convention/kiosk/status`)
   2. if `kiosk_mode=true`, call `POST /api/convention/guest-token` with kiosk credentials/marker
   3. store returned token in session auth state and continue in kiosk UX mode
 - If kiosk guest-token acquisition fails:
-  - show blocking "kiosk unavailable" state
+  - show blocking "kiosk unavailable" state with:
+    - `Retry Guest Mode`
+    - `Staff Login`
   - do not silently fall back to unauthenticated public mode
 - Non-enrolled devices remain in normal mode, even when `CONVENTION_MODE=true`.
 - Existing staff login flow remains unchanged and available.
@@ -159,13 +155,12 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
   - `CONVENTION_MODE=true`
   - `CONVENTION_GUEST_ENABLED=true`
 2. Operator enrolls each kiosk browser once:
-  - call `POST /api/convention/kiosk/enroll` using kiosk key
+  - open `/kiosk/setup` and enroll as admin
   - backend returns success and sets signed `kiosk_mode` marker for that browser
 3. Enrolled kiosk browser automatically boots into guest flow on app load.
 4. Non-enrolled devices (staff or public) do not get kiosk behavior.
 5. Unenroll/revoke options:
-  - `POST /api/convention/kiosk/unenroll` clears kiosk marker on that browser
-  - rotate `CONVENTION_KIOSK_KEY` to prevent further enrollments with old key
+  - use `/kiosk/setup` admin flow to remove kiosk marker on that browser
   - optional server-side invalidation for active kiosk markers
 
 ## Convention Mode Enforcement
@@ -179,17 +174,15 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 1. Add flags/secrets:
   - `CONVENTION_MODE`
   - `CONVENTION_GUEST_ENABLED`
-  - `CONVENTION_KIOSK_KEY`
-  - optional `CONVENTION_KIOSK_IP_ALLOWLIST`
 2. Implement `POST /api/convention/guest-token` contract and gating.
 3. Add guest role dependency checks on protected endpoints.
 4. Implement explicit guest read allowlist for convention-mode flows.
-5. Keep write/admin endpoints authenticated and deny guest role.
+5. Keep write/admin endpoints authenticated and deny guest role, except explicitly allowed guest suggestion submission.
 6. Add frontend kiosk boot behavior for automatic guest token acquisition.
 7. Add `sessionStorage` support for guest personalization state.
 8. Add explicit `Reset Session` control.
-9. Add `3` minute inactivity auto-clear.
-10. Validate mode on/off and access controls.
+9. Add `5` minute inactivity auto-clear.
+10. [x] Validate mode on/off and access controls.
 
 ## Validation Criteria
 - Kiosk devices can acquire a guest token only when convention mode is enabled.
@@ -202,7 +195,7 @@ Exit criteria: move to `docs/deprecated/` once guest mode is implemented and val
 ## Decision Log
 Use this section to track scope or contract changes made during implementation.
 
-- YYYY-MM-DD - Decision summary
-  - Reason:
-  - Impact:
-  - Follow-up:
+- 2026-03-15 - Mode/access validation completed in `dev` (manual end-to-end validation).
+  - Reason: confirm kiosk guest boot, staff fallback, and role-based access restrictions before convention readiness sign-off.
+  - Impact: checklist validation item completed; implementation behavior confirmed against current plan.
+  - Follow-up: keep validation rerun as part of final pre-convention release gate.

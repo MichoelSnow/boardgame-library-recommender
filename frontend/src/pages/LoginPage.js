@@ -41,7 +41,13 @@ const LoginPage = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const { user, login } = useContext(AuthContext);
+  const {
+    user,
+    login,
+    retryGuestSessionBootstrap,
+    kioskUnavailable,
+    kioskUnavailableReason,
+  } = useContext(AuthContext);
   const location = useLocation();
 
   const handleTabChange = (event, newValue) => {
@@ -80,6 +86,22 @@ const LoginPage = () => {
         </Box>
         <TabPanel value={tabIndex} index={0}>
           <Box component="form" onSubmit={handleLogin} noValidate sx={{ mt: 1 }}>
+            {kioskUnavailable && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Guest kiosk mode is unavailable on this device.
+                <br />
+                <strong>Reason:</strong> {kioskUnavailableReason || 'unknown'}
+                <Box sx={{ mt: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={retryGuestSessionBootstrap}
+                  >
+                    Retry Guest Mode
+                  </Button>
+                </Box>
+              </Alert>
+            )}
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
             <TextField

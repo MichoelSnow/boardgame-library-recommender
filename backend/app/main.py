@@ -6,7 +6,6 @@ from fastapi import (
     Depends,
     status,
     Response,
-    Header,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -24,7 +23,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Literal, Optional
 import logging
 import httpx
-import hmac
 import mimetypes
 import tempfile
 import ipaddress
@@ -58,7 +56,6 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
-from pydantic import BaseModel
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -295,10 +292,6 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
         )
         response.headers.setdefault("X-Response-Time-Ms", f"{duration_ms:.2f}")
         return response
-
-
-class KioskEnrollRequest(BaseModel):
-    kiosk_key: Optional[str] = None
 
 
 def _is_disallowed_ip_address(ip_text: str) -> bool:
@@ -831,33 +824,6 @@ def _set_kiosk_cookie(response: Response) -> None:
 def _require_admin(current_user: schemas.User) -> None:
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required.")
-
-
-@app.post("/api/convention/kiosk/enroll")
-async def convention_kiosk_enroll(
-    response: Response,
-    payload: KioskEnrollRequest,
-    x_convention_kiosk_key: Optional[str] = Header(default=None),
-):
-    _ensure_convention_kiosk_enrollment_enabled()
-
-    expected_key = convention_kiosk.get_expected_kiosk_key()
-    if not expected_key:
-        raise HTTPException(
-            status_code=503, detail="Convention kiosk key is not configured."
-        )
-
-    provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
-    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
-        raise HTTPException(status_code=401, detail="Invalid kiosk key.")
-
-    _set_kiosk_cookie(response)
-
-    return {
-        "convention_mode": True,
-        "kiosk_mode": True,
-        "expires_in": convention_kiosk.KIOSK_COOKIE_TTL_SECONDS,
-    }
 
 
 @app.post("/api/convention/kiosk/admin/enroll")

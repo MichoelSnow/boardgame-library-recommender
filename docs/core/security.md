@@ -18,7 +18,7 @@
 
 ### High-impact secret set
 - GitHub: `FLY_API_TOKEN`, `GEMINI_API_KEY`
-- Fly apps: `SECRET_KEY`, `DATABASE_URL`, `CONVENTION_KIOSK_KEY`
+- Fly apps: `SECRET_KEY`, `DATABASE_URL`
 - Local: `.env` equivalents used for auth/deploy/ingest paths
 
 ### Emergency rotation steps
@@ -46,7 +46,7 @@
    ```bash
    fly secrets set -a "${FLY_APP_NAME_DEV}" SECRET_KEY="<new-secret>"
    ```
-   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`).
+   Repeat for any other keys being rotated (`DATABASE_URL`).
 3. Validate `dev`:
    - `/api/version` responds
    - auth works (`/api/token` + `/api/users/me/`)
