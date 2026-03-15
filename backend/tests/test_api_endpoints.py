@@ -221,9 +221,11 @@ async def test_openapi_contract_contains_core_paths(api_client):
 @pytest.mark.anyio
 @pytest.mark.parametrize("anyio_backend", ["asyncio"])
 async def test_convention_kiosk_admin_endpoints_require_auth(api_client):
+    legacy_unenroll_response = await api_client.post("/api/convention/kiosk/unenroll")
     enroll_response = await api_client.post("/api/convention/kiosk/admin/enroll")
     unenroll_response = await api_client.post("/api/convention/kiosk/admin/unenroll")
 
+    assert legacy_unenroll_response.status_code in {404, 405}
     assert enroll_response.status_code == 401
     assert unenroll_response.status_code == 401
 

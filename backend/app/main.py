@@ -478,6 +478,15 @@ def validate_startup_config() -> None:
     _validate_optional_bool_env("RATE_LIMIT_ENABLED")
     _validate_optional_bool_env("TRUST_X_FORWARDED_FOR")
     _validate_optional_bool_env("DB_KEEPALIVE_ENABLED")
+    _validate_optional_bool_env("CONVENTION_MODE")
+    _validate_optional_bool_env("CONVENTION_GUEST_ENABLED")
+
+    if convention_kiosk.is_convention_mode_enabled() and not os.getenv(
+        "CONVENTION_GUEST_ENABLED", ""
+    ).strip():
+        raise RuntimeError(
+            "CONVENTION_GUEST_ENABLED must be explicitly set when CONVENTION_MODE is enabled."
+        )
 
 
 # Validate startup config once so invalid values fail before serving traffic.
@@ -839,15 +848,6 @@ async def convention_kiosk_enroll_admin(
         "kiosk_mode": True,
         "expires_in": convention_kiosk.KIOSK_COOKIE_TTL_SECONDS,
     }
-
-
-@app.post("/api/convention/kiosk/unenroll")
-async def convention_kiosk_unenroll(response: Response):
-    response.delete_cookie(
-        key=convention_kiosk.KIOSK_COOKIE_NAME,
-        path="/",
-    )
-    return {"kiosk_mode": False}
 
 
 @app.post("/api/convention/kiosk/admin/unenroll")

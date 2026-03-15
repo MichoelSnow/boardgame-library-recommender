@@ -37,3 +37,17 @@ def test_validate_startup_config_rejects_invalid_boolean_value(monkeypatch):
         RuntimeError, match="RATE_LIMIT_ENABLED must be a boolean-like value"
     ):
         main.validate_startup_config()
+
+
+def test_validate_startup_config_requires_guest_flag_when_convention_mode_enabled(
+    monkeypatch,
+):
+    monkeypatch.setenv("CONVENTION_MODE", "true")
+    monkeypatch.delenv("CONVENTION_GUEST_ENABLED", raising=False)
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "CONVENTION_GUEST_ENABLED must be explicitly set when CONVENTION_MODE is enabled"
+        ),
+    ):
+        main.validate_startup_config()
