@@ -15,6 +15,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [ ] Add optional recommendation sharing via email/SMS (requires abuse/rate-limit controls).
 - [ ] Allow multiple selection in player count.
 - [ ] When you activate recommendations it should minimize any open sorting/filtering panels.
+- [ ] Add the powered by BGG icon to the site (https://boardgamegeek.com/using_the_xml_api)
 
 ## Admin and Operations Features
 - [ ] Build admin console for convention operations.

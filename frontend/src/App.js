@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -11,7 +11,14 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import LoginPage from './pages/LoginPage';
 import KioskSetupPage from './pages/KioskSetupPage';
+import AdminPanelPage from './pages/AdminPanelPage';
+import AdminThemePage from './pages/AdminThemePage';
+import AdminUsersPage from './pages/AdminUsersPage';
 import { useLocation } from 'react-router-dom';
+import {
+  ThemeSettingsProvider,
+  useThemeSettings,
+} from './context/ThemeSettingsContext';
 
 // Create a client with optimized caching
 const queryClient = new QueryClient({
@@ -22,22 +29,6 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       retry: 1,
       networkMode: 'offlineFirst',
-    },
-  },
-});
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#904799',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
     },
   },
 });
@@ -59,6 +50,30 @@ const AppContent = () => {
           } 
         />
         <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPanelPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/theme"
+          element={
+            <AdminRoute>
+              <AdminThemePage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route
           path="/kiosk/setup"
           element={
             <AdminRoute>
@@ -70,24 +85,55 @@ const AppContent = () => {
       </Routes>
     </>
   );
+};
+
+function ThemedApp() {
+  const { effectivePrimaryColor } = useThemeSettings();
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: 'light',
+          primary: {
+            main: effectivePrimaryColor,
+          },
+          secondary: {
+            main: '#dc004e',
+          },
+          background: {
+            default: '#f5f5f5',
+            paper: '#ffffff',
+          },
+        },
+      }),
+    [effectivePrimaryColor]
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <AppContent />
+      </Router>
+    </ThemeProvider>
+  );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Router future={{ 
-          v7_startTransition: true,
-          v7_relativeSplatPath: true 
-        }}>
-            <AppContent />
-        </Router>
-      </ThemeProvider>
+        <ThemeSettingsProvider>
+          <ThemedApp />
+        </ThemeSettingsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
 }
 
-export default App; 
+export default App;

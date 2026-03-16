@@ -158,6 +158,131 @@ async def test_users_me_requires_auth(api_client):
 
 
 @pytest.mark.anyio
+async def test_theme_settings_get_uses_default_when_unset(monkeypatch, api_client):
+    monkeypatch.setattr(main.crud, "get_app_setting", lambda db, key: None)
+    response = await api_client.get("/api/theme")
+    assert response.status_code == 200
+    assert response.json()["primary_color"] == "#D9272D"
+
+
+@pytest.mark.anyio
+async def test_theme_settings_update_requires_auth(api_client):
+    response = await api_client.put(
+        "/api/admin/theme", json={"primary_color": "#007DBB"}
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_theme_settings_update_requires_admin(api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
+
+    response = await api_client.put(
+        "/api/admin/theme", json={"primary_color": "#007DBB"}
+    )
+    assert response.status_code == 403
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_theme_settings_update_allows_admin(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    captured = {}
+
+    def _mock_upsert(db, key, value):
+        captured["key"] = key
+        captured["value"] = value
+        return SimpleNamespace(key=key, value=value)
+
+    monkeypatch.setattr(main.crud, "upsert_app_setting", _mock_upsert)
+
+    response = await api_client.put(
+        "/api/admin/theme", json={"primary_color": "#007dbb"}
+    )
+    assert response.status_code == 200
+    assert response.json()["primary_color"] == "#007DBB"
+    assert captured["key"] == "theme_primary_color"
+    assert captured["value"] == "#007DBB"
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_user_management_endpoints_require_admin(api_client):
+    response = await api_client.get("/api/admin/users")
+    assert response.status_code == 401
+
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
+    forbidden = await api_client.get("/api/admin/users")
+    assert forbidden.status_code == 403
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_user_management_list_update_and_reset_password(
+    monkeypatch, api_client
+):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+
+    monkeypatch.setattr(
+        main.crud,
+        "get_users",
+        lambda db: [
+            SimpleNamespace(id=1, username="admin", is_admin=True, is_active=True)
+        ],
+    )
+    listed = await api_client.get("/api/admin/users")
+    assert listed.status_code == 200
+    assert listed.json()[0]["username"] == "admin"
+
+    monkeypatch.setattr(
+        main.crud,
+        "get_user",
+        lambda db, user_id: SimpleNamespace(
+            id=user_id,
+            username="user1",
+            is_admin=False,
+            is_active=True,
+        ),
+    )
+    monkeypatch.setattr(
+        main.crud,
+        "update_user_admin_flags",
+        lambda db, user_id, is_admin=None, is_active=None: SimpleNamespace(
+            id=user_id,
+            username="user1",
+            is_admin=is_admin if is_admin is not None else False,
+            is_active=is_active if is_active is not None else True,
+        ),
+    )
+    updated = await api_client.put(
+        "/api/admin/users/5",
+        json={"is_admin": True, "is_active": False},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["is_admin"] is True
+    assert updated.json()["is_active"] is False
+
+    monkeypatch.setattr(
+        main.crud, "admin_reset_password_by_user_id", lambda **kwargs: True
+    )
+    reset_response = await api_client.put(
+        "/api/admin/users/5/password",
+        json={"new_password": "newpass123"},
+    )
+    assert reset_response.status_code == 200
+    assert reset_response.json()["message"] == "Password reset successfully"
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
 async def test_users_me_and_password_change_authenticated(monkeypatch, api_client):
     main.app.dependency_overrides[security.get_current_active_user] = (
         _override_current_user

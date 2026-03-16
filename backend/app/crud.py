@@ -678,3 +678,51 @@ def admin_reset_password(db: Session, username: str, new_password: str):
     user.hashed_password = security.get_password_hash(new_password)
     db.commit()
     return True
+
+
+def get_users(db: Session):
+    return db.query(models.User).order_by(models.User.username.asc()).all()
+
+
+def update_user_admin_flags(
+    db: Session,
+    user_id: int,
+    *,
+    is_admin: bool | None = None,
+    is_active: bool | None = None,
+):
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    if is_admin is not None:
+        user.is_admin = is_admin
+    if is_active is not None:
+        user.is_active = is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def admin_reset_password_by_user_id(db: Session, user_id: int, new_password: str):
+    user = get_user(db, user_id)
+    if not user:
+        return False
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    return True
+
+
+def get_app_setting(db: Session, key: str):
+    return db.query(models.AppSetting).filter(models.AppSetting.key == key).first()
+
+
+def upsert_app_setting(db: Session, key: str, value: str):
+    setting = get_app_setting(db, key)
+    if setting:
+        setting.value = value
+    else:
+        setting = models.AppSetting(key=key, value=value)
+        db.add(setting)
+    db.commit()
+    db.refresh(setting)
+    return setting

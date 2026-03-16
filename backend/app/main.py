@@ -142,6 +142,8 @@ CONTENT_TYPE_TO_EXTENSION = {
 }
 MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
+THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
+DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
 
 
 class InMemoryRateLimiter:
@@ -1367,6 +1369,107 @@ def create_user(
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)
+
+
+@app.get("/api/admin/users", response_model=list[schemas.AdminUser])
+def list_admin_users(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    users = crud.get_users(db)
+    return [
+        schemas.AdminUser(
+            id=user.id,
+            username=user.username,
+            is_active=user.is_active,
+            is_admin=user.is_admin,
+        )
+        for user in users
+    ]
+
+
+@app.put("/api/admin/users/{user_id}", response_model=schemas.AdminUser)
+def update_admin_user(
+    user_id: int,
+    request: schemas.AdminUserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    target_user = crud.get_user(db, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target_user.id == current_user.id:
+        if request.is_active is False:
+            raise HTTPException(
+                status_code=400, detail="You cannot deactivate your own account."
+            )
+        if request.is_admin is False:
+            raise HTTPException(
+                status_code=400, detail="You cannot remove your own admin access."
+            )
+
+    updated_user = crud.update_user_admin_flags(
+        db,
+        user_id=user_id,
+        is_admin=request.is_admin,
+        is_active=request.is_active,
+    )
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.AdminUser(
+        id=updated_user.id,
+        username=updated_user.username,
+        is_active=updated_user.is_active,
+        is_admin=updated_user.is_admin,
+    )
+
+
+@app.put(
+    "/api/admin/users/{user_id}/password", response_model=schemas.PasswordChangeResponse
+)
+def admin_reset_user_password(
+    user_id: int,
+    request: schemas.AdminUserPasswordResetRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    success = crud.admin_reset_password_by_user_id(
+        db=db,
+        user_id=user_id,
+        new_password=request.new_password,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.PasswordChangeResponse(message="Password reset successfully")
+
+
+@app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)
+def get_theme_settings(db: Session = Depends(get_db)):
+    primary_color = DEFAULT_THEME_PRIMARY_COLOR
+    setting = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
+    if setting and setting.value:
+        primary_color = setting.value
+    return schemas.ThemeSettingsResponse(primary_color=primary_color)
+
+
+@app.put("/api/admin/theme", response_model=schemas.ThemeSettingsResponse)
+def update_theme_settings(
+    request: schemas.ThemeSettingsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    setting = crud.upsert_app_setting(
+        db,
+        key=THEME_PRIMARY_COLOR_SETTING_KEY,
+        value=request.primary_color.upper(),
+    )
+    return schemas.ThemeSettingsResponse(primary_color=setting.value)
 
 
 @app.get("/api/users/me/", response_model=schemas.User)

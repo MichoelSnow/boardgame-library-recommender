@@ -386,3 +386,45 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+
+
+class ThemeSettingsResponse(BaseModel):
+    primary_color: str = Field(
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+        description="Current global primary hex color for the app theme.",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeSettingsUpdateRequest(BaseModel):
+    primary_color: str = Field(
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+        description="New global primary hex color for the app theme.",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUser(BaseModel):
+    id: int
+    username: str
+    is_active: bool
+    is_admin: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserUpdateRequest(BaseModel):
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserPasswordResetRequest(BaseModel):
+    new_password: str = Field(
+        min_length=6, description="Password must be at least 6 characters"
+    )
+
+    model_config = ConfigDict(from_attributes=True)

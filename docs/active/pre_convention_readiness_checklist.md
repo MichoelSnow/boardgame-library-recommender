@@ -78,12 +78,27 @@
     - `curl -sS "https://${FLY_APP_NAME_PROD}.fly.dev/api/version"`
 
 ## Admin Panel and Convention UX Controls
-- [x] [P0] Implement an authenticated admin panel before convention launch (initial scope: kiosk setup at `/kiosk/setup`).
-- [ ] [P0] Add admin capability to switch convention primary color theme at runtime.
-- [ ] [P0] Add admin capability to create/manage users.
+- [x] [P0] Implement an authenticated admin panel before convention launch.
+  - Admin users can open `/admin` from navbar `Admin Panel` button.
+  - `/admin` provides dedicated action links for:
+    - `/kiosk/setup`
+    - `/admin/theme`
+    - `/admin/users`
+- [x] [P0] Add admin capability to switch convention primary color theme at runtime.
+  - Admin panel now supports one-click selection of the four convention palette colors:
+    - `#904799`
+    - `#D9272D`
+    - `#007DBB`
+    - `#F4B223`
+  - Admin panel also supports custom hex color entry/picker for manual override.
+  - If a selected color fails AA contrast on white, admin sees a warning with contrast ratio and the app automatically limits that color usage to safe regions (for example navbar), while using black (`#000000`) as fallback accent color elsewhere.
+  - Theme changes are persisted server-side and apply globally to all users.
+  - Default app primary color is now `#D9272D`.
+- [x] [P0] Add admin capability to create/manage users.
+  - `/admin/users` supports searchable/filterable/paginated user management with create, role/status edit, and password reset dialogs.
 - [ ] [P0] Add admin capability to upload Library game IDs CSV and run validation/import flow.
 - [ ] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
-- [ ] [P0] Establish canonical convention color palette and document assignment:
+- [x] [P0] Establish canonical convention color palette and document assignment:
   - `#904799`
   - `#D9272D`
   - `#007DBB`

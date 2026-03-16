@@ -41,6 +41,15 @@ class UserSuggestion(Base):
     user = relationship("User", back_populates="suggestions")
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    value = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class BoardGame(Base):
     __tablename__ = "games"
     __allow_unmapped__ = True
