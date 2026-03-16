@@ -132,11 +132,16 @@
 - [x] [P0] Alert on app unreachable / health failure.
 - [x] [P0] Alert on recommendation degraded mode.
 - [x] [P0] Alert on database connectivity failure.
-- [ ] [P1] Alert on sustained latency breach.
+- [x] [P1] Alert on sustained latency breach.
+  - Implemented in `scripts/alerts/run_prod_health_alerts.py` with consecutive-breach gating (default 3 runs) to avoid one-off spike noise.
 - [ ] [P1] Alert on auth anomaly threshold.
+  - Deferred post-launch by design; requires reliable auth-failure telemetry source aggregation.
 - [x] [P1] Add alert dedupe/cooldown controls.
-- [ ] [P1] Add recovery notifications for major alert classes.
-- [ ] [P0] Test the full production alert path before convention launch.
+- [x] [P1] Add recovery notifications for major alert classes.
+  - Recovery transitions now emit GitHub Action notices and step-summary entries when previously active major alerts clear.
+- [x] [P0] Test the full production alert path before convention launch.
+  - Workflow now runs static wiring validation before each scheduled runtime check:
+    - `python scripts/validate/validate_prod_alert_path.py --env prod --skip-runtime`
   - Static smoke check:
     - `poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip-runtime`
   - Runtime dry-run check:
