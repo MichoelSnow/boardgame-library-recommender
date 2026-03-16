@@ -283,6 +283,224 @@ async def test_admin_user_management_list_update_and_reset_password(
 
 
 @pytest.mark.anyio
+async def test_library_game_ids_uses_runtime_source(monkeypatch, api_client):
+    monkeypatch.setattr(main.crud, "get_library_ids_for_runtime", lambda db: [101, 202])
+    response = await api_client.get("/api/library_game_ids")
+    assert response.status_code == 200
+    assert response.json() == [101, 202]
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_endpoints_require_admin(api_client):
+    listing = await api_client.get("/api/admin/library-imports")
+    assert listing.status_code == 401
+
+    validate = await api_client.post(
+        "/api/admin/library-imports/csv/validate",
+        files={"file": ("ids.csv", "1\n2\n", "text/csv")},
+    )
+    assert validate.status_code == 401
+
+    upload = await api_client.post(
+        "/api/admin/library-imports/csv",
+        data={"label": "test-import"},
+        files={"file": ("ids.csv", "1\n2\n", "text/csv")},
+    )
+    assert upload.status_code == 401
+
+    activate = await api_client.post("/api/admin/library-imports/1/activate")
+    assert activate.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_upload_and_activate(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    captured = {}
+
+    monkeypatch.setattr(
+        main,
+        "_analyze_library_csv",
+        lambda raw: {
+            "total_rows": 4,
+            "parsed_rows": [(1, 10), (2, 20), (3, 20), (4, 30)],
+            "deduped_rows": [(1, 10), (2, 20), (4, 30)],
+            "duplicate_rows": 1,
+            "invalid_warnings": [],
+        },
+    )
+    monkeypatch.setattr(main.crud, "find_missing_games_for_ids", lambda db, bgg_ids: [])
+
+    def _mock_create_library_import(
+        db,
+        *,
+        label,
+        import_method,
+        imported_by_user_id,
+        bgg_ids,
+        activate,
+    ):
+        captured["label"] = label
+        captured["import_method"] = import_method
+        captured["imported_by_user_id"] = imported_by_user_id
+        captured["bgg_ids"] = bgg_ids
+        captured["activate"] = activate
+        return SimpleNamespace(id=99)
+
+    monkeypatch.setattr(main.crud, "create_library_import", _mock_create_library_import)
+    monkeypatch.setattr(
+        main.crud,
+        "list_library_import_summaries",
+        lambda db: [
+            {
+                "id": 99,
+                "label": "Spring CSV",
+                "import_method": "csv_upload",
+                "is_active": True,
+                "total_items": 3,
+                "created_at": "2026-03-16T10:00:00",
+                "activated_at": "2026-03-16T10:00:00",
+                "imported_by_user_id": 2,
+                "activated_by_user_id": 2,
+                "imported_by_username": "admin",
+                "activated_by_username": "admin",
+            }
+        ],
+    )
+
+    upload = await api_client.post(
+        "/api/admin/library-imports/csv",
+        data={
+            "label": " Spring CSV ",
+            "activate": "true",
+            "ignore_invalid_rows": "true",
+            "allow_unknown_ids": "false",
+        },
+        files={"file": ("ids.csv", "10\n20\n20\n30\n", "text/csv")},
+    )
+    assert upload.status_code == 200
+    payload = upload.json()
+    assert payload["skipped_duplicates"] == 1
+    assert payload["skipped_invalid_rows"] == 0
+    assert payload["skipped_unknown_ids"] == 0
+    assert payload["kept_unknown_ids"] == 0
+    assert payload["import_record"]["id"] == 99
+    assert captured["label"] == "Spring CSV"
+    assert captured["bgg_ids"] == [10, 20, 30]
+    assert captured["import_method"] == "csv_upload"
+    assert captured["imported_by_user_id"] == 2
+    assert captured["activate"] is True
+
+    monkeypatch.setattr(
+        main.crud,
+        "activate_library_import",
+        lambda db, import_id, activated_by_user_id: SimpleNamespace(id=99),
+    )
+    activated = await api_client.post("/api/admin/library-imports/99/activate")
+    assert activated.status_code == 200
+    assert activated.json()["is_active"] is True
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_upload_rejects_bad_csv(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setattr(
+        main,
+        "_analyze_library_csv",
+        lambda raw: (_ for _ in ()).throw(ValueError("CSV file is empty.")),
+    )
+
+    response = await api_client.post(
+        "/api/admin/library-imports/csv",
+        data={"label": "bad"},
+        files={"file": ("ids.csv", "", "text/csv")},
+    )
+    assert response.status_code == 400
+    assert "CSV file is empty" in response.json()["detail"]
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_validate_and_allow_unknown(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setattr(
+        main,
+        "_analyze_library_csv",
+        lambda raw: {
+            "total_rows": 3,
+            "parsed_rows": [(1, 10), (2, 10), (3, 999999)],
+            "deduped_rows": [(1, 10), (3, 999999)],
+            "duplicate_rows": 1,
+            "invalid_warnings": [
+                {"row_number": 4, "value": "abc", "reason": "not_positive_integer"}
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        main.crud,
+        "find_missing_games_for_ids",
+        lambda db, bgg_ids: [999999],
+    )
+    monkeypatch.setattr(
+        main.crud,
+        "create_library_import",
+        lambda *args, **kwargs: SimpleNamespace(id=1),
+    )
+    monkeypatch.setattr(
+        main.crud,
+        "list_library_import_summaries",
+        lambda db: [
+            {
+                "id": 1,
+                "label": "allow-unknown",
+                "import_method": "csv_upload",
+                "is_active": True,
+                "total_items": 2,
+                "created_at": "2026-03-16T10:00:00",
+                "activated_at": "2026-03-16T10:00:00",
+                "imported_by_user_id": 2,
+                "activated_by_user_id": 2,
+                "imported_by_username": "admin",
+                "activated_by_username": "admin",
+            }
+        ],
+    )
+
+    validate_response = await api_client.post(
+        "/api/admin/library-imports/csv/validate",
+        files={"file": ("ids.csv", "10\n999999\n", "text/csv")},
+    )
+    assert validate_response.status_code == 200
+    validate_payload = validate_response.json()
+    assert validate_payload["invalid_rows"] == 1
+    assert validate_payload["unknown_id_rows"] == 1
+
+    upload_response = await api_client.post(
+        "/api/admin/library-imports/csv",
+        data={
+            "label": "allow-unknown",
+            "activate": "true",
+            "ignore_invalid_rows": "true",
+            "allow_unknown_ids": "true",
+        },
+        files={"file": ("ids.csv", "10\n999999\n", "text/csv")},
+    )
+    assert upload_response.status_code == 200
+    upload_payload = upload_response.json()
+    assert upload_payload["skipped_duplicates"] == 1
+    assert upload_payload["skipped_invalid_rows"] == 1
+    assert upload_payload["kept_unknown_ids"] == 1
+    assert upload_payload["skipped_unknown_ids"] == 0
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
 async def test_users_me_and_password_change_authenticated(monkeypatch, api_client):
     main.app.dependency_overrides[security.get_current_active_user] = (
         _override_current_user

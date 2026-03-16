@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import AdminPanelPage from './AdminPanelPage';
 
 describe('AdminPanelPage', () => {
-  test('renders links to kiosk, theme, and user management pages', () => {
+  test('renders links to kiosk, theme, user management, and library imports pages', () => {
     render(
       <MemoryRouter>
         <AdminPanelPage />
@@ -22,6 +22,10 @@ describe('AdminPanelPage', () => {
     expect(screen.getByRole('link', { name: 'User Management' })).toHaveAttribute(
       'href',
       '/admin/users'
+    );
+    expect(screen.getByRole('link', { name: 'Library Imports' })).toHaveAttribute(
+      'href',
+      '/admin/library-imports'
     );
   });
 });

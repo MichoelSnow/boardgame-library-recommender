@@ -96,8 +96,29 @@
   - Default app primary color is now `#D9272D`.
 - [x] [P0] Add admin capability to create/manage users.
   - `/admin/users` supports searchable/filterable/paginated user management with create, role/status edit, and password reset dialogs.
-- [ ] [P0] Add admin capability to upload Library game IDs CSV and run validation/import flow.
-- [ ] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
+- [x] [P0] Add admin capability to upload Library game IDs CSV and run validation/import flow.
+  - Added admin endpoints:
+    - `GET /api/admin/library-imports`
+    - `POST /api/admin/library-imports/csv/validate`
+    - `POST /api/admin/library-imports/csv` (multipart: `label`, `file`, optional `activate`)
+    - `POST /api/admin/library-imports/{import_id}/activate`
+  - CSV flow is two-step:
+    - validate returns row-level warnings for invalid IDs and unknown catalog IDs
+    - import supports `ignore_invalid_rows` and `allow_unknown_ids` controls
+  - Added admin UI route `/admin/library-imports` and linked it from `/admin`.
+  - Runtime library filter source now resolves from the active import set, with fallback to legacy `library_games` when no import is active.
+- [x] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
+  - Include in V1:
+    - Kiosk device enroll/unenroll via `/kiosk/setup`
+    - Theme color management via `/admin/theme`
+    - User management via `/admin/users` (create, role/status edit, password reset)
+    - Library import operations via `/admin/library-imports` (validate/upload/activate)
+  - Explicitly deferred post-launch:
+    - Deleting/editing historical import payloads
+    - Bulk user operations
+    - Role model expansion beyond admin/staff
+    - Per-device kiosk inventory/reporting workflows
+    - Additional convention automation routines not required for first-run launch
 - [x] [P0] Establish canonical convention color palette and document assignment:
   - `#904799`
   - `#D9272D`

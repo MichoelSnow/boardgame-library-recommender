@@ -14,6 +14,7 @@ import KioskSetupPage from './pages/KioskSetupPage';
 import AdminPanelPage from './pages/AdminPanelPage';
 import AdminThemePage from './pages/AdminThemePage';
 import AdminUsersPage from './pages/AdminUsersPage';
+import AdminLibraryImportsPage from './pages/AdminLibraryImportsPage';
 import { useLocation } from 'react-router-dom';
 import {
   ThemeSettingsProvider,
@@ -70,6 +71,14 @@ const AppContent = () => {
           element={
             <AdminRoute>
               <AdminUsersPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/library-imports"
+          element={
+            <AdminRoute>
+              <AdminLibraryImportsPage />
             </AdminRoute>
           }
         />

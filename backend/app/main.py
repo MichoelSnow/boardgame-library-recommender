@@ -6,6 +6,9 @@ from fastapi import (
     Depends,
     status,
     Response,
+    File,
+    Form,
+    UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -22,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Literal, Optional
 import logging
+import csv
 import httpx
 import mimetypes
 import tempfile
@@ -141,6 +145,7 @@ CONTENT_TYPE_TO_EXTENSION = {
     "image/avif": "avif",
 }
 MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_LIBRARY_IMPORT_CSV_BYTES = 2 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
 THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
 DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
@@ -838,6 +843,85 @@ def _require_admin(current_user: schemas.User) -> None:
         raise HTTPException(status_code=403, detail="Admin access required.")
 
 
+def _analyze_library_csv(raw_bytes: bytes) -> dict[str, object]:
+    if not raw_bytes:
+        raise ValueError("CSV file is empty.")
+
+    try:
+        decoded = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("CSV must be UTF-8 encoded.") from exc
+
+    rows = [row for row in csv.reader(decoded.splitlines()) if row]
+    if not rows:
+        raise ValueError("CSV file is empty.")
+
+    first_row = [cell.strip() for cell in rows[0]]
+    has_header = any(cell.lower() == "bgg_id" for cell in first_row)
+    bgg_col_index = 0
+    if has_header:
+        for index, value in enumerate(first_row):
+            if value.lower() == "bgg_id":
+                bgg_col_index = index
+                break
+        data_rows = rows[1:]
+    else:
+        data_rows = rows
+
+    parsed_rows: list[tuple[int, int]] = []
+    invalid_warnings: list[dict[str, object]] = []
+    for row_number, row in enumerate(data_rows, start=(2 if has_header else 1)):
+        if bgg_col_index >= len(row):
+            continue
+        raw_value = row[bgg_col_index].strip()
+        if not raw_value:
+            continue
+        if not raw_value.isdigit():
+            invalid_warnings.append(
+                {
+                    "row_number": row_number,
+                    "value": raw_value,
+                    "reason": "not_positive_integer",
+                }
+            )
+            continue
+        parsed_value = int(raw_value)
+        if parsed_value <= 0:
+            invalid_warnings.append(
+                {
+                    "row_number": row_number,
+                    "value": raw_value,
+                    "reason": "not_positive_integer",
+                }
+            )
+            continue
+        parsed_rows.append((row_number, parsed_value))
+
+    if not parsed_rows and not invalid_warnings:
+        raise ValueError("CSV did not contain any valid bgg_id values.")
+
+    seen: set[int] = set()
+    deduped_rows: list[tuple[int, int]] = []
+    duplicate_rows = 0
+    for row_number, parsed_value in parsed_rows:
+        if parsed_value in seen:
+            duplicate_rows += 1
+            continue
+        seen.add(parsed_value)
+        deduped_rows.append((row_number, parsed_value))
+
+    if not deduped_rows:
+        raise ValueError("CSV did not contain any valid bgg_id values.")
+
+    return {
+        "total_rows": len(data_rows),
+        "parsed_rows": parsed_rows,
+        "deduped_rows": deduped_rows,
+        "duplicate_rows": duplicate_rows,
+        "invalid_warnings": invalid_warnings,
+    }
+
+
 @app.post("/api/convention/kiosk/admin/enroll")
 async def convention_kiosk_enroll_admin(
     response: Response,
@@ -1223,13 +1307,7 @@ def read_categories(db: Session = Depends(get_db)):
 )  # Add endpoint with trailing slash
 async def get_library_game_ids(db: Session = Depends(get_db)):
     """Return a list of all Library game BGG IDs (integers)."""
-    library_ids = (
-        db.query(models.LibraryGame.bgg_id)
-        .filter(models.LibraryGame.bgg_id.isnot(None))
-        .all()
-    )
-    # library_ids is a list of tuples, extract the first element from each
-    return [pid[0] for pid in library_ids if pid[0] is not None]
+    return crud.get_library_ids_for_runtime(db)
 
 
 @app.on_event("startup")
@@ -1446,6 +1524,206 @@ def admin_reset_user_password(
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
     return schemas.PasswordChangeResponse(message="Password reset successfully")
+
+
+@app.get(
+    "/api/admin/library-imports", response_model=list[schemas.LibraryImportSummary]
+)
+def list_admin_library_imports(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    rows = crud.list_library_import_summaries(db)
+    return [schemas.LibraryImportSummary(**row) for row in rows]
+
+
+def _build_csv_validation_result(
+    *,
+    analysis: dict[str, object],
+    missing_ids: list[int],
+) -> schemas.LibraryImportCsvValidationResponse:
+    missing_set = set(missing_ids)
+    deduped_rows = analysis["deduped_rows"]
+    unknown_warnings = [
+        {
+            "row_number": row_number,
+            "value": str(bgg_id),
+            "reason": "id_not_in_games_catalog",
+        }
+        for row_number, bgg_id in deduped_rows
+        if bgg_id in missing_set
+    ]
+    return schemas.LibraryImportCsvValidationResponse(
+        total_rows=int(analysis["total_rows"]),
+        valid_rows=len(deduped_rows),
+        duplicate_rows=int(analysis["duplicate_rows"]),
+        invalid_rows=len(analysis["invalid_warnings"]),
+        unknown_id_rows=len(unknown_warnings),
+        unique_candidate_ids=len(deduped_rows),
+        warnings_invalid_rows=[
+            schemas.LibraryImportCsvWarning(**item)
+            for item in analysis["invalid_warnings"]
+        ],
+        warnings_unknown_ids=[
+            schemas.LibraryImportCsvWarning(**item) for item in unknown_warnings
+        ],
+    )
+
+
+@app.post(
+    "/api/admin/library-imports/csv/validate",
+    response_model=schemas.LibraryImportCsvValidationResponse,
+)
+async def validate_admin_library_import_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
+
+    file_payload = await file.read()
+    if len(file_payload) > MAX_LIBRARY_IMPORT_CSV_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="CSV is too large. Maximum size is 2MB.",
+        )
+
+    try:
+        analysis = _analyze_library_csv(file_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    deduped_ids = [bgg_id for _, bgg_id in analysis["deduped_rows"]]
+    missing_ids = crud.find_missing_games_for_ids(db, deduped_ids)
+    return _build_csv_validation_result(analysis=analysis, missing_ids=missing_ids)
+
+
+@app.post(
+    "/api/admin/library-imports/csv",
+    response_model=schemas.LibraryImportUploadResponse,
+)
+async def upload_admin_library_import_csv(
+    label: str = Form(..., min_length=1, max_length=120),
+    file: UploadFile = File(...),
+    activate: bool = Form(True),
+    ignore_invalid_rows: bool = Form(True),
+    allow_unknown_ids: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
+
+    file_payload = await file.read()
+    if len(file_payload) > MAX_LIBRARY_IMPORT_CSV_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="CSV is too large. Maximum size is 2MB.",
+        )
+
+    try:
+        analysis = _analyze_library_csv(file_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    deduped_rows = analysis["deduped_rows"]
+    deduped_ids = [bgg_id for _, bgg_id in deduped_rows]
+    skipped_duplicates = int(analysis["duplicate_rows"])
+    skipped_invalid_rows = len(analysis["invalid_warnings"])
+    if skipped_invalid_rows > 0 and not ignore_invalid_rows:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "CSV contains invalid bgg_id rows. Run validation first or set "
+                "ignore_invalid_rows=true to continue while skipping them."
+            ),
+        )
+
+    missing_ids = crud.find_missing_games_for_ids(db, deduped_ids)
+    missing_set = set(missing_ids)
+    kept_unknown_ids = 0
+    skipped_unknown_ids = 0
+    selected_ids: list[int] = []
+    for bgg_id in deduped_ids:
+        if bgg_id in missing_set:
+            if allow_unknown_ids:
+                kept_unknown_ids += 1
+                selected_ids.append(bgg_id)
+            else:
+                skipped_unknown_ids += 1
+        else:
+            selected_ids.append(bgg_id)
+
+    if skipped_unknown_ids > 0 and not allow_unknown_ids and not selected_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "All IDs were unknown to the games catalog. Enable allow_unknown_ids "
+                "to include them."
+            ),
+        )
+    if not selected_ids:
+        raise HTTPException(
+            status_code=400, detail="No IDs left to import after applying filters."
+        )
+
+    clean_label = label.strip()
+    if not clean_label:
+        raise HTTPException(status_code=400, detail="Label is required.")
+
+    try:
+        import_record = crud.create_library_import(
+            db,
+            label=clean_label,
+            import_method="csv_upload",
+            imported_by_user_id=current_user.id,
+            bgg_ids=selected_ids,
+            activate=activate,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    rows = crud.list_library_import_summaries(db)
+    summary_row = next((row for row in rows if row["id"] == import_record.id), None)
+    if summary_row is None:
+        raise HTTPException(status_code=500, detail="Failed to read import summary.")
+
+    return schemas.LibraryImportUploadResponse(
+        import_record=schemas.LibraryImportSummary(**summary_row),
+        skipped_duplicates=skipped_duplicates,
+        skipped_invalid_rows=skipped_invalid_rows,
+        skipped_unknown_ids=skipped_unknown_ids,
+        kept_unknown_ids=kept_unknown_ids,
+    )
+
+
+@app.post(
+    "/api/admin/library-imports/{import_id}/activate",
+    response_model=schemas.LibraryImportSummary,
+)
+def activate_admin_library_import(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    updated = crud.activate_library_import(
+        db, import_id=import_id, activated_by_user_id=current_user.id
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Library import not found")
+
+    rows = crud.list_library_import_summaries(db)
+    summary_row = next((row for row in rows if row["id"] == updated.id), None)
+    if summary_row is None:
+        raise HTTPException(status_code=500, detail="Failed to read import summary.")
+    return schemas.LibraryImportSummary(**summary_row)
 
 
 @app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)

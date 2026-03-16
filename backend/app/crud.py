@@ -1,5 +1,6 @@
 import threading
 import time
+from datetime import datetime
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import exists, func, select
 from sqlalchemy.sql import or_, and_
@@ -726,3 +727,184 @@ def upsert_app_setting(db: Session, key: str, value: str):
     db.commit()
     db.refresh(setting)
     return setting
+
+
+def get_active_library_import(db: Session) -> Optional[models.LibraryImport]:
+    return (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.is_active.is_(True))
+        .order_by(models.LibraryImport.id.desc())
+        .first()
+    )
+
+
+def get_library_ids_for_runtime(db: Session) -> list[int]:
+    """Return active library IDs from imports, with legacy-table fallback."""
+    active_import = get_active_library_import(db)
+    if active_import is not None:
+        rows = (
+            db.query(models.LibraryImportItem.bgg_id)
+            .filter(models.LibraryImportItem.library_import_id == active_import.id)
+            .all()
+        )
+        return [row[0] for row in rows if row[0] is not None]
+
+    legacy_rows = (
+        db.query(models.LibraryGame.bgg_id)
+        .filter(models.LibraryGame.bgg_id.isnot(None))
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in legacy_rows if row[0] is not None]
+
+
+def list_library_import_summaries(db: Session) -> list[dict[str, Any]]:
+    imports = (
+        db.query(models.LibraryImport).order_by(models.LibraryImport.id.desc()).all()
+    )
+    if not imports:
+        return []
+
+    import_ids = [item.id for item in imports]
+    counts = {
+        row.library_import_id: row.count
+        for row in (
+            db.query(
+                models.LibraryImportItem.library_import_id,
+                func.count(models.LibraryImportItem.id).label("count"),
+            )
+            .filter(models.LibraryImportItem.library_import_id.in_(import_ids))
+            .group_by(models.LibraryImportItem.library_import_id)
+            .all()
+        )
+    }
+
+    user_ids = {
+        user_id
+        for item in imports
+        for user_id in (item.imported_by_user_id, item.activated_by_user_id)
+        if user_id is not None
+    }
+    users_by_id: dict[int, str] = {}
+    if user_ids:
+        users_by_id = {
+            user.id: user.username
+            for user in db.query(models.User)
+            .filter(models.User.id.in_(list(user_ids)))
+            .all()
+        }
+
+    rows: list[dict[str, Any]] = []
+    for item in imports:
+        rows.append(
+            {
+                "id": item.id,
+                "label": item.label,
+                "import_method": item.import_method,
+                "is_active": item.is_active,
+                "created_at": item.created_at,
+                "activated_at": item.activated_at,
+                "imported_by_user_id": item.imported_by_user_id,
+                "activated_by_user_id": item.activated_by_user_id,
+                "imported_by_username": users_by_id.get(item.imported_by_user_id),
+                "activated_by_username": users_by_id.get(item.activated_by_user_id),
+                "total_items": counts.get(item.id, 0),
+            }
+        )
+    return rows
+
+
+def create_library_import(
+    db: Session,
+    *,
+    label: str,
+    import_method: str,
+    imported_by_user_id: int,
+    bgg_ids: list[int],
+    activate: bool,
+) -> models.LibraryImport:
+    if not bgg_ids:
+        raise ValueError("Import must contain at least one BGG ID.")
+
+    existing = (
+        db.query(models.LibraryImport)
+        .filter(func.lower(models.LibraryImport.label) == label.lower())
+        .first()
+    )
+    if existing is not None:
+        raise ValueError("Import label already exists.")
+
+    now = datetime.utcnow()
+    library_import = models.LibraryImport(
+        label=label,
+        import_method=import_method,
+        imported_by_user_id=imported_by_user_id,
+        is_active=False,
+        created_at=now,
+    )
+    db.add(library_import)
+    db.flush()
+
+    db.bulk_save_objects(
+        [
+            models.LibraryImportItem(library_import_id=library_import.id, bgg_id=bgg_id)
+            for bgg_id in bgg_ids
+        ]
+    )
+
+    if activate:
+        db.query(models.LibraryImport).filter(
+            models.LibraryImport.is_active.is_(True)
+        ).update(
+            {
+                models.LibraryImport.is_active: False,
+                models.LibraryImport.activated_by_user_id: None,
+                models.LibraryImport.activated_at: None,
+            },
+            synchronize_session=False,
+        )
+        library_import.is_active = True
+        library_import.activated_by_user_id = imported_by_user_id
+        library_import.activated_at = now
+
+    db.commit()
+    db.refresh(library_import)
+    return library_import
+
+
+def activate_library_import(
+    db: Session, *, import_id: int, activated_by_user_id: int
+) -> Optional[models.LibraryImport]:
+    library_import = (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.id == import_id)
+        .first()
+    )
+    if library_import is None:
+        return None
+
+    now = datetime.utcnow()
+    db.query(models.LibraryImport).filter(
+        models.LibraryImport.is_active.is_(True)
+    ).update(
+        {
+            models.LibraryImport.is_active: False,
+            models.LibraryImport.activated_by_user_id: None,
+            models.LibraryImport.activated_at: None,
+        },
+        synchronize_session=False,
+    )
+    library_import.is_active = True
+    library_import.activated_by_user_id = activated_by_user_id
+    library_import.activated_at = now
+    db.commit()
+    db.refresh(library_import)
+    return library_import
+
+
+def find_missing_games_for_ids(db: Session, bgg_ids: list[int]) -> list[int]:
+    if not bgg_ids:
+        return []
+    rows = db.query(models.BoardGame.id).filter(models.BoardGame.id.in_(bgg_ids)).all()
+    existing = {row[0] for row in rows}
+    return [bgg_id for bgg_id in bgg_ids if bgg_id not in existing]

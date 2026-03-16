@@ -24,6 +24,13 @@ const AdminPanelPage = () => {
               <Button variant="contained" component={RouterLink} to="/admin/users">
                 User Management
               </Button>
+              <Button
+                variant="contained"
+                component={RouterLink}
+                to="/admin/library-imports"
+              >
+                Library Imports
+              </Button>
             </Stack>
           </Stack>
         </CardContent>

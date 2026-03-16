@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeSettingsProvider } from '../context/ThemeSettingsContext';
 import { fetchThemeSettings, updateThemeSettings } from '../api/theme';
@@ -29,46 +29,31 @@ describe('AdminThemePage', () => {
 
   test('allows selecting a preset theme color', async () => {
     renderPage();
-    await waitFor(() =>
-      expect(screen.getByText('Current primary color: #D9272D')).toBeInTheDocument()
-    );
+    await screen.findByText('Current primary color: #D9272D');
 
     fireEvent.click(screen.getByRole('button', { name: '#007DBB' }));
-    await waitFor(() =>
-      expect(screen.getByText('Current primary color: #007DBB')).toBeInTheDocument()
-    );
+    await screen.findByText('Current primary color: #007DBB');
     expect(updateThemeSettings).toHaveBeenCalledWith('#007DBB');
   });
 
   test('warns when selected color fails AA contrast on white', async () => {
     renderPage();
-    await waitFor(() =>
-      expect(screen.getByText('Current primary color: #D9272D')).toBeInTheDocument()
-    );
+    await screen.findByText('Current primary color: #D9272D');
 
     fireEvent.click(screen.getByRole('button', { name: '#F4B223' }));
-
-    await waitFor(() =>
-      expect(
-        screen.getByText(/does not meet AA contrast on white/i)
-      ).toBeInTheDocument()
-    );
+    await screen.findByText(/does not meet AA contrast on white/i);
   });
 
   test('allows applying a custom hex theme color', async () => {
     renderPage();
-    await waitFor(() =>
-      expect(screen.getByText('Current primary color: #D9272D')).toBeInTheDocument()
-    );
+    await screen.findByText('Current primary color: #D9272D');
 
     fireEvent.change(screen.getByLabelText('Custom hex color'), {
       target: { value: '#123456' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Apply Custom Color' }));
 
-    await waitFor(() =>
-      expect(screen.getByText('Current primary color: #123456')).toBeInTheDocument()
-    );
+    await screen.findByText('Current primary color: #123456');
     expect(updateThemeSettings).toHaveBeenCalledWith('#123456');
   });
 });

@@ -55,7 +55,7 @@ describe('AdminUsersPage', () => {
     fireEvent.change(screen.getByLabelText('Search username'), {
       target: { value: 'adm' },
     });
-    await waitFor(() => expect(screen.getByText('admin')).toBeInTheDocument());
+    await screen.findByText('admin');
     await waitFor(() => expect(screen.queryByText('staff')).not.toBeInTheDocument());
   });
 

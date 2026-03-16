@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { fetchThemeSettings, updateThemeSettings } from '../api/theme';
 import {
   getBestTextColor,
@@ -51,7 +58,7 @@ export function ThemeSettingsProvider({ children }) {
     };
   }, []);
 
-  const setPrimaryColor = async (value) => {
+  const setPrimaryColor = useCallback(async (value) => {
     const normalized = normalizeHexColor(value);
     if (!normalized) {
       return false;
@@ -65,7 +72,7 @@ export function ThemeSettingsProvider({ children }) {
     } catch (_error) {
       return false;
     }
-  };
+  }, []);
 
   const value = useMemo(
     () => {
