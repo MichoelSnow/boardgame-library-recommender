@@ -22,11 +22,6 @@ def is_convention_guest_enabled(env: dict[str, str] | None = None) -> bool:
     return _is_enabled(environment.get("CONVENTION_GUEST_ENABLED"))
 
 
-def get_expected_kiosk_key(env: dict[str, str] | None = None) -> str:
-    environment = env or os.environ
-    return (environment.get("CONVENTION_KIOSK_KEY") or "").strip()
-
-
 def issue_kiosk_cookie_token(
     *,
     secret_key: str,

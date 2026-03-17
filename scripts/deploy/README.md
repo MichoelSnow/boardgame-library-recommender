@@ -65,13 +65,17 @@ APP_PREFIX=my-unique-prefix bash scripts/deploy/generate_env_secrets.sh .env
 
 ## `prepare_fly_rollback.py`
 - What it does:
-  - Resolves rollback target and prints exact Fly rollback command.
+  - Prints recent deployments (version, time, ID, status, user, image token).
+  - Resolves rollback target and prints exact rollback command.
+  - Uses rollback target image and emits a `fly deploy --image ...` command compatible with current `flyctl`.
 - When to use:
   - During prod validation and incident response prep.
 - How to use:
 ```bash
 poetry run python scripts/deploy/prepare_fly_rollback.py --env prod
 poetry run python scripts/deploy/prepare_fly_rollback.py --env prod --target-release v41
+poetry run python scripts/deploy/prepare_fly_rollback.py --env prod --limit 10
+poetry run python scripts/deploy/prepare_fly_rollback.py --env dev --config-file fly.convention.dev.toml
 ```
 
 ## `record_deploy_traceability.py`

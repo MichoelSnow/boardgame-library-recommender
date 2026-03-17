@@ -34,7 +34,7 @@ fly secrets set \
 - `fly.toml` (prod standard)
 - `fly.convention.toml` (prod convention)
 - `fly.dev.toml` (dev standard)
-- `fly.dev.rehearsal.toml` (dev rehearsal)
+- `fly.convention.dev.toml` (dev convention)
 
 ## Planned Enable/Disable Flow (Prod)
 1. Enable convention profile:
@@ -69,7 +69,7 @@ poetry run python scripts/deploy/record_deploy_traceability.py --env prod --mark
 ## Planned Enable/Disable Flow (Dev Rehearsal)
 1. Enable rehearsal profile:
 ```bash
-fly deploy -a bg-lib-app-dev -c fly.dev.rehearsal.toml
+fly deploy -a bg-lib-app-dev -c fly.convention.dev.toml
 ```
 2. Run rehearsal/load-test checks.
 3. Disable rehearsal profile (return to standard dev):

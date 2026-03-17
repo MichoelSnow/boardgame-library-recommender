@@ -63,7 +63,7 @@
   - `fly.toml` for standard production
   - `fly.convention.toml` for convention production
   - `fly.dev.toml` for standard dev
-  - `fly.dev.rehearsal.toml` for dev rehearsal windows
+  - `fly.convention.dev.toml` for dev convention windows
 - Each profile config should be source controlled and reviewed like code.
 
 ## Short-Term Operational Model
@@ -168,7 +168,7 @@
 - The selected worker count and machine sizing are backed by measured rehearsal data rather than guesswork.
 
 ## Phase 4B Rehearsal Evidence (2026-03-06)
-- Environment: `dev` with `fly.dev.rehearsal.toml`, `shared-cpu-4x`, `memory=2048`, `GUNICORN_WORKERS=3`, `GUNICORN_CMD_ARGS=--timeout 90`.
+- Environment: `dev` with `fly.convention.dev.toml`, `shared-cpu-4x`, `memory=2048`, `GUNICORN_WORKERS=3`, `GUNICORN_CMD_ARGS=--timeout 90`.
 - Mixed profile (`VUS=10`, `DURATION=3m`, `THINK_TIME_SECONDS=2.0`):
   - `http_req_failed`: `0.00%`
   - `http_req_duration p95`: `165.81ms`

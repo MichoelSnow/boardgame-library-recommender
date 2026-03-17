@@ -8,6 +8,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 import logging
 import os
+from types import SimpleNamespace
 
 from . import crud, schemas
 from .database import SessionLocal
@@ -26,6 +27,8 @@ if not SECRET_KEY or len(SECRET_KEY) < 32:
     )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+CONVENTION_GUEST_TOKEN_TYPE = "convention_guest"
+CONVENTION_GUEST_USERNAME = "guest_kiosk"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/token")
 
@@ -75,6 +78,18 @@ async def get_current_user(
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
+        token_type: str = payload.get("token_type", "")
+        if (
+            token_type == CONVENTION_GUEST_TOKEN_TYPE
+            and username == CONVENTION_GUEST_USERNAME
+        ):
+            return SimpleNamespace(
+                id=0,
+                username=CONVENTION_GUEST_USERNAME,
+                is_active=True,
+                is_admin=False,
+                is_guest=True,
+            )
         token_data = schemas.TokenData(username=username)
     except JWTError:
         raise credentials_exception
@@ -82,6 +97,7 @@ async def get_current_user(
     user = crud.get_user_by_username(db, username=token_data.username)
     if user is None:
         raise credentials_exception
+    setattr(user, "is_guest", False)
     return user
 
 

@@ -1,8 +1,8 @@
-from pathlib import Path
-import importlib.util
-import sys
 from datetime import datetime, timezone
+import importlib.util
 import logging
+from pathlib import Path
+import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +26,9 @@ def _healthy_snapshot(convention_mode_active: bool = True) -> MODULE.HealthSnaps
         db_ok=True,
         recommendation_ok=True,
         recommendation_state="healthy",
+        api_latency_ms=100.0,
+        api_version_latency_ms=120.0,
+        recommendations_latency_ms=300.0,
         events=[],
     )
 
@@ -72,6 +75,9 @@ def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
         db_ok=False,
         recommendation_ok=False,
         recommendation_state="degraded",
+        api_latency_ms=2000.0,
+        api_version_latency_ms=2100.0,
+        recommendations_latency_ms=5000.0,
         events=[
             MODULE.AlertEvent(
                 code="app_unreachable",
@@ -106,6 +112,9 @@ def test_filter_alert_events_transition_and_cooldown() -> None:
         db_ok=True,
         recommendation_ok=False,
         recommendation_state="degraded",
+        api_latency_ms=100.0,
+        api_version_latency_ms=110.0,
+        recommendations_latency_ms=250.0,
         events=[
             MODULE.AlertEvent(
                 code="recommendation_degraded",
@@ -117,7 +126,7 @@ def test_filter_alert_events_transition_and_cooldown() -> None:
 
     now_utc = datetime(2026, 3, 7, 0, 0, 0, tzinfo=timezone.utc)
 
-    transitioned = MODULE.filter_alert_events(
+    transitioned, transitioned_streak = MODULE.filter_alert_events(
         snapshot=snapshot,
         previous_state={
             "last_recommendation_state": "ready",
@@ -126,10 +135,11 @@ def test_filter_alert_events_transition_and_cooldown() -> None:
         now_utc=now_utc,
         cooldown_seconds=3600,
     )
+    assert transitioned_streak == 0
     assert len(transitioned) == 1
     assert transitioned[0].code == "recommendation_degraded"
 
-    suppressed = MODULE.filter_alert_events(
+    suppressed, suppressed_streak = MODULE.filter_alert_events(
         snapshot=snapshot,
         previous_state={
             "last_recommendation_state": "degraded",
@@ -140,7 +150,101 @@ def test_filter_alert_events_transition_and_cooldown() -> None:
         now_utc=now_utc,
         cooldown_seconds=3600,
     )
+    assert suppressed_streak == 0
     assert suppressed == []
+
+
+def test_filter_alert_events_requires_consecutive_latency_breaches(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("ALERT_LATENCY_SUSTAINED_BREACHES", "3")
+    snapshot = MODULE.HealthSnapshot(
+        environment="prod",
+        checked_at_utc="2026-03-07T00:00:00+00:00",
+        release_sha="sha2",
+        convention_mode_active=True,
+        app_ok=True,
+        db_ok=True,
+        recommendation_ok=True,
+        recommendation_state="healthy",
+        api_latency_ms=2000.0,
+        api_version_latency_ms=2100.0,
+        recommendations_latency_ms=5000.0,
+        events=[
+            MODULE.AlertEvent(
+                code="latency_sustained_breach",
+                summary="Latency thresholds exceeded",
+                details="/api=2000ms>1000ms",
+            )
+        ],
+    )
+    now_utc = datetime(2026, 3, 7, 0, 0, 0, tzinfo=timezone.utc)
+
+    first_run_events, first_run_streak = MODULE.filter_alert_events(
+        snapshot=snapshot,
+        previous_state={
+            "last_recommendation_state": "healthy",
+            "latency_breach_streak": 0,
+            "last_emitted_at_utc_by_code": {},
+        },
+        now_utc=now_utc,
+        cooldown_seconds=0,
+    )
+    assert first_run_streak == 1
+    assert first_run_events == []
+
+    third_run_events, third_run_streak = MODULE.filter_alert_events(
+        snapshot=snapshot,
+        previous_state={
+            "last_recommendation_state": "healthy",
+            "latency_breach_streak": 2,
+            "last_emitted_at_utc_by_code": {},
+        },
+        now_utc=now_utc,
+        cooldown_seconds=0,
+    )
+    assert third_run_streak == 3
+    assert len(third_run_events) == 1
+    assert third_run_events[0].code == "latency_sustained_breach"
+
+
+def test_main_emits_recovery_notice(monkeypatch) -> None:
+    notices: list[str] = []
+    summaries: list[list[str]] = []
+    monkeypatch.setattr(
+        MODULE, "check_prod_health", lambda _env: _healthy_snapshot(True)
+    )
+    monkeypatch.setattr(
+        MODULE,
+        "parse_args",
+        lambda: MODULE.argparse.Namespace(
+            env="prod",
+            dry_run=False,
+            state_path=".alert_state/test_recovery.json",
+            cooldown_seconds=0,
+        ),
+    )
+    monkeypatch.setattr(
+        MODULE,
+        "load_alert_state",
+        lambda _path: {
+            "last_recommendation_state": "degraded",
+            "active_alert_codes": ["recommendation_degraded"],
+            "last_emitted_at_utc_by_code": {},
+        },
+    )
+    monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
+    monkeypatch.setattr(
+        "builtins.print", lambda *args, **kwargs: notices.append(args[0])
+    )
+    monkeypatch.setattr(
+        MODULE, "_append_github_summary", lambda lines: summaries.append(lines)
+    )
+
+    result = MODULE.main()
+    assert result == 0
+    assert any("recommendation_degraded" in item for item in notices)
+    assert summaries
 
 
 def test_load_alert_state_logs_and_recovers_on_invalid_json(

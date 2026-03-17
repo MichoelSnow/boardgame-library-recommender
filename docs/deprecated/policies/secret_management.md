@@ -32,9 +32,6 @@
 - `DATABASE_URL`
   - Database credential/connection string.
   - Rotate when DB password rotates (minimum annual or on incident).
-- `CONVENTION_KIOSK_KEY`
-  - Kiosk enrollment secret.
-  - Rotate before convention events and on incident.
 - Optional operational secrets in scripts/workflows:
   - `SMOKE_TEST_PASSWORD_DEV`, `SMOKE_TEST_PASSWORD_PROD`
   - `ADMIN_PASSWORD`
@@ -81,7 +78,7 @@
    ```bash
    fly secrets set -a bg-lib-app-dev SECRET_KEY="<new-secret>"
    ```
-   Repeat for any other keys being rotated (`DATABASE_URL`, `CONVENTION_KIOSK_KEY`).
+   Repeat for any other keys being rotated (`DATABASE_URL`).
 3. Validate `dev`:
    - `/api/version` responds
    - auth works (`/api/token` + `/api/users/me/`)
@@ -99,9 +96,8 @@
 
 ## Minimal-Maintenance Rotation Checklist
 1. Rotate `SECRET_KEY` and `FLY_API_TOKEN` every 6 months.
-2. Rotate `CONVENTION_KIOSK_KEY` before each convention period.
-3. Rotate everything immediately on exposure/suspected compromise.
-4. Keep one short log entry per rotation event (date + keys + verification result).
+2. Rotate everything immediately on exposure/suspected compromise.
+3. Keep one short log entry per rotation event (date + keys + verification result).
 
 ## Notes
 - Keep this policy intentionally minimal to reduce maintenance overhead while preserving baseline security hygiene.

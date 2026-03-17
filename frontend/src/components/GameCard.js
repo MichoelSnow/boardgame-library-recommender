@@ -135,10 +135,10 @@ const GameCard = memo(({
 
   const handleImageError = () => {
     setImageCandidateIndex((previous) => {
-      const next = previous + 1;
-      if (next >= imageCandidates.length) {
+      if (previous >= imageCandidates.length) {
         return previous;
       }
+      const next = previous + 1;
       return next;
     });
   };

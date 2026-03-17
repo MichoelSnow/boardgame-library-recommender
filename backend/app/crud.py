@@ -1,11 +1,13 @@
 import threading
 import time
+from datetime import datetime
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, insert, select
 from sqlalchemy.sql import or_, and_
 from . import models, schemas, security
 from typing import Any, List, Optional
 import logging
+import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +15,7 @@ _TOTAL_CACHE_LOCK = threading.Lock()
 _TOTAL_CACHE_TTL_SECONDS = 120
 _TOTAL_CACHE_MAX_ENTRIES = 128
 _total_count_cache: dict[tuple[Any, ...], tuple[float, int]] = {}
+LIBRARY_IMPORT_INSERT_BATCH_SIZE = 1000
 
 
 def _cache_get_total(cache_key: tuple[Any, ...]) -> Optional[int]:
@@ -636,6 +639,25 @@ def create_user_suggestion(
     return db_suggestion
 
 
+def get_or_create_guest_user(
+    db: Session, username: str = security.CONVENTION_GUEST_USERNAME
+):
+    guest_user = get_user_by_username(db, username)
+    if guest_user:
+        return guest_user
+
+    guest_user = models.User(
+        username=username.lower(),
+        hashed_password=security.get_password_hash(secrets.token_urlsafe(48)),
+        is_admin=False,
+        is_active=True,
+    )
+    db.add(guest_user)
+    db.commit()
+    db.refresh(guest_user)
+    return guest_user
+
+
 def change_user_password(
     db: Session, user_id: int, old_password: str, new_password: str
 ):
@@ -658,3 +680,236 @@ def admin_reset_password(db: Session, username: str, new_password: str):
     user.hashed_password = security.get_password_hash(new_password)
     db.commit()
     return True
+
+
+def get_users(db: Session):
+    return db.query(models.User).order_by(models.User.username.asc()).all()
+
+
+def update_user_admin_flags(
+    db: Session,
+    user_id: int,
+    *,
+    is_admin: bool | None = None,
+    is_active: bool | None = None,
+):
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    if is_admin is not None:
+        user.is_admin = is_admin
+    if is_active is not None:
+        user.is_active = is_active
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def admin_reset_password_by_user_id(db: Session, user_id: int, new_password: str):
+    user = get_user(db, user_id)
+    if not user:
+        return False
+    user.hashed_password = security.get_password_hash(new_password)
+    db.commit()
+    return True
+
+
+def get_app_setting(db: Session, key: str):
+    return db.query(models.AppSetting).filter(models.AppSetting.key == key).first()
+
+
+def upsert_app_setting(db: Session, key: str, value: str):
+    setting = get_app_setting(db, key)
+    if setting:
+        setting.value = value
+    else:
+        setting = models.AppSetting(key=key, value=value)
+        db.add(setting)
+    db.commit()
+    db.refresh(setting)
+    return setting
+
+
+def get_active_library_import(db: Session) -> Optional[models.LibraryImport]:
+    return (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.is_active.is_(True))
+        .order_by(models.LibraryImport.id.desc())
+        .first()
+    )
+
+
+def get_library_ids_for_runtime(db: Session) -> list[int]:
+    """Return active library IDs from imports, with legacy-table fallback."""
+    active_import = get_active_library_import(db)
+    if active_import is not None:
+        rows = (
+            db.query(models.LibraryImportItem.bgg_id)
+            .filter(models.LibraryImportItem.library_import_id == active_import.id)
+            .all()
+        )
+        return [row[0] for row in rows if row[0] is not None]
+
+    legacy_rows = (
+        db.query(models.LibraryGame.bgg_id)
+        .filter(models.LibraryGame.bgg_id.isnot(None))
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in legacy_rows if row[0] is not None]
+
+
+def list_library_import_summaries(db: Session) -> list[dict[str, Any]]:
+    imports = (
+        db.query(models.LibraryImport).order_by(models.LibraryImport.id.desc()).all()
+    )
+    if not imports:
+        return []
+
+    import_ids = [item.id for item in imports]
+    counts = {
+        row.library_import_id: row.count
+        for row in (
+            db.query(
+                models.LibraryImportItem.library_import_id,
+                func.count(models.LibraryImportItem.id).label("count"),
+            )
+            .filter(models.LibraryImportItem.library_import_id.in_(import_ids))
+            .group_by(models.LibraryImportItem.library_import_id)
+            .all()
+        )
+    }
+
+    user_ids = {
+        user_id
+        for item in imports
+        for user_id in (item.imported_by_user_id, item.activated_by_user_id)
+        if user_id is not None
+    }
+    users_by_id: dict[int, str] = {}
+    if user_ids:
+        users_by_id = {
+            user.id: user.username
+            for user in db.query(models.User)
+            .filter(models.User.id.in_(list(user_ids)))
+            .all()
+        }
+
+    rows: list[dict[str, Any]] = []
+    for item in imports:
+        rows.append(
+            {
+                "id": item.id,
+                "label": item.label,
+                "import_method": item.import_method,
+                "is_active": item.is_active,
+                "created_at": item.created_at,
+                "activated_at": item.activated_at,
+                "imported_by_user_id": item.imported_by_user_id,
+                "activated_by_user_id": item.activated_by_user_id,
+                "imported_by_username": users_by_id.get(item.imported_by_user_id),
+                "activated_by_username": users_by_id.get(item.activated_by_user_id),
+                "total_items": counts.get(item.id, 0),
+            }
+        )
+    return rows
+
+
+def create_library_import(
+    db: Session,
+    *,
+    label: str,
+    import_method: str,
+    imported_by_user_id: int,
+    bgg_ids: list[int],
+    activate: bool,
+) -> models.LibraryImport:
+    if not bgg_ids:
+        raise ValueError("Import must contain at least one BGG ID.")
+
+    existing = (
+        db.query(models.LibraryImport)
+        .filter(func.lower(models.LibraryImport.label) == label.lower())
+        .first()
+    )
+    if existing is not None:
+        raise ValueError("Import label already exists.")
+
+    now = datetime.utcnow()
+    library_import = models.LibraryImport(
+        label=label,
+        import_method=import_method,
+        imported_by_user_id=imported_by_user_id,
+        is_active=False,
+        created_at=now,
+    )
+    db.add(library_import)
+    db.flush()
+
+    if bgg_ids:
+        for index in range(0, len(bgg_ids), LIBRARY_IMPORT_INSERT_BATCH_SIZE):
+            batch_ids = bgg_ids[index : index + LIBRARY_IMPORT_INSERT_BATCH_SIZE]
+            db.execute(
+                insert(models.LibraryImportItem),
+                [
+                    {"library_import_id": library_import.id, "bgg_id": bgg_id}
+                    for bgg_id in batch_ids
+                ],
+            )
+
+    if activate:
+        db.query(models.LibraryImport).filter(
+            models.LibraryImport.is_active.is_(True)
+        ).update(
+            {
+                models.LibraryImport.is_active: False,
+                models.LibraryImport.activated_by_user_id: None,
+                models.LibraryImport.activated_at: None,
+            },
+            synchronize_session=False,
+        )
+        library_import.is_active = True
+        library_import.activated_by_user_id = imported_by_user_id
+        library_import.activated_at = now
+
+    db.commit()
+    db.refresh(library_import)
+    return library_import
+
+
+def activate_library_import(
+    db: Session, *, import_id: int, activated_by_user_id: int
+) -> Optional[models.LibraryImport]:
+    library_import = (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.id == import_id)
+        .first()
+    )
+    if library_import is None:
+        return None
+
+    now = datetime.utcnow()
+    db.query(models.LibraryImport).filter(
+        models.LibraryImport.is_active.is_(True)
+    ).update(
+        {
+            models.LibraryImport.is_active: False,
+            models.LibraryImport.activated_by_user_id: None,
+            models.LibraryImport.activated_at: None,
+        },
+        synchronize_session=False,
+    )
+    library_import.is_active = True
+    library_import.activated_by_user_id = activated_by_user_id
+    library_import.activated_at = now
+    db.commit()
+    db.refresh(library_import)
+    return library_import
+
+
+def find_missing_games_for_ids(db: Session, bgg_ids: list[int]) -> list[int]:
+    if not bgg_ids:
+        return []
+    rows = db.query(models.BoardGame.id).filter(models.BoardGame.id.in_(bgg_ids)).all()
+    existing = {row[0] for row in rows}
+    return [bgg_id for bgg_id in bgg_ids if bgg_id not in existing]

@@ -1,15 +1,16 @@
-# fly.dev.rehearsal.toml app configuration file for bg-lib-app-dev rehearsal profile
+# fly.convention.dev.toml app configuration file for bg-lib-app-dev convention profile
 
 app = 'bg-lib-app-dev'
 primary_region = 'iad'
 
 [env]
   NODE_ENV = "production"
-  RUNTIME_PROFILE = "rehearsal"
+  RUNTIME_PROFILE = "convention"
   APP_SERVER = "gunicorn"
   GUNICORN_WORKERS = "3"
   GUNICORN_CMD_ARGS = "--timeout 90"
-  CONVENTION_MODE = "false"
+  CONVENTION_MODE = "true"
+  CONVENTION_GUEST_ENABLED = "true"
   DB_KEEPALIVE_ENABLED = "true"
   DB_KEEPALIVE_INTERVAL_SECONDS = "60"
   IMAGE_BACKEND = "fly_local"

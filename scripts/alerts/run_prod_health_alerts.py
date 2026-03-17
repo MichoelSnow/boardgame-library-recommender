@@ -7,23 +7,30 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 
 try:
     from validation_common import (
         build_url,
         fetch_json,
+        measure_json_request,
     )
 except ModuleNotFoundError:
     from scripts.validation_common import (
         build_url,
         fetch_json,
+        measure_json_request,
     )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 DEFAULT_ALERT_STATE_PATH = Path(".alert_state/prod_health_alert_state.json")
 DEFAULT_ALERT_COOLDOWN_SECONDS = 3 * 60 * 60
+DEFAULT_SUSTAINED_LATENCY_CONSECUTIVE_BREACHES = 3
+DEFAULT_CATALOG_LATENCY_THRESHOLD_MS = 1000.0
+DEFAULT_RECOMMENDATION_LATENCY_THRESHOLD_MS = 2500.0
+DEFAULT_ALERT_RECOMMENDATION_GAME_ID = 224517
 
 
 @dataclass(frozen=True)
@@ -43,7 +50,21 @@ class HealthSnapshot:
     db_ok: bool
     recommendation_ok: bool
     recommendation_state: str
+    api_latency_ms: float | None
+    api_version_latency_ms: float | None
+    recommendations_latency_ms: float | None
     events: list[AlertEvent]
+
+
+def _append_github_summary(lines: list[str]) -> None:
+    summary_path = os.getenv("GITHUB_STEP_SUMMARY", "").strip()
+    if not summary_path:
+        return
+    try:
+        with open(summary_path, "a", encoding="utf-8") as handle:
+            handle.write("\n".join(lines) + "\n")
+    except Exception as exc:
+        logger.warning("Failed to append GitHub summary: %s", exc)
 
 
 def check_prod_health(environment: str) -> HealthSnapshot:
@@ -54,10 +75,15 @@ def check_prod_health(environment: str) -> HealthSnapshot:
     db_ok = False
     recommendation_ok = False
     recommendation_state = "unknown"
+    api_latency_ms: float | None = None
+    api_version_latency_ms: float | None = None
+    recommendations_latency_ms: float | None = None
     events: list[AlertEvent] = []
 
     try:
-        api_payload, _ = fetch_json(build_url(environment, "/api"))
+        api_payload, api_latency_ms = measure_json_request(
+            build_url(environment, "/api")
+        )
         if api_payload.get("message") != "Board Game Recommender API":
             events.append(
                 AlertEvent(
@@ -78,7 +104,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
         )
 
     try:
-        version_payload, _ = fetch_json(build_url(environment, "/api/version"))
+        version_payload, api_version_latency_ms = measure_json_request(
+            build_url(environment, "/api/version")
+        )
         release_sha = str(version_payload.get("git_sha", "unknown"))
         convention_mode_active = bool(version_payload.get("convention_mode", False))
     except Exception as exc:
@@ -137,6 +165,57 @@ def check_prod_health(environment: str) -> HealthSnapshot:
             )
         )
 
+    recommendation_game_id = int(
+        os.getenv("ALERT_RECOMMENDATION_GAME_ID", DEFAULT_ALERT_RECOMMENDATION_GAME_ID)
+    )
+    try:
+        _, recommendations_latency_ms = measure_json_request(
+            build_url(environment, f"/api/recommendations/{recommendation_game_id}")
+        )
+    except Exception as exc:
+        logger.warning("Could not measure recommendation endpoint latency: %s", exc)
+
+    threshold_catalog_ms = float(
+        os.getenv(
+            "ALERT_CATALOG_LATENCY_THRESHOLD_MS", DEFAULT_CATALOG_LATENCY_THRESHOLD_MS
+        )
+    )
+    threshold_recommendation_ms = float(
+        os.getenv(
+            "ALERT_RECOMMENDATION_LATENCY_THRESHOLD_MS",
+            DEFAULT_RECOMMENDATION_LATENCY_THRESHOLD_MS,
+        )
+    )
+    breached_points: list[str] = []
+    if api_latency_ms is not None and api_latency_ms > threshold_catalog_ms:
+        breached_points.append(
+            f"/api={api_latency_ms:.1f}ms>{threshold_catalog_ms:.1f}ms"
+        )
+    if (
+        api_version_latency_ms is not None
+        and api_version_latency_ms > threshold_catalog_ms
+    ):
+        breached_points.append(
+            f"/api/version={api_version_latency_ms:.1f}ms>{threshold_catalog_ms:.1f}ms"
+        )
+    if (
+        recommendations_latency_ms is not None
+        and recommendations_latency_ms > threshold_recommendation_ms
+    ):
+        breached_points.append(
+            "/api/recommendations/"
+            f"{recommendation_game_id}={recommendations_latency_ms:.1f}ms>"
+            f"{threshold_recommendation_ms:.1f}ms"
+        )
+    if breached_points:
+        events.append(
+            AlertEvent(
+                code="latency_sustained_breach",
+                summary="Latency thresholds exceeded",
+                details="; ".join(breached_points),
+            )
+        )
+
     return HealthSnapshot(
         environment=environment,
         checked_at_utc=checked_at_utc,
@@ -146,6 +225,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
         db_ok=db_ok,
         recommendation_ok=recommendation_ok,
         recommendation_state=recommendation_state,
+        api_latency_ms=api_latency_ms,
+        api_version_latency_ms=api_version_latency_ms,
+        recommendations_latency_ms=recommendations_latency_ms,
         events=events,
     )
 
@@ -219,7 +301,7 @@ def filter_alert_events(
     previous_state: dict,
     now_utc: datetime,
     cooldown_seconds: int,
-) -> list[AlertEvent]:
+) -> tuple[list[AlertEvent], int]:
     deduped_by_code: dict[str, AlertEvent] = {}
     for event in snapshot.events:
         deduped_by_code[event.code] = event
@@ -229,6 +311,20 @@ def filter_alert_events(
         previous_state.get("last_recommendation_state", "unknown")
     )
     emitted_by_code = previous_state.get("last_emitted_at_utc_by_code", {})
+
+    latency_streak = int(previous_state.get("latency_breach_streak", 0))
+    has_latency_breach = "latency_sustained_breach" in deduped_by_code
+    if has_latency_breach:
+        latency_streak += 1
+    else:
+        latency_streak = 0
+
+    required_latency_breaches = int(
+        os.getenv(
+            "ALERT_LATENCY_SUSTAINED_BREACHES",
+            DEFAULT_SUSTAINED_LATENCY_CONSECUTIVE_BREACHES,
+        )
+    )
 
     for code, event in deduped_by_code.items():
         if code == "recommendation_degraded":
@@ -242,6 +338,10 @@ def filter_alert_events(
             )
             if not (transitioned or first_seen_degraded):
                 continue
+        if code == "latency_sustained_breach" and latency_streak < max(
+            required_latency_breaches, 1
+        ):
+            continue
 
         last_emitted_raw = emitted_by_code.get(code)
         last_emitted_at = _parse_iso_timestamp(last_emitted_raw)
@@ -251,7 +351,7 @@ def filter_alert_events(
                 continue
 
         output.append(event)
-    return output
+    return output, latency_streak
 
 
 def main() -> int:
@@ -262,7 +362,7 @@ def main() -> int:
     now_utc = datetime.now(timezone.utc).replace(microsecond=0)
 
     logger.info(
-        "Health snapshot env=%s sha=%s convention_mode=%s app_ok=%s db_ok=%s rec_ok=%s rec_state=%s",
+        "Health snapshot env=%s sha=%s convention_mode=%s app_ok=%s db_ok=%s rec_ok=%s rec_state=%s api_ms=%s api_version_ms=%s rec_ms=%s",
         snapshot.environment,
         snapshot.release_sha,
         snapshot.convention_mode_active,
@@ -270,24 +370,67 @@ def main() -> int:
         snapshot.db_ok,
         snapshot.recommendation_ok,
         snapshot.recommendation_state,
+        f"{snapshot.api_latency_ms:.1f}"
+        if snapshot.api_latency_ms is not None
+        else "n/a",
+        f"{snapshot.api_version_latency_ms:.1f}"
+        if snapshot.api_version_latency_ms is not None
+        else "n/a",
+        f"{snapshot.recommendations_latency_ms:.1f}"
+        if snapshot.recommendations_latency_ms is not None
+        else "n/a",
     )
 
     if not snapshot.convention_mode_active:
         logger.info("Convention mode is not active; skipping alert checks.")
         return 0
 
-    filtered_events = filter_alert_events(
+    filtered_events, latency_streak = filter_alert_events(
         snapshot=snapshot,
         previous_state=previous_state,
         now_utc=now_utc,
         cooldown_seconds=max(args.cooldown_seconds, 0),
     )
+    current_active_codes = {event.code for event in snapshot.events}
+    sustained_latency_required = int(
+        os.getenv(
+            "ALERT_LATENCY_SUSTAINED_BREACHES",
+            DEFAULT_SUSTAINED_LATENCY_CONSECUTIVE_BREACHES,
+        )
+    )
+    if latency_streak < max(sustained_latency_required, 1):
+        current_active_codes.discard("latency_sustained_breach")
+
+    previous_active_codes = {
+        str(code) for code in previous_state.get("active_alert_codes", [])
+    }
+    recovered_codes = sorted(previous_active_codes - current_active_codes)
+    for code in recovered_codes:
+        logger.info(
+            "RECOVERY: %s recovered in %s (sha=%s).",
+            code,
+            snapshot.environment,
+            snapshot.release_sha,
+        )
+        print(
+            "::notice::Recovery detected for "
+            f"{code} in {snapshot.environment} (sha={snapshot.release_sha})"
+        )
+    if recovered_codes:
+        _append_github_summary(
+            [
+                "### Recovery Notifications",
+                *[f"- {code} recovered" for code in recovered_codes],
+            ]
+        )
 
     if not filtered_events:
         # Always update recommendation state so transition detection is meaningful later.
         next_state = {
             "last_recommendation_state": snapshot.recommendation_state,
             "last_checked_at_utc": now_utc.isoformat(),
+            "latency_breach_streak": latency_streak,
+            "active_alert_codes": sorted(current_active_codes),
             "last_emitted_at_utc_by_code": previous_state.get(
                 "last_emitted_at_utc_by_code", {}
             ),
@@ -303,9 +446,17 @@ def main() -> int:
     emitted_map = dict(previous_state.get("last_emitted_at_utc_by_code", {}))
     for event in filtered_events:
         emitted_map[event.code] = now_utc.isoformat()
+    _append_github_summary(
+        [
+            "### Active Alerts",
+            *[f"- {event.code}: {event.summary}" for event in filtered_events],
+        ]
+    )
     next_state = {
         "last_recommendation_state": snapshot.recommendation_state,
         "last_checked_at_utc": now_utc.isoformat(),
+        "latency_breach_streak": latency_streak,
+        "active_alert_codes": sorted(current_active_codes),
         "last_emitted_at_utc_by_code": emitted_map,
     }
     save_alert_state(state_path, next_state)

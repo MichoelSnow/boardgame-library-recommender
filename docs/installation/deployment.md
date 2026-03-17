@@ -72,9 +72,7 @@ If no prefix is provided, the script defaults to `${USER}-bg`.
 Load env values into your current shell when running commands from this guide:
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 ```
 
 What it does:
@@ -100,9 +98,7 @@ Uses generated `.env` values (`SECRET_KEY`, `DATABASE_PATH`).
 ### 4.1 Run migrations and start backend
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 
 unset DATABASE_URL
 poetry run alembic upgrade head
@@ -139,9 +135,7 @@ docker run --name boardgame-pg-local \
 ### 5.2 Set `DATABASE_URL`, run migrations, start backend
 
 ```bash
-set -a
-source .env
-set +a
+set -a && source .env && set +a
 
 export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD_LOCAL}@${POSTGRES_HOST_LOCAL}:${POSTGRES_PORT_LOCAL}/${POSTGRES_DB}"
 poetry run alembic upgrade head
@@ -246,8 +240,8 @@ fly ips allocate-v6 --private -a "${FLY_DB_APP_NAME_PROD}"
 ### 6.8 Set app secrets
 
 ```bash
-fly secrets set -a "${FLY_APP_NAME_DEV}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_DEV}@${FLY_DB_APP_NAME_DEV}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_DEV}" CONVENTION_KIOSK_KEY="${CONVENTION_KIOSK_KEY_DEV}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_DEV}.fly.dev,https://${FLY_APP_NAME_PROD}.fly.dev"
-fly secrets set -a "${FLY_APP_NAME_PROD}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_PROD}@${FLY_DB_APP_NAME_PROD}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_PROD}" CONVENTION_KIOSK_KEY="${CONVENTION_KIOSK_KEY_PROD}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_PROD}.fly.dev,https://${FLY_APP_NAME_DEV}.fly.dev"
+fly secrets set -a "${FLY_APP_NAME_DEV}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_DEV}@${FLY_DB_APP_NAME_DEV}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_DEV}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_DEV}.fly.dev,https://${FLY_APP_NAME_PROD}.fly.dev"
+fly secrets set -a "${FLY_APP_NAME_PROD}" DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD_PROD}@${FLY_DB_APP_NAME_PROD}.flycast:5432/${POSTGRES_DB}" SECRET_KEY="${SECRET_KEY_PROD}" CORS_ALLOWED_ORIGINS="https://${FLY_APP_NAME_PROD}.fly.dev,https://${FLY_APP_NAME_DEV}.fly.dev"
 ```
 
 Use `.flycast` hostnames for Fly Postgres app URLs so DB autostart works reliably when app machines wake from stopped state.

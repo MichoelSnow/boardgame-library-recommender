@@ -12,6 +12,7 @@ from backend.scripts.migrate_sqlite_to_postgres import (
 
 def test_get_table_copy_order_matches_expected_dependency_sequence():
     assert get_table_copy_order() == [
+        "app_settings",
         "games",
         "users",
         "artists",
@@ -24,11 +25,13 @@ def test_get_table_copy_order_matches_expected_dependency_sequence():
         "integrations",
         "language_dependence",
         "library_games",
+        "library_imports",
         "mechanics",
         "publishers",
         "suggested_players",
         "user_suggestions",
         "versions",
+        "library_import_items",
     ]
 
 

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
+from datetime import datetime
 
 
 class ArtistBase(BaseModel):
@@ -325,6 +326,7 @@ class User(UserBase):
     id: int
     is_active: bool
     is_admin: bool
+    is_guest: bool = False
 
     class Config:
         from_attributes = True
@@ -385,3 +387,100 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+
+
+class ThemeSettingsResponse(BaseModel):
+    primary_color: str = Field(
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+        description="Current global primary hex color for the app theme.",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeSettingsUpdateRequest(BaseModel):
+    primary_color: str = Field(
+        pattern=r"^#[0-9A-Fa-f]{6}$",
+        description="New global primary hex color for the app theme.",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUser(BaseModel):
+    id: int
+    username: str
+    is_active: bool
+    is_admin: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserUpdateRequest(BaseModel):
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserPasswordResetRequest(BaseModel):
+    new_password: str = Field(
+        min_length=6, description="Password must be at least 6 characters"
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryImportSummary(BaseModel):
+    id: int
+    label: str
+    import_method: str
+    is_active: bool
+    total_items: int
+    created_at: datetime
+    activated_at: Optional[datetime] = None
+    imported_by_user_id: Optional[int] = None
+    activated_by_user_id: Optional[int] = None
+    imported_by_username: Optional[str] = None
+    activated_by_username: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryImportUploadResponse(BaseModel):
+    import_record: LibraryImportSummary
+    skipped_duplicates: int = Field(
+        ge=0, description="Number of duplicate IDs removed during validation."
+    )
+    skipped_invalid_rows: int = Field(
+        ge=0, description="Invalid-format rows skipped during upload."
+    )
+    skipped_unknown_ids: int = Field(
+        ge=0, description="Unknown catalog IDs skipped during upload."
+    )
+    kept_unknown_ids: int = Field(
+        ge=0, description="Unknown catalog IDs kept during upload."
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryImportCsvWarning(BaseModel):
+    row_number: int = Field(ge=1)
+    value: str
+    reason: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryImportCsvValidationResponse(BaseModel):
+    total_rows: int = Field(ge=0)
+    valid_rows: int = Field(ge=0)
+    duplicate_rows: int = Field(ge=0)
+    invalid_rows: int = Field(ge=0)
+    unknown_id_rows: int = Field(ge=0)
+    unique_candidate_ids: int = Field(ge=0)
+    warnings_invalid_rows: list[LibraryImportCsvWarning]
+    warnings_unknown_ids: list[LibraryImportCsvWarning]
+
+    model_config = ConfigDict(from_attributes=True)

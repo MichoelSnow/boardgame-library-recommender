@@ -41,6 +41,49 @@ class UserSuggestion(Base):
     user = relationship("User", back_populates="suggestions")
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    value = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class LibraryImport(Base):
+    __tablename__ = "library_imports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String, nullable=False, unique=True, index=True)
+    imported_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    activated_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    import_method = Column(String, nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    activated_at = Column(DateTime, nullable=True)
+
+    items = relationship("LibraryImportItem", back_populates="library_import")
+
+
+class LibraryImportItem(Base):
+    __tablename__ = "library_import_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "library_import_id",
+            "bgg_id",
+            name="uq_library_import_items_import_bgg_id",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    library_import_id = Column(
+        Integer, ForeignKey("library_imports.id"), nullable=False, index=True
+    )
+    bgg_id = Column(Integer, nullable=False, index=True)
+
+    library_import = relationship("LibraryImport", back_populates="items")
+
+
 class BoardGame(Base):
     __tablename__ = "games"
     __allow_unmapped__ = True

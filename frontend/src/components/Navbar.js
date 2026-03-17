@@ -13,22 +13,32 @@ import HomeIcon from '@mui/icons-material/Home';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import FeedbackIcon from '@mui/icons-material/Feedback';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AuthContext from '../context/AuthContext';
 import HelpDialog from './HelpDialog';
 import GuidedTour from './GuidedTour';
 import SuggestionsModal from './SuggestionsModal';
 import PasswordChangeModal from './PasswordChangeModal';
+import { useThemeSettings } from '../context/ThemeSettingsContext';
 
 function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
+  const { navbarTextColor, primaryColor } = useThemeSettings();
+  const isGuestUser = Boolean(user?.is_guest);
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
 
   return (
-    <AppBar position="static">
+    <AppBar
+      position="static"
+      sx={{
+        backgroundColor: primaryColor,
+        color: navbarTextColor,
+      }}
+    >
       <Toolbar>
         <IconButton
           edge="start"
@@ -77,7 +87,22 @@ function Navbar() {
             </Tooltip>
           )}
 
-          {user && (
+          {user?.is_admin && !isGuestUser && (
+            <Tooltip title="Admin tools">
+              <Button
+                color="inherit"
+                onClick={() => navigate('/admin')}
+                startIcon={<AdminPanelSettingsIcon />}
+                sx={{ mr: 2, textTransform: 'none' }}
+              >
+                <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
+                  Admin Panel
+                </Typography>
+              </Button>
+            </Tooltip>
+          )}
+
+          {user && !isGuestUser && (
             <Tooltip title="Change your password">
               <Button
                 color="inherit"
@@ -93,7 +118,9 @@ function Navbar() {
           )}
           
           {user && (
-            <Button color="inherit" onClick={logout}>Logout</Button>
+            <Button color="inherit" onClick={logout}>
+              {isGuestUser ? 'Reset Session' : 'Logout'}
+            </Button>
           )}
         </Box>
       </Toolbar>

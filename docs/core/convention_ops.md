@@ -27,11 +27,6 @@ Primary knobs:
 - `GUNICORN_WORKERS`
 - `GUNICORN_CMD_ARGS` (convention baseline includes higher timeout)
 
-Convention schedule knobs:
-- `CONVENTION_TIMEZONE`
-- `CONVENTION_WARM_START` (`HH:MM`)
-- `CONVENTION_WARM_END` (`HH:MM`)
-
 Optional safety knob:
 - `CONVENTION_PROFILE_LOCK=true`
 
@@ -43,8 +38,8 @@ Use explicit Fly config files per profile/environment to avoid ad hoc edits duri
   - convention production profile (warm runtime + convention process settings).
 - `fly.dev.toml`
   - standard development profile baseline.
-- `fly.dev.rehearsal.toml`
-  - dev rehearsal profile for convention-like load validation windows.
+- `fly.convention.dev.toml`
+  - dev convention profile for full convention-mode validation windows.
 
 Policy:
 - Treat these files as source-controlled runtime contracts.
@@ -54,6 +49,10 @@ Policy:
 - Activation and deactivation must be explicit, repeatable operational actions.
 - Convention mode should be schedule-driven and timezone-aware (event-local timezone).
 - Record profile switch events in deploy traceability notes.
+
+Warm-mode switching is currently manual by design:
+- enable convention runtime with explicit deploy using `fly.convention.toml`
+- revert to standard runtime with explicit deploy using `fly.toml`
 
 ## Rehearsal Policy (Required Before Event)
 - Run rehearsal in `dev` using convention-like runtime settings.

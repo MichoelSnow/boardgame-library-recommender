@@ -6,7 +6,9 @@ from fastapi import (
     Depends,
     status,
     Response,
-    Header,
+    File,
+    Form,
+    UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -23,8 +25,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Literal, Optional
 import logging
+import csv
+import io
 import httpx
-import hmac
 import mimetypes
 import tempfile
 import ipaddress
@@ -58,7 +61,6 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 import os
-from pydantic import BaseModel
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -144,7 +146,10 @@ CONTENT_TYPE_TO_EXTENSION = {
     "image/avif": "avif",
 }
 MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_LIBRARY_IMPORT_CSV_BYTES = 2 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
+THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
+DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
 
 
 class InMemoryRateLimiter:
@@ -295,10 +300,6 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
         )
         response.headers.setdefault("X-Response-Time-Ms", f"{duration_ms:.2f}")
         return response
-
-
-class KioskEnrollRequest(BaseModel):
-    kiosk_key: Optional[str] = None
 
 
 def _is_disallowed_ip_address(ip_text: str) -> bool:
@@ -485,6 +486,16 @@ def validate_startup_config() -> None:
     _validate_optional_bool_env("RATE_LIMIT_ENABLED")
     _validate_optional_bool_env("TRUST_X_FORWARDED_FOR")
     _validate_optional_bool_env("DB_KEEPALIVE_ENABLED")
+    _validate_optional_bool_env("CONVENTION_MODE")
+    _validate_optional_bool_env("CONVENTION_GUEST_ENABLED")
+
+    if (
+        convention_kiosk.is_convention_mode_enabled()
+        and not os.getenv("CONVENTION_GUEST_ENABLED", "").strip()
+    ):
+        raise RuntimeError(
+            "CONVENTION_GUEST_ENABLED must be explicitly set when CONVENTION_MODE is enabled."
+        )
 
 
 # Validate startup config once so invalid values fail before serving traffic.
@@ -802,12 +813,7 @@ async def convention_kiosk_status(request: Request):
     }
 
 
-@app.post("/api/convention/kiosk/enroll")
-async def convention_kiosk_enroll(
-    response: Response,
-    payload: KioskEnrollRequest,
-    x_convention_kiosk_key: Optional[str] = Header(default=None),
-):
+def _ensure_convention_kiosk_enrollment_enabled() -> None:
     if (
         not convention_kiosk.is_convention_mode_enabled()
         or not convention_kiosk.is_convention_guest_enabled()
@@ -816,16 +822,8 @@ async def convention_kiosk_enroll(
             status_code=404, detail="Convention kiosk enrollment is disabled."
         )
 
-    expected_key = convention_kiosk.get_expected_kiosk_key()
-    if not expected_key:
-        raise HTTPException(
-            status_code=503, detail="Convention kiosk key is not configured."
-        )
 
-    provided_key = (payload.kiosk_key or x_convention_kiosk_key or "").strip()
-    if not provided_key or not hmac.compare_digest(provided_key, expected_key):
-        raise HTTPException(status_code=401, detail="Invalid kiosk key.")
-
+def _set_kiosk_cookie(response: Response) -> None:
     kiosk_token = convention_kiosk.issue_kiosk_cookie_token(
         secret_key=security.SECRET_KEY,
         algorithm=security.ALGORITHM,
@@ -840,6 +838,103 @@ async def convention_kiosk_enroll(
         path="/",
     )
 
+
+def _require_admin(current_user: schemas.User) -> None:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required.")
+
+
+def _analyze_library_csv(raw_bytes: bytes) -> dict[str, object]:
+    if not raw_bytes:
+        raise ValueError("CSV file is empty.")
+
+    try:
+        decoded = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise ValueError("CSV must be UTF-8 encoded.") from exc
+
+    rows = [
+        row
+        for row in csv.reader(io.StringIO(decoded))
+        if any(cell.strip() for cell in row)
+    ]
+    if not rows:
+        raise ValueError("CSV file is empty.")
+
+    first_row = [cell.strip() for cell in rows[0]]
+    has_header = any(cell.lower() == "bgg_id" for cell in first_row)
+    bgg_col_index = 0
+    if has_header:
+        for index, value in enumerate(first_row):
+            if value.lower() == "bgg_id":
+                bgg_col_index = index
+                break
+        data_rows = rows[1:]
+    else:
+        data_rows = rows
+
+    parsed_rows: list[tuple[int, int]] = []
+    invalid_warnings: list[dict[str, object]] = []
+    for row_number, row in enumerate(data_rows, start=(2 if has_header else 1)):
+        if bgg_col_index >= len(row):
+            continue
+        raw_value = row[bgg_col_index].strip()
+        if not raw_value:
+            continue
+        if not raw_value.isdigit():
+            invalid_warnings.append(
+                {
+                    "row_number": row_number,
+                    "value": raw_value,
+                    "reason": "not_positive_integer",
+                }
+            )
+            continue
+        parsed_value = int(raw_value)
+        if parsed_value <= 0:
+            invalid_warnings.append(
+                {
+                    "row_number": row_number,
+                    "value": raw_value,
+                    "reason": "not_positive_integer",
+                }
+            )
+            continue
+        parsed_rows.append((row_number, parsed_value))
+
+    if not parsed_rows and not invalid_warnings:
+        raise ValueError("CSV did not contain any valid bgg_id values.")
+
+    seen: set[int] = set()
+    deduped_rows: list[tuple[int, int]] = []
+    duplicate_rows = 0
+    for row_number, parsed_value in parsed_rows:
+        if parsed_value in seen:
+            duplicate_rows += 1
+            continue
+        seen.add(parsed_value)
+        deduped_rows.append((row_number, parsed_value))
+
+    if not deduped_rows:
+        raise ValueError("CSV did not contain any valid bgg_id values.")
+
+    return {
+        "total_rows": len(data_rows),
+        "parsed_rows": parsed_rows,
+        "deduped_rows": deduped_rows,
+        "duplicate_rows": duplicate_rows,
+        "invalid_warnings": invalid_warnings,
+    }
+
+
+@app.post("/api/convention/kiosk/admin/enroll")
+async def convention_kiosk_enroll_admin(
+    response: Response,
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    _ensure_convention_kiosk_enrollment_enabled()
+    _set_kiosk_cookie(response)
     return {
         "convention_mode": True,
         "kiosk_mode": True,
@@ -847,13 +942,40 @@ async def convention_kiosk_enroll(
     }
 
 
-@app.post("/api/convention/kiosk/unenroll")
-async def convention_kiosk_unenroll(response: Response):
+@app.post("/api/convention/kiosk/admin/unenroll")
+async def convention_kiosk_unenroll_admin(
+    response: Response,
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
     response.delete_cookie(
         key=convention_kiosk.KIOSK_COOKIE_NAME,
         path="/",
     )
     return {"kiosk_mode": False}
+
+
+@app.post("/api/convention/guest-token", response_model=schemas.Token)
+async def issue_convention_guest_token(request: Request):
+    _ensure_convention_kiosk_enrollment_enabled()
+
+    cookie_token = request.cookies.get(convention_kiosk.KIOSK_COOKIE_NAME)
+    if not convention_kiosk.is_valid_kiosk_cookie_token(
+        token=cookie_token,
+        secret_key=security.SECRET_KEY,
+        algorithm=security.ALGORITHM,
+    ):
+        raise HTTPException(status_code=401, detail="Kiosk enrollment is required.")
+
+    access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={
+            "sub": security.CONVENTION_GUEST_USERNAME,
+            "token_type": security.CONVENTION_GUEST_TOKEN_TYPE,
+        },
+        expires_delta=access_token_expires,
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # Move the root endpoint to /api and keep this as a fallback for API requests
@@ -1190,13 +1312,7 @@ def read_categories(db: Session = Depends(get_db)):
 )  # Add endpoint with trailing slash
 async def get_library_game_ids(db: Session = Depends(get_db)):
     """Return a list of all Library game BGG IDs (integers)."""
-    library_ids = (
-        db.query(models.LibraryGame.bgg_id)
-        .filter(models.LibraryGame.bgg_id.isnot(None))
-        .all()
-    )
-    # library_ids is a list of tuples, extract the first element from each
-    return [pid[0] for pid in library_ids if pid[0] is not None]
+    return crud.get_library_ids_for_runtime(db)
 
 
 @app.on_event("startup")
@@ -1338,6 +1454,326 @@ def create_user(
     return crud.create_user(db=db, user=user)
 
 
+@app.get("/api/admin/users", response_model=list[schemas.AdminUser])
+def list_admin_users(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    users = crud.get_users(db)
+    return [
+        schemas.AdminUser(
+            id=user.id,
+            username=user.username,
+            is_active=user.is_active,
+            is_admin=user.is_admin,
+        )
+        for user in users
+    ]
+
+
+@app.put("/api/admin/users/{user_id}", response_model=schemas.AdminUser)
+def update_admin_user(
+    user_id: int,
+    request: schemas.AdminUserUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    target_user = crud.get_user(db, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target_user.id == current_user.id:
+        if request.is_active is False:
+            raise HTTPException(
+                status_code=400, detail="You cannot deactivate your own account."
+            )
+        if request.is_admin is False:
+            raise HTTPException(
+                status_code=400, detail="You cannot remove your own admin access."
+            )
+
+    updated_user = crud.update_user_admin_flags(
+        db,
+        user_id=user_id,
+        is_admin=request.is_admin,
+        is_active=request.is_active,
+    )
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.AdminUser(
+        id=updated_user.id,
+        username=updated_user.username,
+        is_active=updated_user.is_active,
+        is_admin=updated_user.is_admin,
+    )
+
+
+@app.put(
+    "/api/admin/users/{user_id}/password", response_model=schemas.PasswordChangeResponse
+)
+def admin_reset_user_password(
+    user_id: int,
+    request: schemas.AdminUserPasswordResetRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    success = crud.admin_reset_password_by_user_id(
+        db=db,
+        user_id=user_id,
+        new_password=request.new_password,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="User not found")
+    return schemas.PasswordChangeResponse(message="Password reset successfully")
+
+
+@app.get(
+    "/api/admin/library-imports", response_model=list[schemas.LibraryImportSummary]
+)
+def list_admin_library_imports(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    rows = crud.list_library_import_summaries(db)
+    return [schemas.LibraryImportSummary(**row) for row in rows]
+
+
+def _build_csv_validation_result(
+    *,
+    analysis: dict[str, object],
+    missing_ids: list[int],
+) -> schemas.LibraryImportCsvValidationResponse:
+    missing_set = set(missing_ids)
+    deduped_rows = analysis["deduped_rows"]
+    unknown_warnings = [
+        {
+            "row_number": row_number,
+            "value": str(bgg_id),
+            "reason": "id_not_in_games_catalog",
+        }
+        for row_number, bgg_id in deduped_rows
+        if bgg_id in missing_set
+    ]
+    return schemas.LibraryImportCsvValidationResponse(
+        total_rows=int(analysis["total_rows"]),
+        valid_rows=len(deduped_rows),
+        duplicate_rows=int(analysis["duplicate_rows"]),
+        invalid_rows=len(analysis["invalid_warnings"]),
+        unknown_id_rows=len(unknown_warnings),
+        unique_candidate_ids=len(deduped_rows),
+        warnings_invalid_rows=[
+            schemas.LibraryImportCsvWarning(**item)
+            for item in analysis["invalid_warnings"]
+        ],
+        warnings_unknown_ids=[
+            schemas.LibraryImportCsvWarning(**item) for item in unknown_warnings
+        ],
+    )
+
+
+async def _read_upload_with_size_limit(
+    file: UploadFile,
+    *,
+    max_bytes: int,
+    chunk_size: int = 64 * 1024,
+) -> bytes:
+    await file.seek(0)
+    chunks: list[bytes] = []
+    total_bytes = 0
+
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="CSV is too large. Maximum size is 2MB.",
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
+
+@app.post(
+    "/api/admin/library-imports/csv/validate",
+    response_model=schemas.LibraryImportCsvValidationResponse,
+)
+async def validate_admin_library_import_csv(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
+
+    file_payload = await _read_upload_with_size_limit(
+        file, max_bytes=MAX_LIBRARY_IMPORT_CSV_BYTES
+    )
+
+    try:
+        analysis = _analyze_library_csv(file_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    deduped_ids = [bgg_id for _, bgg_id in analysis["deduped_rows"]]
+    missing_ids = crud.find_missing_games_for_ids(db, deduped_ids)
+    return _build_csv_validation_result(analysis=analysis, missing_ids=missing_ids)
+
+
+@app.post(
+    "/api/admin/library-imports/csv",
+    response_model=schemas.LibraryImportUploadResponse,
+)
+async def upload_admin_library_import_csv(
+    label: str = Form(..., min_length=1, max_length=120),
+    file: UploadFile = File(...),
+    activate: bool = Form(True),
+    ignore_invalid_rows: bool = Form(True),
+    allow_unknown_ids: bool = Form(False),
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
+
+    file_payload = await _read_upload_with_size_limit(
+        file, max_bytes=MAX_LIBRARY_IMPORT_CSV_BYTES
+    )
+
+    try:
+        analysis = _analyze_library_csv(file_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    deduped_rows = analysis["deduped_rows"]
+    deduped_ids = [bgg_id for _, bgg_id in deduped_rows]
+    skipped_duplicates = int(analysis["duplicate_rows"])
+    skipped_invalid_rows = len(analysis["invalid_warnings"])
+    if skipped_invalid_rows > 0 and not ignore_invalid_rows:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "CSV contains invalid bgg_id rows. Run validation first or set "
+                "ignore_invalid_rows=true to continue while skipping them."
+            ),
+        )
+
+    missing_ids = crud.find_missing_games_for_ids(db, deduped_ids)
+    missing_set = set(missing_ids)
+    kept_unknown_ids = 0
+    skipped_unknown_ids = 0
+    selected_ids: list[int] = []
+    for bgg_id in deduped_ids:
+        if bgg_id in missing_set:
+            if allow_unknown_ids:
+                kept_unknown_ids += 1
+                selected_ids.append(bgg_id)
+            else:
+                skipped_unknown_ids += 1
+        else:
+            selected_ids.append(bgg_id)
+
+    if skipped_unknown_ids > 0 and not allow_unknown_ids and not selected_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "All IDs were unknown to the games catalog. Enable allow_unknown_ids "
+                "to include them."
+            ),
+        )
+    if not selected_ids:
+        raise HTTPException(
+            status_code=400, detail="No IDs left to import after applying filters."
+        )
+
+    clean_label = label.strip()
+    if not clean_label:
+        raise HTTPException(status_code=400, detail="Label is required.")
+
+    try:
+        import_record = crud.create_library_import(
+            db,
+            label=clean_label,
+            import_method="csv_upload",
+            imported_by_user_id=current_user.id,
+            bgg_ids=selected_ids,
+            activate=activate,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    rows = crud.list_library_import_summaries(db)
+    summary_row = next((row for row in rows if row["id"] == import_record.id), None)
+    if summary_row is None:
+        raise HTTPException(status_code=500, detail="Failed to read import summary.")
+
+    return schemas.LibraryImportUploadResponse(
+        import_record=schemas.LibraryImportSummary(**summary_row),
+        skipped_duplicates=skipped_duplicates,
+        skipped_invalid_rows=skipped_invalid_rows,
+        skipped_unknown_ids=skipped_unknown_ids,
+        kept_unknown_ids=kept_unknown_ids,
+    )
+
+
+@app.post(
+    "/api/admin/library-imports/{import_id}/activate",
+    response_model=schemas.LibraryImportSummary,
+)
+def activate_admin_library_import(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    updated = crud.activate_library_import(
+        db, import_id=import_id, activated_by_user_id=current_user.id
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Library import not found")
+
+    rows = crud.list_library_import_summaries(db)
+    summary_row = next((row for row in rows if row["id"] == updated.id), None)
+    if summary_row is None:
+        raise HTTPException(status_code=500, detail="Failed to read import summary.")
+    return schemas.LibraryImportSummary(**summary_row)
+
+
+@app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)
+def get_theme_settings(db: Session = Depends(get_db)):
+    primary_color = DEFAULT_THEME_PRIMARY_COLOR
+    setting = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
+    if setting and setting.value:
+        primary_color = setting.value
+    return schemas.ThemeSettingsResponse(primary_color=primary_color)
+
+
+@app.put("/api/admin/theme", response_model=schemas.ThemeSettingsResponse)
+def update_theme_settings(
+    request: schemas.ThemeSettingsUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    setting = crud.upsert_app_setting(
+        db,
+        key=THEME_PRIMARY_COLOR_SETTING_KEY,
+        value=request.primary_color.upper(),
+    )
+    return schemas.ThemeSettingsResponse(primary_color=setting.value)
+
+
 @app.get("/api/users/me/", response_model=schemas.User)
 async def read_users_me(
     current_user: schemas.User = Depends(security.get_current_active_user),
@@ -1351,6 +1787,10 @@ def change_password(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
+    if getattr(current_user, "is_guest", False):
+        raise HTTPException(
+            status_code=403, detail="Guest sessions cannot change password"
+        )
     success = crud.change_user_password(
         db=db,
         user_id=current_user.id,
@@ -1368,24 +1808,31 @@ def create_suggestion(
     db: Session = Depends(get_db),
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
+    author_user_id = current_user.id
+    author_username = current_user.username
+    if getattr(current_user, "is_guest", False):
+        guest_user = crud.get_or_create_guest_user(db)
+        author_user_id = guest_user.id
+        author_username = guest_user.username
+
     logger.info(
         "Creating suggestion for user_id=%s username=%s",
-        current_user.id,
-        current_user.username,
+        author_user_id,
+        author_username,
     )
     db_suggestion = crud.create_user_suggestion(
-        db=db, user_id=current_user.id, suggestion=suggestion
+        db=db, user_id=author_user_id, suggestion=suggestion
     )
     logger.info(
         "Created suggestion id=%s for user_id=%s",
         db_suggestion.id,
-        current_user.id,
+        author_user_id,
     )
     return schemas.UserSuggestionResponse(
         id=db_suggestion.id,
         comment=db_suggestion.comment,
         timestamp=db_suggestion.timestamp.isoformat(),
-        username=current_user.username,
+        username=author_username,
     )
 
 

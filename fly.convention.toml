@@ -14,6 +14,7 @@ primary_region = 'iad'
   DB_KEEPALIVE_INTERVAL_SECONDS = "60"
   IMAGE_BACKEND = "fly_local"
   IMAGE_STORAGE_DIR = "/data/images"
+  CONVENTION_GUEST_ENABLED = "true"
 
 [build]
 

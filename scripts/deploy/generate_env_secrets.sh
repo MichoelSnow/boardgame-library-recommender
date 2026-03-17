@@ -104,8 +104,6 @@ POSTGRES_PASSWORD_PROD="$(gen_secret)"
 SECRET_KEY="$(gen_secret)"
 SECRET_KEY_DEV="$(gen_secret)"
 SECRET_KEY_PROD="$(gen_secret)"
-CONVENTION_KIOSK_KEY_DEV="$(gen_secret)"
-CONVENTION_KIOSK_KEY_PROD="$(gen_secret)"
 
 umask 077
 touch "${OUT_FILE}"
@@ -126,8 +124,6 @@ awk '
     skip["SECRET_KEY"]=1
     skip["SECRET_KEY_DEV"]=1
     skip["SECRET_KEY_PROD"]=1
-    skip["CONVENTION_KIOSK_KEY_DEV"]=1
-    skip["CONVENTION_KIOSK_KEY_PROD"]=1
     skip["FLY_REGION"]=1
     skip["FLY_APP_NAME_DEV"]=1
     skip["FLY_APP_NAME_PROD"]=1
@@ -169,8 +165,6 @@ awk '
   printf 'POSTGRES_PASSWORD_PROD=%s\n' "${POSTGRES_PASSWORD_PROD}"
   printf 'SECRET_KEY_DEV=%s\n' "${SECRET_KEY_DEV}"
   printf 'SECRET_KEY_PROD=%s\n' "${SECRET_KEY_PROD}"
-  printf 'CONVENTION_KIOSK_KEY_DEV=%s\n' "${CONVENTION_KIOSK_KEY_DEV}"
-  printf 'CONVENTION_KIOSK_KEY_PROD=%s\n' "${CONVENTION_KIOSK_KEY_PROD}"
 
   printf '\n'
   printf '# ===== Fly App Naming (must be globally unique on Fly.io) =====\n'
@@ -179,6 +173,7 @@ awk '
   printf 'FLY_APP_NAME_PROD=%s\n' "${FLY_APP_NAME_PROD}"
   printf 'FLY_DB_APP_NAME_DEV=%s\n' "${FLY_DB_APP_NAME_DEV}"
   printf 'FLY_DB_APP_NAME_PROD=%s\n' "${FLY_DB_APP_NAME_PROD}"
+
 } >> "${tmp_file}"
 
 normalized_file="$(mktemp)"
@@ -208,7 +203,7 @@ rewrite_fly_app_name "fly.toml" "${FLY_APP_NAME_PROD}"
 rewrite_fly_app_name "fly.db.dev.toml" "${FLY_DB_APP_NAME_DEV}"
 rewrite_fly_app_name "fly.db.prod.toml" "${FLY_DB_APP_NAME_PROD}"
 rewrite_fly_app_name "fly.convention.toml" "${FLY_APP_NAME_PROD}"
-rewrite_fly_app_name "fly.dev.rehearsal.toml" "${FLY_APP_NAME_DEV}"
+rewrite_fly_app_name "fly.convention.dev.toml" "${FLY_APP_NAME_DEV}"
 rewrite_workflow_deploy_app_name ".github/workflows/fly-deploy.yml" "${FLY_APP_NAME_DEV}"
 rewrite_workflow_deploy_app_name ".github/workflows/fly-deploy-prod.yml" "${FLY_APP_NAME_PROD}"
 

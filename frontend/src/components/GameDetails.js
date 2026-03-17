@@ -29,22 +29,10 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import { placeholderImagePath } from '../config';
 import { buildGameDetailImageCandidates } from '../utils/imageUrls';
+import { decodeGameDescription } from '../utils/textEncoding';
 import { useGameRecommendationsQuery } from '../hooks/useGameListQueries';
 
 const DEFAULT_IMAGE_BG_COLOR = '#f5f5f5';
-
-// Helper function to decode HTML entities and preserve line breaks
-const decodeHtmlEntities = (text) => {
-  if (!text) return '';
-  const textarea = document.createElement('textarea');
-  textarea.innerHTML = text;
-  // Convert HTML line breaks to newlines and preserve them
-  return textarea.value
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/&#10;/g, '\n')
-    .replace(/&#13;/g, '\n')
-    .replace(/&nbsp;/g, ' ');
-};
 
 const extractAccentColor = (img) => {
   const canvas = document.createElement('canvas');
@@ -398,7 +386,7 @@ const GameDetails = ({
                   mb: 2
                 }}
               >
-                {decodeHtmlEntities(game.description)}
+                {decodeGameDescription(game.description)}
               </Typography>
             </Grid>
             <Grid size={{ xs: 12 }}>
