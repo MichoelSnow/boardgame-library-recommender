@@ -211,7 +211,9 @@ def test_filter_alert_events_requires_consecutive_latency_breaches(
 def test_main_emits_recovery_notice(monkeypatch) -> None:
     notices: list[str] = []
     summaries: list[list[str]] = []
-    monkeypatch.setattr(MODULE, "check_prod_health", lambda _env: _healthy_snapshot(True))
+    monkeypatch.setattr(
+        MODULE, "check_prod_health", lambda _env: _healthy_snapshot(True)
+    )
     monkeypatch.setattr(
         MODULE,
         "parse_args",
@@ -232,7 +234,9 @@ def test_main_emits_recovery_notice(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
-    monkeypatch.setattr("builtins.print", lambda *args, **kwargs: notices.append(args[0]))
+    monkeypatch.setattr(
+        "builtins.print", lambda *args, **kwargs: notices.append(args[0])
+    )
     monkeypatch.setattr(
         MODULE, "_append_github_summary", lambda lines: summaries.append(lines)
     )

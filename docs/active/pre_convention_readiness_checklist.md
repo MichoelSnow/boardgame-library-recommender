@@ -175,9 +175,6 @@
   - Active memory-load summary:
     - `rehearsal_20260316_213242`: `181` successes / `59` failures (`240` total)
     - `rehearsal_20260316_214935`: `185` successes / `55` failures (`240` total)
-- [ ] [P0] Measure and record startup/restart time.
-  - Deferred post-launch by convention launch scope decision.
-  - Existing rehearsal artifacts report `0s` values and are not treated as reliable timing evidence.
 - [x] [P0] Use rehearsal results to confirm or adjust:
   - worker count
   - machine memory
@@ -189,47 +186,32 @@
     - `/api/version`: `106.0ms` (threshold `1500ms`)
     - `/api/recommendations/224517`: `206.7ms` (threshold `4000ms`)
   - Auth, health, recommendation endpoint, and static alert-path validation checks passed in the same evidence bundle.
-- [ ] [P0] Run rollback drill for the current production deployment model.
-  - Deferred post-launch by convention launch scope decision.
-- [ ] [P1] Run a full pre-convention validation pass using the deploy/rollback runbook.
-  - Deferred post-launch by convention launch scope decision.
 
-## Data Refresh and Operations
-- [ ] [P0] Finalize and document the offline rebuild -> cutover data refresh procedure.
-- [ ] [P0] Confirm no live rebuilds will run during convention hours.
-- [ ] [P0] Validate the monthly rebuild path against the new Postgres + Fly-local image architecture.
-- [ ] [P0] Validate manual refresh trigger procedure.
-- [ ] [P0] Validate `data_pipeline/src` jobs on Fly runtime targets and record OOM-safe CPU/RAM/job sizing.
-- [ ] [P0] Decide and document pipeline execution topology before convention:
-  - run on existing app/db machines
-  - or run on dedicated pipeline worker machines/apps
-- [ ] [P0] Define and validate canonical storage path for monthly rebuild outputs/artifacts, including retention and runtime handoff.
-
-## Convention-Day Operations
-- [ ] [P0] Create a pre-opening checklist for each convention day.
-- [ ] [P0] Create an active-hours monitoring checklist.
-- [ ] [P0] Create a post-closing revert-to-normal checklist.
-- [x] [P0] Add manual workflow toggle step for production health alerts:
-  - Pre-opening: enable scheduled checks
-    - `gh workflow enable prod-health-alerts.yml`
-    - GitHub UI:
-      1. Open repository `Actions`
-      2. Select workflow `Prod Health Alerts`
-      3. Click `...` (top-right)
-      4. Click `Enable workflow`
-  - Post-closing: disable scheduled checks
-    - `gh workflow disable prod-health-alerts.yml`
-    - GitHub UI:
-      1. Open repository `Actions`
-      2. Select workflow `Prod Health Alerts`
-      3. Click `...` (top-right)
-      4. Click `Disable workflow`
-- [ ] [P1] Document exact owner actions for:
-  - app down
-  - degraded recommendations
-  - DB connectivity issue
-  - image delivery issue
-
-## Deferred / Out of Scope Unless Needed For Launch
-- [ ] [P2] Decide whether the librarian-picks feature is required for the convention launch.
-- [ ] [P2] If librarian picks are in launch scope, move them into a dedicated launch feature checklist with their own implementation and validation items.
+## Convention Morning Checklist
+- [ ] [P0] Switch production to convention runtime profile (warm mode ON).
+  - `fly deploy --app "${FLY_APP_NAME_PROD}" --config fly.convention.toml`
+  - This enables:
+    - `RUNTIME_PROFILE=convention`
+    - `CONVENTION_MODE=true`
+    - `CONVENTION_GUEST_ENABLED=true`
+    - `min_machines_running=1` (warm setting)
+  - Note: `scripts/deploy/fly_deploy.sh prod` uses `fly.toml` (standard profile), not `fly.convention.toml`.
+- [ ] [P0] Confirm app responds and is ready.
+  - `curl -fsS "https://${FLY_APP_NAME_PROD}.fly.dev/health/ready"`
+- [ ] [P0] Confirm deployed version metadata is present and not unknown.
+  - `curl -sS "https://${FLY_APP_NAME_PROD}.fly.dev/api/version"`
+- [ ] [P0] Confirm convention mode and warm runtime are active after deploy.
+  - `curl -sS "https://${FLY_APP_NAME_PROD}.fly.dev/api/version"` (expect `"convention_mode": true`)
+  - `fly status -a "${FLY_APP_NAME_PROD}"`
+- [ ] [P0] Confirm staff login works from a non-kiosk browser.
+  - Log in with a known staff/admin account through the UI.
+- [ ] [P0] Confirm recommendation endpoint responds for known game id.
+  - `curl -fsS "https://${FLY_APP_NAME_PROD}.fly.dev/api/recommendations/224517?limit=5"`
+- [ ] [P0] Confirm each kiosk device is enrolled and enters guest mode.
+  - On each kiosk device, verify `/kiosk/setup` status and guest flow.
+- [ ] [P0] Confirm library import set is the intended active one.
+  - Check `/admin/library-imports` active label/version before opening.
+- [ ] [P1] Confirm one test suggestion submit succeeds from guest mode.
+  - Submit a short test suggestion from kiosk guest session.
+- [ ] [P1] Confirm production health alerts workflow is enabled.
+  - `gh workflow view prod-health-alerts.yml`

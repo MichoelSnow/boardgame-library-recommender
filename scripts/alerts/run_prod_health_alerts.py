@@ -81,7 +81,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
     events: list[AlertEvent] = []
 
     try:
-        api_payload, api_latency_ms = measure_json_request(build_url(environment, "/api"))
+        api_payload, api_latency_ms = measure_json_request(
+            build_url(environment, "/api")
+        )
         if api_payload.get("message") != "Board Game Recommender API":
             events.append(
                 AlertEvent(
@@ -141,7 +143,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
         )
 
     try:
-        rec_status_payload, _ = fetch_json(build_url(environment, "/api/recommendations/status"))
+        rec_status_payload, _ = fetch_json(
+            build_url(environment, "/api/recommendations/status")
+        )
         recommendation_state = str(rec_status_payload.get("state", "unknown"))
         recommendation_ok = bool(rec_status_payload.get("available", False))
         if not recommendation_ok:
@@ -172,7 +176,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
         logger.warning("Could not measure recommendation endpoint latency: %s", exc)
 
     threshold_catalog_ms = float(
-        os.getenv("ALERT_CATALOG_LATENCY_THRESHOLD_MS", DEFAULT_CATALOG_LATENCY_THRESHOLD_MS)
+        os.getenv(
+            "ALERT_CATALOG_LATENCY_THRESHOLD_MS", DEFAULT_CATALOG_LATENCY_THRESHOLD_MS
+        )
     )
     threshold_recommendation_ms = float(
         os.getenv(
@@ -182,7 +188,9 @@ def check_prod_health(environment: str) -> HealthSnapshot:
     )
     breached_points: list[str] = []
     if api_latency_ms is not None and api_latency_ms > threshold_catalog_ms:
-        breached_points.append(f"/api={api_latency_ms:.1f}ms>{threshold_catalog_ms:.1f}ms")
+        breached_points.append(
+            f"/api={api_latency_ms:.1f}ms>{threshold_catalog_ms:.1f}ms"
+        )
     if (
         api_version_latency_ms is not None
         and api_version_latency_ms > threshold_catalog_ms
@@ -362,7 +370,9 @@ def main() -> int:
         snapshot.db_ok,
         snapshot.recommendation_ok,
         snapshot.recommendation_state,
-        f"{snapshot.api_latency_ms:.1f}" if snapshot.api_latency_ms is not None else "n/a",
+        f"{snapshot.api_latency_ms:.1f}"
+        if snapshot.api_latency_ms is not None
+        else "n/a",
         f"{snapshot.api_version_latency_ms:.1f}"
         if snapshot.api_version_latency_ms is not None
         else "n/a",

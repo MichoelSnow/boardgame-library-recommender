@@ -28,7 +28,9 @@ def detect_expected_ref() -> str:
     return "HEAD"
 
 
-def build_validation_steps(environment: str, expected_ref: str) -> list[tuple[str, list[str]]]:
+def build_validation_steps(
+    environment: str, expected_ref: str
+) -> list[tuple[str, list[str]]]:
     return [
         (
             "Release metadata and SHA",

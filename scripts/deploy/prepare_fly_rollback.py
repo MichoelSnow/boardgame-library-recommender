@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+
 def _get_release_field(release: dict[str, Any], *keys: str, default: str = "") -> str:
     for key in keys:
         value = release.get(key)
