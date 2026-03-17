@@ -18,11 +18,14 @@ const baseGame = {
   id: 1,
   name: 'Base Game',
   description: 'Desc',
+  min_players: 2,
+  max_players: 4,
   mechanics: [],
   categories: [],
   designers: [],
   artists: [],
   publishers: [],
+  suggested_players: [],
 };
 
 const defaultProps = {
@@ -103,7 +106,7 @@ describe('GameDetails recommendations integration', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Click to filter by Deck Building' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deck Building' }));
 
     expect(onFilter).toHaveBeenCalledWith('mechanic', 7, 'Deck Building');
     expect(onClose).not.toHaveBeenCalled();
@@ -147,7 +150,7 @@ describe('GameDetails recommendations integration', () => {
       />
     );
 
-    const filterChip = screen.getByRole('button', { name: 'Click to filter by Deck Building' });
+    const filterChip = screen.getByRole('button', { name: 'Deck Building' });
     expect(filterChip).toHaveClass('MuiChip-colorPrimary');
     expect(filterChip).not.toHaveClass('MuiChip-outlined');
 
@@ -159,10 +162,29 @@ describe('GameDetails recommendations integration', () => {
       />
     );
 
-    const deselectedFilterChip = screen.getByRole('button', {
-      name: 'Click to filter by Deck Building',
-    });
+    const deselectedFilterChip = screen.getByRole('button', { name: 'Deck Building' });
     expect(deselectedFilterChip).not.toHaveClass('MuiChip-colorPrimary');
     expect(deselectedFilterChip).toHaveClass('MuiChip-outlined');
+  });
+
+  test('shows best and recommended player counts when suggested player data is present', () => {
+    useGameRecommendationsQuery.mockReturnValue({
+      data: { data: [], headers: {} },
+      isLoading: false,
+      isError: false,
+    });
+
+    const gameWithSuggestedPlayers = {
+      ...baseGame,
+      suggested_players: [
+        { player_count: 3, recommendation_level: 'recommended', best: 2, recommended: 8, not_recommended: 1 },
+        { player_count: 4, recommendation_level: 'best', best: 9, recommended: 3, not_recommended: 1 },
+      ],
+    };
+
+    render(<GameDetails {...defaultProps} game={gameWithSuggestedPlayers} />);
+
+    expect(screen.getByText('Best: 4')).toBeTruthy();
+    expect(screen.getByText('Rec: 3')).toBeTruthy();
   });
 });

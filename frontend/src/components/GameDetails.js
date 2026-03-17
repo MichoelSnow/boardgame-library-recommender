@@ -42,28 +42,32 @@ const extractAccentColor = (img) => {
   if (!ctx || !img?.width || !img?.height) {
     return DEFAULT_IMAGE_BG_COLOR;
   }
-  canvas.width = img.width;
-  canvas.height = img.height;
-  ctx.drawImage(img, 0, 0);
+  try {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  const total = imageData.length / 4;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    const total = imageData.length / 4;
 
-  for (let i = 0; i < imageData.length; i += 4) {
-    r += imageData[i];
-    g += imageData[i + 1];
-    b += imageData[i + 2];
+    for (let i = 0; i < imageData.length; i += 4) {
+      r += imageData[i];
+      g += imageData[i + 1];
+      b += imageData[i + 2];
+    }
+
+    r = Math.floor(r / total);
+    g = Math.floor(g / total);
+    b = Math.floor(b / total);
+
+    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+    return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`;
+  } catch (error) {
+    return DEFAULT_IMAGE_BG_COLOR;
   }
-
-  r = Math.floor(r / total);
-  g = Math.floor(g / total);
-  b = Math.floor(b / total);
-
-  const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
-  return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`;
 };
 
 const GameDetails = ({
@@ -119,6 +123,55 @@ const GameDetails = ({
     }
   };
 
+  const playerCountSummary = React.useMemo(() => {
+    const suggestedPlayers = Array.isArray(game?.suggested_players)
+      ? game.suggested_players
+      : [];
+    const best = new Set();
+    const recommended = new Set();
+
+    suggestedPlayers.forEach((entry) => {
+      const parsedCount = Number.parseInt(String(entry?.player_count), 10);
+      if (Number.isNaN(parsedCount)) {
+        return;
+      }
+
+      const level = entry?.recommendation_level;
+      if (level === 'best') {
+        best.add(parsedCount);
+        return;
+      }
+      if (level === 'recommended') {
+        recommended.add(parsedCount);
+        return;
+      }
+
+      const bestVotes = Number(entry?.best || 0);
+      const recommendedVotes = Number(entry?.recommended || 0);
+      const notRecommendedVotes = Number(entry?.not_recommended || 0);
+
+      if (bestVotes > 0 && bestVotes >= recommendedVotes && bestVotes >= notRecommendedVotes) {
+        best.add(parsedCount);
+      } else if (
+        recommendedVotes > 0 &&
+        recommendedVotes >= bestVotes &&
+        recommendedVotes >= notRecommendedVotes
+      ) {
+        recommended.add(parsedCount);
+      }
+    });
+
+    const sortedBest = [...best].sort((a, b) => a - b);
+    const sortedRecommended = [...recommended]
+      .filter((count) => !best.has(count))
+      .sort((a, b) => a - b);
+
+    return {
+      best: sortedBest,
+      recommended: sortedRecommended,
+    };
+  }, [game?.suggested_players]);
+
   if (!game) return null;
 
   const handleLikeClick = (e) => {
@@ -173,31 +226,28 @@ const GameDetails = ({
             const isSelected = isClickable ? isFilterSelected(type, id) : false;
             
             return (
-                  <Tooltip 
-                    key={id}
-                    title={isClickable ? `Click to filter by ${name}` : name}
-                    placement="top"
-              >
-                  <Chip
-                    label={name}
-                    size="small"
-                    color={isSelected ? 'primary' : 'default'}
-                    variant={isSelected ? 'filled' : 'outlined'}
-                    onClick={isClickable ? () => {
+              <Chip
+                key={id}
+                label={name}
+                size="small"
+                color={isSelected ? 'primary' : 'default'}
+                variant={isSelected ? 'filled' : 'outlined'}
+                onClick={isClickable
+                  ? () => {
                       onFilter(type, id, name);
-                    } : undefined}
-                  sx={isClickable ? {
-                    cursor: 'pointer',
-                    '&:hover': isSelected
-                      ? {
-                          backgroundColor: 'primary.dark',
-                        }
-                      : {
-                          backgroundColor: 'action.hover',
-                        },
-                  } : undefined}
-                />
-              </Tooltip>
+                    }
+                  : undefined}
+                sx={isClickable ? {
+                  cursor: 'pointer',
+                  '&:hover': isSelected
+                    ? {
+                        backgroundColor: 'primary.dark',
+                      }
+                    : {
+                        backgroundColor: 'action.hover',
+                      },
+                } : undefined}
+              />
             );
           })}
         </Box>
@@ -338,11 +388,23 @@ const GameDetails = ({
                 <Tooltip title="Player Count">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <PeopleIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {game.min_players === game.max_players
-                        ? `${game.min_players} players`
-                        : `${game.min_players}-${game.max_players} players`}
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {game.min_players === game.max_players
+                          ? `${game.min_players} players`
+                          : `${game.min_players}-${game.max_players} players`}
+                      </Typography>
+                      {playerCountSummary.best.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {`Best: ${playerCountSummary.best.join(', ')}`}
+                        </Typography>
+                      )}
+                      {playerCountSummary.recommended.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {`Rec: ${playerCountSummary.recommended.join(', ')}`}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 </Tooltip>
                 

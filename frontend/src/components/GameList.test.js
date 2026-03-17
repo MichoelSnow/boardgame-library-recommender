@@ -1,7 +1,6 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import AuthContext from '../context/AuthContext';
 import GameList from './GameList';
@@ -99,14 +98,12 @@ describe('GameList', () => {
   });
 
   test('closes open filter panel when Show Recommendations is toggled on', async () => {
-    const user = userEvent.setup();
-
     renderGameList();
 
-    await user.click(screen.getByRole('button', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
     expect(screen.getByRole('button', { name: 'Overall Rank' })).toBeInTheDocument();
 
-    await user.click(screen.getByLabelText('Show Recommendations'));
+    fireEvent.click(screen.getByLabelText('Show Recommendations'));
 
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Overall Rank' })).not.toBeInTheDocument();
@@ -114,11 +111,9 @@ describe('GameList', () => {
   });
 
   test('resets pagination to page 1 when toggling All Board Games', async () => {
-    const user = userEvent.setup();
-
     renderGameList();
 
-    await user.click(screen.getByRole('button', { name: 'Go to page 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go to page 2' }));
 
     await waitFor(() => {
       expect(mockUseGamesQuery).toHaveBeenCalledWith(
@@ -126,12 +121,60 @@ describe('GameList', () => {
       );
     });
 
-    await user.click(screen.getByLabelText('All Board Games'));
+    fireEvent.click(screen.getByLabelText('All Board Games'));
 
     await waitFor(() => {
       expect(mockUseGamesQuery).toHaveBeenCalledWith(
         expect.objectContaining({ currentPage: 1, libraryOnly: false })
       );
     });
+  });
+
+  test('shows clear search control and clears input when clicked', async () => {
+    renderGameList();
+
+    const searchInput = screen.getByLabelText('Search Games');
+    fireEvent.change(searchInput, { target: { value: 'Terraforming Mars' } });
+    expect(searchInput).toHaveValue('Terraforming Mars');
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(searchInput).toHaveValue('');
+  });
+
+  test('shows per-filter clear control and clears sort filter quickly', async () => {
+    renderGameList();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Name (A-Z)' }));
+
+    expect(screen.getByLabelText('Clear sort filter')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Clear sort filter'));
+
+    await waitFor(() => {
+      expect(mockUseGamesQuery).toHaveBeenCalledWith(
+        expect.objectContaining({ sortBy: 'rank' })
+      );
+    });
+    expect(screen.queryByLabelText('Clear sort filter')).not.toBeInTheDocument();
+  });
+
+  test('Clear All confirms before wiping recommendation state', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    renderGameList();
+
+    const searchInput = screen.getByLabelText('Search Games');
+    fireEvent.change(searchInput, { target: { value: 'Wingspan' } });
+    expect(searchInput).toHaveValue('Wingspan');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(searchInput).toHaveValue('Wingspan');
+
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
+    expect(searchInput).toHaveValue('');
+
+    confirmSpy.mockRestore();
   });
 });

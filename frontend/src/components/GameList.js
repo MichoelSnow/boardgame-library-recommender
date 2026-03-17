@@ -18,6 +18,7 @@ import {
   Stack,
   Switch,
   Tooltip,
+  IconButton,
 } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
@@ -28,6 +29,7 @@ import GameDetails from './GameDetails';
 import GameCard from './GameCard';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
+import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
@@ -341,6 +343,25 @@ const GameList = () => {
     setRecommendationNotice(null);
   };
 
+  const handleClearAll = () => {
+    const hasRecommendationState =
+      hasRecommendations ||
+      allRecommendations.length > 0 ||
+      likedGames.length > 0 ||
+      dislikedGames.length > 0;
+
+    if (hasRecommendationState) {
+      const confirmed = window.confirm(
+        'Clear All will also remove liked/disliked games and reset recommendations. Continue?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    handleResetFilters();
+  };
+
   const handlePlayerCountChange = (event, newCount) => {
     setPlayerOptions(prev => ({
       ...prev,
@@ -543,6 +564,100 @@ const GameList = () => {
   const isCategoriesFiltered = selectedCategories.length > 0;
   const categoriesButtonLabel = isCategoriesFiltered ? selectedCategories.map(c => c.boardgamecategory_name).join(', ') : 'Categories';
 
+  const clearSortFilter = () => {
+    setSortBy('rank');
+    if (activeFilter === 'sort') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearPlayersFilter = () => {
+    setPlayerOptions({ count: null, recommendation: 'allowed' });
+    if (activeFilter === 'players') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearWeightFilter = () => {
+    setWeight({ beginner: false, midweight: false, heavy: false });
+    if (activeFilter === 'weight') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearMechanicsFilter = () => {
+    setSelectedMechanics([]);
+    if (activeFilter === 'mechanics') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearCategoriesFilter = () => {
+    setSelectedCategories([]);
+    if (activeFilter === 'categories') {
+      setActiveFilter(null);
+    }
+  };
+
+  const renderFilterButton = ({
+    label,
+    variant,
+    onToggle,
+    startIcon,
+    disabled,
+    showClear = false,
+    onClear,
+    clearAriaLabel,
+    dataTour,
+  }) => (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <Button
+        variant={variant}
+        onClick={onToggle}
+        startIcon={startIcon}
+        disabled={disabled}
+        sx={{
+          textTransform: 'none',
+          pr: showClear ? 3 : undefined,
+        }}
+        data-tour={dataTour}
+      >
+        {label}
+      </Button>
+      {showClear && onClear && (
+        <IconButton
+          aria-label={clearAriaLabel}
+          size="small"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClear();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          disabled={disabled}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            transform: 'translate(40%, -40%)',
+            p: 0.2,
+            zIndex: 1,
+            color: '#000000',
+            backgroundColor: '#ffffff',
+            border: (theme) => `1px solid ${theme.palette.secondary.main}`,
+            '&:hover': {
+              backgroundColor: '#ffffff',
+            },
+          }}
+        >
+          <CloseIcon sx={{ fontSize: '0.85rem' }} />
+        </IconButton>
+      )}
+    </Box>
+  );
+
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -721,6 +836,21 @@ const GameList = () => {
                     <SearchIcon />
                   </InputAdornment>
                 ),
+                endAdornment: inputValue ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="Clear search"
+                      edge="end"
+                      size="small"
+                      onClick={() => {
+                        setInputValue('');
+                        setSearchTerm('');
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
               }}
             />
           </Tooltip>
@@ -740,68 +870,61 @@ const GameList = () => {
                   data-tour="library-toggle"
                 />
               </Tooltip>
-              <Tooltip title={isRecommendation ? "Sort is disabled in recommendation mode" : sortButtonLabel}>
-                <Button
-                  variant={isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('sort')}
-                  startIcon={<SortIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {sortButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Player filter is disabled in recommendation mode" : playerButtonLabel}>
-                <Button
-                  variant={isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('players')}
-                  startIcon={<PeopleIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                  data-tour="player-filter"
-                >
-                  {playerButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Weight filter is disabled in recommendation mode" : weightButtonLabel}>
-                <Button
-                  variant={isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('weight')}
-                  startIcon={<PsychologyAltOutlinedIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {weightButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Mechanics filter is disabled in recommendation mode" : mechanicsButtonLabel}>
-                <Button
-                  variant={isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('mechanics')}
-                  startIcon={<ConstructionIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {mechanicsButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Categories filter is disabled in recommendation mode" : categoriesButtonLabel}>
-                <Button
-                  variant={isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('categories')}
-                  startIcon={<CategoryIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {categoriesButtonLabel}
-                </Button>
-              </Tooltip>
+              {renderFilterButton({
+                label: sortButtonLabel,
+                variant: isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('sort'),
+                startIcon: <SortIcon />,
+                disabled: isRecommendation,
+                showClear: isSortFiltered,
+                onClear: clearSortFilter,
+                clearAriaLabel: 'Clear sort filter',
+              })}
+              {renderFilterButton({
+                label: playerButtonLabel,
+                variant: isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('players'),
+                startIcon: <PeopleIcon />,
+                disabled: isRecommendation,
+                showClear: isPlayersFiltered,
+                onClear: clearPlayersFilter,
+                clearAriaLabel: 'Clear players filter',
+                dataTour: 'player-filter',
+              })}
+              {renderFilterButton({
+                label: weightButtonLabel,
+                variant: isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('weight'),
+                startIcon: <PsychologyAltOutlinedIcon />,
+                disabled: isRecommendation,
+                showClear: isWeightFiltered,
+                onClear: clearWeightFilter,
+                clearAriaLabel: 'Clear weight filter',
+              })}
+              {renderFilterButton({
+                label: mechanicsButtonLabel,
+                variant: isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('mechanics'),
+                startIcon: <ConstructionIcon />,
+                disabled: isRecommendation,
+                showClear: isMechanicsFiltered,
+                onClear: clearMechanicsFilter,
+                clearAriaLabel: 'Clear mechanics filter',
+              })}
+              {renderFilterButton({
+                label: categoriesButtonLabel,
+                variant: isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('categories'),
+                startIcon: <CategoryIcon />,
+                disabled: isRecommendation,
+                showClear: isCategoriesFiltered,
+                onClear: clearCategoriesFilter,
+                clearAriaLabel: 'Clear categories filter',
+              })}
             </Stack>
-            <Tooltip title={isRecommendation ? "Reset filters is disabled in recommendation mode" : "Clear all active filters and search"}>
-              <Button onClick={handleResetFilters} size="small" disabled={isRecommendation}>
-                  Reset Filters
-              </Button>
-            </Tooltip>
+            <Button onClick={handleClearAll} size="small" disabled={isRecommendation}>
+              Clear All
+            </Button>
           </Stack>
           
           {/* Active Filter Panel */}

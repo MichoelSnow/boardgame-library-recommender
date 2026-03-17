@@ -4,7 +4,7 @@ This is the single active feature backlog.
 If an item becomes launch-critical, move it into `pre_convention_readiness_checklist.md`.
 
 ## Product and UX
-- [ ] Show preferred/best player counts in game dialog.
+- [x] Show preferred/best player counts in game dialog.
 - [x] Add in-library indicators to the game details dialog content area.
 - [ ] Add in-library indicators to similar games shown in the dialog recommendations section.
 - [x] Keep dialog open when dialog filters are applied.
@@ -17,12 +17,12 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [x] Close open sorting/filter panels when toggling "Show Recommendations" ON.
 - [ ] Add the powered by BGG icon to the site (https://boardgamegeek.com/using_the_xml_api)
 - [ ] Give the search bar the ability to search description via dropdown option.
-- [ ] Remove unnecessary/redundant hover hints from UI elements.
+- [x] Remove unnecessary/redundant hover hints from UI elements.
   - Game dialog chips, e.g., Designers, artists
   - Sort/filter buttons
-- [ ] Rename reset filters button to clear everything to make it clearer what the button does.
-- [ ] Add x button to clear search input
-- [ ] Add x to individual filters when they have information so that users can quickly clear them individually
+- [x] Rename reset filters button to clear all to make it clearer what the button does.
+- [x] Add x button to clear search input
+- [x] Add x to individual filters when they have information so that users can quickly clear them individually
 
 ## Admin and Operations Features
 - [x] Build admin console for convention operations.
