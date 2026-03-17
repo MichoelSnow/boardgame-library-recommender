@@ -26,3 +26,12 @@ def test_analyze_library_csv_warns_and_continues_for_invalid_values():
 def test_analyze_library_csv_rejects_empty_payload():
     with pytest.raises(ValueError, match="CSV file is empty"):
         _analyze_library_csv(b"")
+
+
+def test_analyze_library_csv_preserves_multiline_quoted_field():
+    analyzed = _analyze_library_csv(b'bgg_id\n"1\n3"\n42\n')
+
+    assert analyzed["deduped_rows"] == [(3, 42)]
+    assert analyzed["invalid_warnings"] == [
+        {"row_number": 2, "value": "1\n3", "reason": "not_positive_integer"}
+    ]

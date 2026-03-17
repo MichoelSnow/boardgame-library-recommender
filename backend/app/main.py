@@ -26,6 +26,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Literal, Optional
 import logging
 import csv
+import io
 import httpx
 import mimetypes
 import tempfile
@@ -852,7 +853,11 @@ def _analyze_library_csv(raw_bytes: bytes) -> dict[str, object]:
     except UnicodeDecodeError as exc:
         raise ValueError("CSV must be UTF-8 encoded.") from exc
 
-    rows = [row for row in csv.reader(decoded.splitlines()) if row]
+    rows = [
+        row
+        for row in csv.reader(io.StringIO(decoded))
+        if any(cell.strip() for cell in row)
+    ]
     if not rows:
         raise ValueError("CSV file is empty.")
 
@@ -1571,6 +1576,31 @@ def _build_csv_validation_result(
     )
 
 
+async def _read_upload_with_size_limit(
+    file: UploadFile,
+    *,
+    max_bytes: int,
+    chunk_size: int = 64 * 1024,
+) -> bytes:
+    await file.seek(0)
+    chunks: list[bytes] = []
+    total_bytes = 0
+
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="CSV is too large. Maximum size is 2MB.",
+            )
+        chunks.append(chunk)
+
+    return b"".join(chunks)
+
+
 @app.post(
     "/api/admin/library-imports/csv/validate",
     response_model=schemas.LibraryImportCsvValidationResponse,
@@ -1585,12 +1615,9 @@ async def validate_admin_library_import_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
 
-    file_payload = await file.read()
-    if len(file_payload) > MAX_LIBRARY_IMPORT_CSV_BYTES:
-        raise HTTPException(
-            status_code=400,
-            detail="CSV is too large. Maximum size is 2MB.",
-        )
+    file_payload = await _read_upload_with_size_limit(
+        file, max_bytes=MAX_LIBRARY_IMPORT_CSV_BYTES
+    )
 
     try:
         analysis = _analyze_library_csv(file_payload)
@@ -1620,12 +1647,9 @@ async def upload_admin_library_import_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only .csv uploads are supported.")
 
-    file_payload = await file.read()
-    if len(file_payload) > MAX_LIBRARY_IMPORT_CSV_BYTES:
-        raise HTTPException(
-            status_code=400,
-            detail="CSV is too large. Maximum size is 2MB.",
-        )
+    file_payload = await _read_upload_with_size_limit(
+        file, max_bytes=MAX_LIBRARY_IMPORT_CSV_BYTES
+    )
 
     try:
         analysis = _analyze_library_csv(file_payload)

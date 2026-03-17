@@ -2,7 +2,7 @@ import threading
 import time
 from datetime import datetime
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, insert, select
 from sqlalchemy.sql import or_, and_
 from . import models, schemas, security
 from typing import Any, List, Optional
@@ -15,6 +15,7 @@ _TOTAL_CACHE_LOCK = threading.Lock()
 _TOTAL_CACHE_TTL_SECONDS = 120
 _TOTAL_CACHE_MAX_ENTRIES = 128
 _total_count_cache: dict[tuple[Any, ...], tuple[float, int]] = {}
+LIBRARY_IMPORT_INSERT_BATCH_SIZE = 1000
 
 
 def _cache_get_total(cache_key: tuple[Any, ...]) -> Optional[int]:
@@ -845,12 +846,16 @@ def create_library_import(
     db.add(library_import)
     db.flush()
 
-    db.bulk_save_objects(
-        [
-            models.LibraryImportItem(library_import_id=library_import.id, bgg_id=bgg_id)
-            for bgg_id in bgg_ids
-        ]
-    )
+    if bgg_ids:
+        for index in range(0, len(bgg_ids), LIBRARY_IMPORT_INSERT_BATCH_SIZE):
+            batch_ids = bgg_ids[index : index + LIBRARY_IMPORT_INSERT_BATCH_SIZE]
+            db.execute(
+                insert(models.LibraryImportItem),
+                [
+                    {"library_import_id": library_import.id, "bgg_id": bgg_id}
+                    for bgg_id in batch_ids
+                ],
+            )
 
     if activate:
         db.query(models.LibraryImport).filter(

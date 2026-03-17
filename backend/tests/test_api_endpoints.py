@@ -501,6 +501,45 @@ async def test_admin_library_import_validate_and_allow_unknown(monkeypatch, api_
 
 
 @pytest.mark.anyio
+async def test_admin_library_import_validate_rejects_oversized_csv(
+    monkeypatch, api_client
+):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setattr(main, "MAX_LIBRARY_IMPORT_CSV_BYTES", 8)
+
+    response = await api_client.post(
+        "/api/admin/library-imports/csv/validate",
+        files={"file": ("ids.csv", "1\n2\n3\n4\n5\n", "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert "CSV is too large" in response.json()["detail"]
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_upload_rejects_oversized_csv(
+    monkeypatch, api_client
+):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    monkeypatch.setattr(main, "MAX_LIBRARY_IMPORT_CSV_BYTES", 8)
+
+    response = await api_client.post(
+        "/api/admin/library-imports/csv",
+        data={"label": "too-large"},
+        files={"file": ("ids.csv", "1\n2\n3\n4\n5\n", "text/csv")},
+    )
+
+    assert response.status_code == 400
+    assert "CSV is too large" in response.json()["detail"]
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
 async def test_users_me_and_password_change_authenticated(monkeypatch, api_client):
     main.app.dependency_overrides[security.get_current_active_user] = (
         _override_current_user
