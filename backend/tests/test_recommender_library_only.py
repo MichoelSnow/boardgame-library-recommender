@@ -15,7 +15,7 @@ def _reset_model_manager() -> recommender.ModelManager:
     return manager
 
 
-def test_get_recommendations_library_only_filters_via_db_query() -> None:
+def test_get_recommendations_library_only_prefers_active_import() -> None:
     engine = create_engine("sqlite:///:memory:")
     models.Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -28,7 +28,21 @@ def test_get_recommendations_library_only_filters_via_db_query() -> None:
             models.BoardGame(id=3, name="Library Candidate"),
         ]
     )
-    db.add(models.LibraryGame(name="Library Entry", bgg_id=3))
+    db.add(models.LibraryGame(name="Legacy Library Entry", bgg_id=2))
+    db.flush()
+    active_import = models.LibraryImport(
+        label="active_import",
+        import_method="csv_upload",
+        is_active=True,
+    )
+    db.add(active_import)
+    db.flush()
+    db.add(
+        models.LibraryImportItem(
+            library_import_id=active_import.id,
+            bgg_id=3,
+        )
+    )
     db.commit()
 
     manager = _reset_model_manager()
@@ -60,3 +74,41 @@ def test_get_recommendations_library_only_filters_via_db_query() -> None:
 
     assert 2 in all_ids
     assert library_only_ids == [3]
+
+
+def test_get_recommendations_library_only_falls_back_to_legacy_table() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    models.Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    db.add_all(
+        [
+            models.BoardGame(id=1, name="Liked Seed"),
+            models.BoardGame(id=2, name="Legacy Library Candidate"),
+            models.BoardGame(id=3, name="Non-Library Candidate"),
+        ]
+    )
+    db.add(models.LibraryGame(name="Legacy Library Entry", bgg_id=2))
+    db.commit()
+
+    manager = _reset_model_manager()
+    manager._game_embeddings = sparse.csr_matrix(
+        [
+            [1.0, 0.0],
+            [0.95, 0.05],
+            [0.90, 0.10],
+        ]
+    )
+    manager._game_mapping = {1: 0, 2: 1, 3: 2}
+    manager._reverse_game_mapping = {0: 1, 1: 2, 2: 3}
+
+    library_only_results = recommender.get_recommendations(
+        db=db,
+        limit=5,
+        liked_games=[1],
+        library_only=True,
+    )
+
+    library_only_ids = [int(game["id"]) for game in library_only_results]
+    assert library_only_ids == [2]

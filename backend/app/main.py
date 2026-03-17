@@ -1113,6 +1113,7 @@ async def get_cached_image(
 
 @app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(
+    response: Response,
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(24, ge=1, le=100),
@@ -1145,6 +1146,8 @@ async def list_games(
             categories=categories,
             library_only=library_only,
         )
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
         return {"games": games, "total": total}
     except HTTPException:
         raise
@@ -1195,7 +1198,8 @@ async def get_recommendations(
         limit: Maximum number of recommendations to return
         disliked_games: Comma-separated list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations (higher values = stronger anti-recommendations)
-        library_only: If true, only recommend games that are in the Library games table
+        library_only: If true, only recommend games from the active library import
+            (falling back to legacy library_games if no active import exists)
     """
     try:
         # Parse disliked games if provided
@@ -1310,8 +1314,11 @@ def read_categories(db: Session = Depends(get_db)):
 @app.get(
     "/api/library_game_ids/", response_model=List[int]
 )  # Add endpoint with trailing slash
-async def get_library_game_ids(db: Session = Depends(get_db)):
+async def get_library_game_ids(response: Response, db: Session = Depends(get_db)):
     """Return a list of all Library game BGG IDs (integers)."""
+    # This endpoint reflects mutable admin state; avoid intermediary caches.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     return crud.get_library_ids_for_runtime(db)
 
 

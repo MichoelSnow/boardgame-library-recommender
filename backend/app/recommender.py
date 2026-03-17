@@ -3,7 +3,6 @@ from pathlib import Path
 import threading
 import time
 from typing import List, Optional
-from sqlalchemy import exists
 from sqlalchemy.orm import Session
 from . import models
 import numpy as np
@@ -187,7 +186,8 @@ def get_recommendations(
         liked_games: Optional list of game IDs to use as positive recommendations
         disliked_games: Optional list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations
-        library_only: If true, only recommend games that are in the Library games table
+        library_only: If true, only recommend games from the active library import
+            (falling back to legacy library_games if no active import exists)
 
     Returns:
         List of recommended game payloads
@@ -288,9 +288,9 @@ def get_recommendations(
             models.BoardGame.id.in_(recommended_ids)
         )
         if library_only:
-            game_query = game_query.filter(
-                exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
-            )
+            from . import crud
+
+            game_query = game_query.filter(crud.build_runtime_library_only_filter(db))
 
         game_map: dict[int, dict[str, object]] = {}
         for row in game_query.all():

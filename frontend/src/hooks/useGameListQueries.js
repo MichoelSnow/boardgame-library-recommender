@@ -91,13 +91,20 @@ export const useGamesQuery = ({
     },
     keepPreviousData: true,
     enabled: !isRecommendation,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: libraryOnly ? 30 * 1000 : false,
   });
 
 export const useLibraryGameIdsQuery = () =>
   useQuery({
     queryKey: ['library_game_ids'],
     queryFn: fetchLibraryGameIds,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 30 * 1000,
   });
 
 export const useGameDetailsQuery = ({ gameId, enabled }) =>

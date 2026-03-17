@@ -76,6 +76,20 @@ async def test_games_endpoint_passes_filter_and_pagination_params(
     assert captured["limit"] == 10
     assert captured["search"] == "alph"
     assert captured["library_only"] is True
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
+
+
+@pytest.mark.anyio
+async def test_library_game_ids_endpoint_sets_no_store_headers(monkeypatch, api_client):
+    monkeypatch.setattr(main.crud, "get_library_ids_for_runtime", lambda db: [1, 2, 3])
+
+    response = await api_client.get("/api/library_game_ids/")
+
+    assert response.status_code == 200
+    assert response.json() == [1, 2, 3]
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
 
 
 @pytest.mark.anyio

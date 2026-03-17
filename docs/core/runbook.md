@@ -50,7 +50,9 @@ poetry run python scripts/validate/validate_performance_gate.py --env dev
 
 ## Standard Prod Promotion Flow
 1. Confirm validated SHA from `.tmp/validated_dev_sha.txt`.
-2. Run `Fly Deploy Prod` workflow with that exact SHA.
+2. Run `Fly Deploy Prod` workflow with that exact SHA and choose `config_file`:
+   - `fly.toml` for standard production mode
+   - `fly.convention.toml` for convention production mode
 3. Ensure stack is running: 
 ```bash
 scripts/deploy/fly_stack.sh prod up

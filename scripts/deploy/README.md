@@ -9,6 +9,8 @@
 ```bash
 scripts/deploy/fly_deploy.sh dev
 scripts/deploy/fly_deploy.sh prod
+scripts/deploy/fly_deploy.sh prod --config fly.convention.toml
+scripts/deploy/fly_deploy.sh dev --config fly.convention.dev.toml
 ```
 - Requirements:
   - `fly` CLI authenticated

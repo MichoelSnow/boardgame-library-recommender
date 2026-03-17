@@ -8,6 +8,14 @@ on:
         description: "Branch, tag, or commit SHA to deploy to production"
         required: false
         default: "main"
+      config_file:
+        description: "Fly config file to deploy"
+        required: true
+        default: "fly.toml"
+        type: choice
+        options:
+          - fly.toml
+          - fly.convention.toml
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -31,7 +39,7 @@ jobs:
       - name: Deploy
         run: |
           flyctl deploy --remote-only \
-            -c fly.toml \
+            -c "${{ inputs.config_file }}" \
             -a "bg-lib-app" \
             --build-arg GIT_SHA="${{ env.DEPLOY_GIT_SHA }}" \
             --build-arg BUILD_TIMESTAMP="${{ env.BUILD_TIMESTAMP }}"
