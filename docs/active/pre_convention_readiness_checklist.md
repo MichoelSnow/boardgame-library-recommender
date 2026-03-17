@@ -149,18 +149,50 @@
 
 ## Rehearsal and Validation
 - [x] [P0] Run a convention-condition rehearsal in `dev`.
-- [ ] [P0] Measure and record:
-  - p95 latency for catalog endpoints
-  - p95 latency for recommendation endpoints
-  - per-worker memory usage
-  - startup/restart time
+  - Evidence runs captured on `2026-03-16`:
+    - `.tmp/rehearsal_20260316_194848`
+    - `.tmp/rehearsal_20260316_213242`
+    - `.tmp/rehearsal_20260316_214935`
+- [x] [P0] Measure and record rehearsal latency and per-worker memory usage.
+  - `rehearsal_20260316_194848` p95 latency (120 samples):
+    - `/api`: `151.57ms`
+    - `/api/games?limit=24&skip=0&sort_by=rank`: `325.06ms`
+    - `/api/recommendations/224517?limit=24`: `262.36ms`
+    - `/api/version`: `156.31ms`
+  - `rehearsal_20260316_213242` p95 latency (120 samples):
+    - `/api`: `155.59ms`
+    - `/api/games?limit=24&skip=0&sort_by=rank`: `378.63ms`
+    - `/api/recommendations/224517?limit=24`: `359.07ms`
+    - `/api/version`: `338.09ms`
+  - `rehearsal_20260316_214935` p95 latency (120 samples):
+    - `/api`: `145.58ms`
+    - `/api/games?limit=24&skip=0&sort_by=rank`: `316.61ms`
+    - `/api/recommendations/224517?limit=24`: `292.66ms`
+    - `/api/version`: `144.90ms`
+  - Per-worker memory snapshots (RSS) from `rehearsal_20260316_214935`:
+    - snapshot 1: `541336 KB` (`uvicorn` worker process)
+    - snapshot 2: `541968 KB` (`uvicorn` worker process)
+  - Active memory-load summary:
+    - `rehearsal_20260316_213242`: `181` successes / `59` failures (`240` total)
+    - `rehearsal_20260316_214935`: `185` successes / `55` failures (`240` total)
+- [ ] [P0] Measure and record startup/restart time.
+  - Deferred post-launch by convention launch scope decision.
+  - Existing rehearsal artifacts report `0s` values and are not treated as reliable timing evidence.
 - [x] [P0] Use rehearsal results to confirm or adjust:
   - worker count
   - machine memory
   - convention runtime profile
+  - Decision outcome for launch: keep current validated `dev` convention profile settings and revisit tuning post-launch.
 - [x] [P0] Verify service-level targets are met under rehearsal conditions.
+  - `rehearsal_20260316_194848/preconvention_perf_gate.txt`:
+    - `/api`: `116.6ms` (threshold `1500ms`)
+    - `/api/version`: `106.0ms` (threshold `1500ms`)
+    - `/api/recommendations/224517`: `206.7ms` (threshold `4000ms`)
+  - Auth, health, recommendation endpoint, and static alert-path validation checks passed in the same evidence bundle.
 - [ ] [P0] Run rollback drill for the current production deployment model.
+  - Deferred post-launch by convention launch scope decision.
 - [ ] [P1] Run a full pre-convention validation pass using the deploy/rollback runbook.
+  - Deferred post-launch by convention launch scope decision.
 
 ## Data Refresh and Operations
 - [ ] [P0] Finalize and document the offline rebuild -> cutover data refresh procedure.

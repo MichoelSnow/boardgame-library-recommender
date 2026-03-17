@@ -6,11 +6,15 @@
 - What it does:
   - Runs the full dev post-merge validation chain.
   - Writes validated SHA to `.tmp/validated_dev_sha.txt`.
+  - Validates deployed SHA against the current git branch by default (falls back to `HEAD` in detached mode).
 - When to use:
   - After merge/deploy to `dev`.
 - How to use:
 ```bash
 poetry run python scripts/validate/validate_dev_deploy.py
+```
+```bash
+poetry run python scripts/validate/validate_dev_deploy.py --expected-ref main
 ```
 
 ## `validate_prod_release.py`
@@ -71,6 +75,19 @@ poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev
 - Verifies latency thresholds for `/api`, `/api/version`, and recommendations.
 ```bash
 poetry run python scripts/validate/validate_performance_gate.py --env dev --game-id 224517
+```
+
+## `run_rehearsal_evidence.py`
+- Runs the pre-convention rehearsal evidence flow end-to-end and writes artifacts under `.tmp/rehearsal_<timestamp>/`.
+- Captures release validation, latency measurements, worker memory snapshots with built-in active-load phase, optional restart timing, and validation pass outputs.
+- Rollback drill is intentionally manual (not automated by this script).
+```bash
+poetry run python scripts/validate/run_rehearsal_evidence.py --env dev
+```
+- Optional safety flags:
+```bash
+poetry run python scripts/validate/run_rehearsal_evidence.py --env dev --skip-restart-timing
+poetry run python scripts/validate/run_rehearsal_evidence.py --env dev --skip-memory-load-test
 ```
 
 ## Notebook Hygiene Checks
