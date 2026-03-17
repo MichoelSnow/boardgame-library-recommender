@@ -733,6 +733,7 @@ const GameList = () => {
                   control={<Switch checked={!libraryOnly} onChange={(e) => {
                     const showNonLibrary = e.target.checked;
                     toggleAllBoardGames(showNonLibrary);
+                    setCurrentPage(1);
                   }} />}
                   label="All Board Games"
                   sx={{ mr: 2 }}
@@ -981,7 +982,13 @@ const GameList = () => {
                     control={
                       <Switch 
                         checked={showingRecommendations} 
-                        onChange={(e) => setShowingRecommendations(e.target.checked)}
+                        onChange={(e) => {
+                          const nextChecked = e.target.checked;
+                          if (nextChecked) {
+                            setActiveFilter(null);
+                          }
+                          setShowingRecommendations(nextChecked);
+                        }}
                         data-tour="show-recommendations-toggle"
                       />
                     }
@@ -1063,6 +1070,11 @@ const GameList = () => {
             likedGames={likedGames}
             dislikedGames={dislikedGames}
             onFilter={handleFilter}
+            isLibraryGame={libraryGameIds.includes((selectedGame || selectedGamePreview).id)}
+            selectedDesignerIds={selectedDesigners.map((designer) => designer.boardgamedesigner_id)}
+            selectedArtistIds={selectedArtists.map((artist) => artist.boardgameartist_id)}
+            selectedMechanicIds={selectedMechanicIds}
+            selectedCategoryIds={selectedCategoryIds}
           />
         )}
       </Container>

@@ -20,6 +20,8 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import EmergencyIcon from '@mui/icons-material/Emergency';
 import PeopleIcon from '@mui/icons-material/People';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
@@ -73,6 +75,11 @@ const GameDetails = ({
   dislikedGames,
   onLike,
   onDislike,
+  isLibraryGame = false,
+  selectedDesignerIds = [],
+  selectedArtistIds = [],
+  selectedMechanicIds = [],
+  selectedCategoryIds = [],
 }) => {
   const [bgColor, setBgColor] = useState(DEFAULT_IMAGE_BG_COLOR);
   const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
@@ -125,8 +132,23 @@ const GameDetails = ({
   };
 
   const handleRecommendationClick = (rec) => {
-    onClose();
     onFilter('game', rec.id, rec.name);
+  };
+
+  const isFilterSelected = (type, id) => {
+    if (type === 'designer') {
+      return selectedDesignerIds.includes(id);
+    }
+    if (type === 'artist') {
+      return selectedArtistIds.includes(id);
+    }
+    if (type === 'mechanic') {
+      return selectedMechanicIds.includes(id);
+    }
+    if (type === 'category') {
+      return selectedCategoryIds.includes(id);
+    }
+    return false;
   };
 
   const renderList = (items, label, type) => {
@@ -148,25 +170,31 @@ const GameDetails = ({
                       item.boardgamepublisher_id;
             const isClickable = type === 'designer' || type === 'artist' || 
                               type === 'mechanic' || type === 'category';
+            const isSelected = isClickable ? isFilterSelected(type, id) : false;
             
             return (
-              <Tooltip 
-                key={id}
-                title={isClickable ? `Click to filter by ${name}` : name}
-                placement="top"
+                  <Tooltip 
+                    key={id}
+                    title={isClickable ? `Click to filter by ${name}` : name}
+                    placement="top"
               >
-                <Chip
-                  label={name}
-                  size="small"
-                  onClick={isClickable ? () => {
-                    onFilter(type, id, name);
-                    onClose();
-                  } : undefined}
+                  <Chip
+                    label={name}
+                    size="small"
+                    color={isSelected ? 'primary' : 'default'}
+                    variant={isSelected ? 'filled' : 'outlined'}
+                    onClick={isClickable ? () => {
+                      onFilter(type, id, name);
+                    } : undefined}
                   sx={isClickable ? {
                     cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: 'action.hover'
-                    }
+                    '&:hover': isSelected
+                      ? {
+                          backgroundColor: 'primary.dark',
+                        }
+                      : {
+                          backgroundColor: 'action.hover',
+                        },
                   } : undefined}
                 />
               </Tooltip>
@@ -273,6 +301,30 @@ const GameDetails = ({
                     {dislikedGames.some(g => g.id === game.id) ? <ThumbDownIcon color="error" /> : <ThumbDownOutlinedIcon />}
                   </IconButton>
                 </Tooltip>
+                {isLibraryGame && (
+                  <Tooltip
+                    title={
+                      game.avg_box_volume && game.avg_box_volume <= 100
+                        ? 'Available in Library Library, small games section'
+                        : 'Available in Library Library'
+                    }
+                  >
+                    <IconButton size="small" aria-label="Available in Library Library">
+                      <MenuBookIcon color="primary" />
+                      {game.avg_box_volume && game.avg_box_volume <= 100 && (
+                        <EmergencyIcon
+                          sx={{
+                            position: 'absolute',
+                            top: -3,
+                            right: -3,
+                            fontSize: '1rem',
+                            color: 'primary.main',
+                          }}
+                        />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
               
               {/* Game Statistics */}

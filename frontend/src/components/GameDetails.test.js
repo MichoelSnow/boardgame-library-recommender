@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import GameDetails from './GameDetails';
 
 jest.mock('../hooks/useGameListQueries', () => ({
@@ -78,5 +78,91 @@ describe('GameDetails recommendations integration', () => {
     render(<GameDetails {...defaultProps} />);
 
     expect(screen.getByText('Unable to load similar games right now.')).toBeTruthy();
+  });
+
+  test('keeps dialog open when applying a mechanic filter from details', () => {
+    useGameRecommendationsQuery.mockReturnValue({
+      data: { data: [], headers: {} },
+      isLoading: false,
+      isError: false,
+    });
+
+    const onClose = jest.fn();
+    const onFilter = jest.fn();
+    const gameWithMechanic = {
+      ...baseGame,
+      mechanics: [{ boardgamemechanic_id: 7, boardgamemechanic_name: 'Deck Building' }],
+    };
+
+    render(
+      <GameDetails
+        {...defaultProps}
+        game={gameWithMechanic}
+        onClose={onClose}
+        onFilter={onFilter}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Click to filter by Deck Building' }));
+
+    expect(onFilter).toHaveBeenCalledWith('mechanic', 7, 'Deck Building');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('shows in-library indicator in dialog header when game is in library', () => {
+    useGameRecommendationsQuery.mockReturnValue({
+      data: { data: [], headers: {} },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(
+      <GameDetails
+        {...defaultProps}
+        isLibraryGame={true}
+        game={{ ...baseGame, avg_box_volume: 80 }}
+      />
+    );
+
+    expect(screen.getByLabelText('Available in Library Library')).toBeTruthy();
+  });
+
+  test('uses primary color for selected filter chips and removes it when deselected', () => {
+    useGameRecommendationsQuery.mockReturnValue({
+      data: { data: [], headers: {} },
+      isLoading: false,
+      isError: false,
+    });
+
+    const gameWithMechanic = {
+      ...baseGame,
+      mechanics: [{ boardgamemechanic_id: 7, boardgamemechanic_name: 'Deck Building' }],
+    };
+
+    const { rerender } = render(
+      <GameDetails
+        {...defaultProps}
+        game={gameWithMechanic}
+        selectedMechanicIds={[7]}
+      />
+    );
+
+    const filterChip = screen.getByRole('button', { name: 'Click to filter by Deck Building' });
+    expect(filterChip).toHaveClass('MuiChip-colorPrimary');
+    expect(filterChip).not.toHaveClass('MuiChip-outlined');
+
+    rerender(
+      <GameDetails
+        {...defaultProps}
+        game={gameWithMechanic}
+        selectedMechanicIds={[]}
+      />
+    );
+
+    const deselectedFilterChip = screen.getByRole('button', {
+      name: 'Click to filter by Deck Building',
+    });
+    expect(deselectedFilterChip).not.toHaveClass('MuiChip-colorPrimary');
+    expect(deselectedFilterChip).toHaveClass('MuiChip-outlined');
   });
 });

@@ -274,7 +274,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 <ListItem>
                   <ListItemText 
                     primary="Designers, Artists, Mechanics, Categories" 
-                    secondary="These are marked as 'filterable' and clicking them will close the dialog and apply that filter to the main game list"
+                    secondary="These are marked as 'filterable' and clicking them will apply that filter to the main game list while keeping the dialog open"
                   />
                 </ListItem>
                 <ListItem>
