@@ -753,7 +753,9 @@ def api_catalog_state(response: Response, db: Session = Depends(get_db)):
     active_library_import_id = active_import.id if active_import else None
     active_library_activated_at = active_import.activated_at if active_import else None
     activated_at_token = (
-        active_library_activated_at.isoformat() if active_library_activated_at else "none"
+        active_library_activated_at.isoformat()
+        if active_library_activated_at
+        else "none"
     )
     state_token = (
         f"lib:{active_library_import_id or 'none'}|"
