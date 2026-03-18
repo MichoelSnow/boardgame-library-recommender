@@ -355,11 +355,11 @@ const GameDetails = ({
                   <Tooltip
                     title={
                       game.avg_box_volume && game.avg_box_volume <= 100
-                        ? 'Available in Library Library, small games section'
-                        : 'Available in Library Library'
+                        ? 'Available in Library, small games section'
+                        : 'Available in Library'
                     }
                   >
-                    <IconButton size="small" aria-label="Available in Library Library">
+                    <IconButton size="small" aria-label="Available in Library">
                       <MenuBookIcon color="primary" />
                       {game.avg_box_volume && game.avg_box_volume <= 100 && (
                         <EmergencyIcon

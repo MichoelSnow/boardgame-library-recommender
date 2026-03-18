@@ -127,7 +127,7 @@ describe('GameDetails recommendations integration', () => {
       />
     );
 
-    expect(screen.getByLabelText('Available in Library Library')).toBeTruthy();
+    expect(screen.getByLabelText('Available in Library')).toBeTruthy();
   });
 
   test('uses primary color for selected filter chips and removes it when deselected', () => {

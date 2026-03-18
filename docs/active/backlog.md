@@ -15,7 +15,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [ ] Add optional recommendation sharing via email/SMS (requires abuse/rate-limit controls).
 - [ ] Allow multiple selection in player count.
 - [x] Close open sorting/filter panels when toggling "Show Recommendations" ON.
-- [ ] Add the powered by BGG icon to the site (https://boardgamegeek.com/using_the_xml_api)
+- [x] Add the powered by BGG icon to the site (https://boardgamegeek.com/using_the_xml_api)
 - [ ] Give the search bar the ability to search description via dropdown option.
 - [x] Remove unnecessary/redundant hover hints from UI elements.
   - Game dialog chips, e.g., Designers, artists
@@ -23,6 +23,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 - [x] Rename reset filters button to clear all to make it clearer what the button does.
 - [x] Add x button to clear search input
 - [x] Add x to individual filters when they have information so that users can quickly clear them individually
+- [x] Remove the "convention usage tips" section of the board game catalog help guide
 
 ## Admin and Operations Features
 - [x] Build admin console for convention operations.
@@ -31,12 +32,12 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
     - #D9272D (east)
     - #007DBB (west)
     - #F4B223 (aus)
-- [] Add ability to name the Library/Convention.  This should affect things like the Navbar, Help dialog, and other UI elements.
+- [x] Add ability to name the Library/Convention.  This should affect things like the Navbar, Help dialog, and other UI elements.
 - [ ] Add librarian picks workflow.
   - V1: unordered list CRUD for librarian accounts, read for all users.
 - [ ] Add user activity logging (for example last login time).
   - Keep retention/privacy handling aligned with `docs/core/security.md`.
-- [ ] Add ability to delete imported libraries.   
+- [x] Add ability to delete imported libraries.   
 
 ## Data and Recommendation System
 - [ ] Precompute recommendations for all games for dialog views.

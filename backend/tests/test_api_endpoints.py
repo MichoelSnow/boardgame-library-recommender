@@ -177,6 +177,7 @@ async def test_theme_settings_get_uses_default_when_unset(monkeypatch, api_clien
     response = await api_client.get("/api/theme")
     assert response.status_code == 200
     assert response.json()["primary_color"] == "#D9272D"
+    assert response.json()["library_name"] is None
 
 
 @pytest.mark.anyio
@@ -212,6 +213,7 @@ async def test_theme_settings_update_allows_admin(monkeypatch, api_client):
         captured["value"] = value
         return SimpleNamespace(key=key, value=value)
 
+    monkeypatch.setattr(main.crud, "get_app_setting", lambda db, key: None)
     monkeypatch.setattr(main.crud, "upsert_app_setting", _mock_upsert)
 
     response = await api_client.put(
@@ -219,8 +221,53 @@ async def test_theme_settings_update_allows_admin(monkeypatch, api_client):
     )
     assert response.status_code == 200
     assert response.json()["primary_color"] == "#007DBB"
+    assert response.json()["library_name"] is None
     assert captured["key"] == "theme_primary_color"
     assert captured["value"] == "#007DBB"
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_theme_settings_update_library_name_set_and_clear(
+    monkeypatch, api_client
+):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    store = {}
+
+    def _mock_get(db, key):
+        value = store.get(key)
+        if value is None:
+            return None
+        return SimpleNamespace(key=key, value=value)
+
+    def _mock_upsert(db, key, value):
+        store[key] = value
+        return SimpleNamespace(key=key, value=value)
+
+    def _mock_delete(db, key):
+        store.pop(key, None)
+        return True
+
+    monkeypatch.setattr(main.crud, "get_app_setting", _mock_get)
+    monkeypatch.setattr(main.crud, "upsert_app_setting", _mock_upsert)
+    monkeypatch.setattr(main.crud, "delete_app_setting", _mock_delete)
+
+    set_response = await api_client.put(
+        "/api/admin/theme",
+        json={"primary_color": "#D9272D", "library_name": "PAX Unplugged"},
+    )
+    assert set_response.status_code == 200
+    assert set_response.json()["library_name"] == "PAX Unplugged"
+
+    clear_response = await api_client.put(
+        "/api/admin/theme",
+        json={"library_name": ""},
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["library_name"] is None
+    assert clear_response.json()["primary_color"] == "#D9272D"
     main.app.dependency_overrides.clear()
 
 
@@ -324,6 +371,9 @@ async def test_admin_library_import_endpoints_require_admin(api_client):
 
     activate = await api_client.post("/api/admin/library-imports/1/activate")
     assert activate.status_code == 401
+
+    delete_response = await api_client.delete("/api/admin/library-imports/1")
+    assert delete_response.status_code == 401
 
 
 @pytest.mark.anyio
@@ -511,6 +561,31 @@ async def test_admin_library_import_validate_and_allow_unknown(monkeypatch, api_
     assert upload_payload["skipped_invalid_rows"] == 1
     assert upload_payload["kept_unknown_ids"] == 1
     assert upload_payload["skipped_unknown_ids"] == 0
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_delete(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+
+    monkeypatch.setattr(main.crud, "delete_library_import", lambda db, import_id: True)
+    deleted = await api_client.delete("/api/admin/library-imports/5")
+    assert deleted.status_code == 204
+
+    monkeypatch.setattr(main.crud, "delete_library_import", lambda db, import_id: False)
+    not_found = await api_client.delete("/api/admin/library-imports/99")
+    assert not_found.status_code == 404
+    assert "not found" in not_found.json()["detail"].lower()
+
+    def _raise_active_import_error(db, import_id):
+        raise ValueError("Active library import cannot be deleted.")
+
+    monkeypatch.setattr(main.crud, "delete_library_import", _raise_active_import_error)
+    active_import = await api_client.delete("/api/admin/library-imports/1")
+    assert active_import.status_code == 400
+    assert "active" in active_import.json()["detail"].lower()
     main.app.dependency_overrides.clear()
 
 

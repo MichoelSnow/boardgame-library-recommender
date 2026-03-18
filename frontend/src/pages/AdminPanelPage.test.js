@@ -15,7 +15,7 @@ describe('AdminPanelPage', () => {
       'href',
       '/kiosk/setup'
     );
-    expect(screen.getByRole('link', { name: 'Theme Color' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Theme Color & Library Name' })).toHaveAttribute(
       'href',
       '/admin/theme'
     );

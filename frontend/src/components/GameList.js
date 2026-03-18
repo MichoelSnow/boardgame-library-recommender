@@ -33,6 +33,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
+import poweredByBggLogo from '../assets/powered-by-bgg.svg';
 import { useConventionUiState } from '../hooks/useConventionUiState';
 import {
   useCategoriesQuery,
@@ -1162,21 +1163,60 @@ const GameList = () => {
 
         {renderGameGrid()}
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 4, gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {isRecommendation 
-              ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
-              : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`
-            }
-          </Typography>
-          <Pagination
-            count={Math.ceil(totalGames / gamesPerPage)}
-            page={currentPage}
-            onChange={handlePageChange}
-            color="primary"
-            showFirstButton
-            showLastButton
-          />
+        <Box sx={{ mt: 4 }}>
+          <Box
+            sx={{
+              display: { xs: 'flex', md: 'grid' },
+              flexDirection: { xs: 'column', md: 'row' },
+              gridTemplateColumns: { md: '1fr auto 1fr' },
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 2,
+                gridColumn: { md: 2 },
+                width: { xs: '100%', md: 'auto' },
+              }}
+            >
+            <Typography variant="body2" color="text.secondary">
+              {isRecommendation
+                ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
+                : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`}
+            </Typography>
+            <Pagination
+              count={Math.ceil(totalGames / gamesPerPage)}
+              page={currentPage}
+              onChange={handlePageChange}
+              color="primary"
+              showFirstButton
+              showLastButton
+            />
+            </Box>
+            <Box
+              sx={{
+                width: { xs: '100%', md: 'auto' },
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gridColumn: { md: 3 },
+              }}
+            >
+              <a
+                className="powered-by-bgg-badge"
+                href="https://boardgamegeek.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Powered by BoardGameGeek"
+              >
+                <img src={poweredByBggLogo} alt="Powered by BGG" />
+              </a>
+            </Box>
+          </Box>
         </Box>
 
         {detailsOpen && (selectedGame || selectedGamePreview) && (

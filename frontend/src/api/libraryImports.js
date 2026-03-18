@@ -33,3 +33,7 @@ export const activateLibraryImport = async (importId) => {
   const response = await apiClient.post(`/admin/library-imports/${importId}/activate`);
   return response.data;
 };
+
+export const deleteLibraryImport = async (importId) => {
+  await apiClient.delete(`/admin/library-imports/${importId}`);
+};

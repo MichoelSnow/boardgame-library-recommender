@@ -29,8 +29,9 @@ import SortIcon from '@mui/icons-material/Sort';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import EmergencyIcon from '@mui/icons-material/Emergency';
 
-const HelpDialog = ({ open, onClose, onStartTour }) => {
+const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
   const [expanded, setExpanded] = useState('getting-started');
+  const libraryNamePrefix = libraryName ? `${libraryName} ` : '';
 
   const handleChange = (panel) => (event, isExpanded) => {
     setExpanded(isExpanded ? panel : false);
@@ -45,7 +46,9 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
       scroll="paper"
     >
       <DialogTitle>
-        <Typography variant="h5">Board Game Catalog Help Guide</Typography>
+        <Typography variant="h5" component="div">
+          {libraryNamePrefix}Board Game Catalog Help Guide
+        </Typography>
         <Typography variant="body2" color="text.secondary">
           Learn how to find and get recommendations for board games
         </Typography>
@@ -62,8 +65,9 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Welcome to the Board Game Library! This tool helps you discover board games 
-                available at the convention and get personalized recommendations.
+                Welcome to the {libraryNamePrefix}Board Game Library! This tool helps
+                you discover board games available at the convention and get
+                personalized recommendations.
               </Typography>
               <Typography variant="subtitle2" gutterBottom>Quick Overview:</Typography>
               <List dense>
@@ -139,9 +143,10 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               
               <Typography variant="subtitle2" gutterBottom>Library Games Filter:</Typography>
               <Typography paragraph>
-                By default, the catalog shows only Library library games. Use the "All Board Games" toggle to 
-                include non-library games for recommendations and information. Games in the Library library are 
-                marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon.
+                By default, the catalog shows only {libraryNamePrefix}library games.
+                Use the "All Board Games" toggle to include non-library games for
+                recommendations and information. Games in the {libraryNamePrefix}
+                library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>Weight (Complexity) Levels:</Typography>
@@ -155,14 +160,14 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
               
               <Typography variant="subtitle2" gutterBottom>Library Game Indicators:</Typography>
               <Typography paragraph>
-                Games available in the Library library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
+                Games available in the {libraryNamePrefix}library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon 
                 on each game card. When you toggle to "All Board Games", games without this icon are not available 
                 at the convention but are included for recommendation purposes.
               </Typography>
               <Typography paragraph>
                 Small games are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', color: 'primary.main' }} />
                 <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> 
-                combined icon. These games are available in the special small games section of the Library library.
+                combined icon. These games are available in the special small games section of the library.
               </Typography>
             </AccordionDetails>
           </Accordion>
@@ -227,7 +232,7 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                   <ListItemText primary="✓ Viewing game details" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ All Board Games toggle" secondary="Filters recommendations between Library library and all games" />
+                  <ListItemText primary="✓ All Board Games toggle" secondary="Filters recommendations between library games and all games" />
                 </ListItem>
                 <ListItem>
                   <ListItemText primary="✓ Show Recommendations toggle" secondary="Switch between recommendation view and full library" />
@@ -296,61 +301,6 @@ const HelpDialog = ({ open, onClose, onStartTour }) => {
                 it immediately applies that filter to your main game list. This is a quick way to find 
                 more games with similar characteristics!
               </Alert>
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Convention Usage */}
-          <Accordion 
-            expanded={expanded === 'convention-usage'} 
-            onChange={handleChange('convention-usage')}
-          >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="h6">Convention Usage Tips</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Typography variant="subtitle2" gutterBottom>Sharing Devices:</Typography>
-              <Typography paragraph>
-                This system is designed for convention use where multiple people share devices. 
-                Your preferences (liked/disliked games) are session-scoped and reset when the session ends:
-              </Typography>
-              <List dense>
-                <ListItem>
-                  <ListItemText primary="• Close the browser tab" />
-                </ListItem>
-                <ListItem>
-                  <ListItemText primary="• Close the browser/app session on the shared device" />
-                </ListItem>
-              </List>
-              
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Quick Start for Convention Guests:</Typography>
-              <List dense>
-                <ListItem>
-                  <ListItemText 
-                    primary={<>1. Browse Library library games (default view) - look for the <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon (with <EmergencyIcon sx={{ fontSize: '0.7rem', verticalAlign: 'top', color: 'primary.main', ml: -0.5 }} /> for small games)</>}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="2. Use player count filter for your group size"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="3. Like/dislike a few games you recognize"
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="4. Get recommendations to discover new games!"
-                  />
-                </ListItem>
-              </List>
-              
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Mobile-Friendly:</Typography>
-              <Typography>
-                The interface is optimized for tablets and phones commonly used at conventions. 
-                All features work on mobile devices.
-              </Typography>
             </AccordionDetails>
           </Accordion>
 

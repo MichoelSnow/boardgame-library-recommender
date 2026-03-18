@@ -12,9 +12,13 @@ jest.mock('../api/theme', () => ({
 
 describe('AdminThemePage', () => {
   beforeEach(() => {
-    fetchThemeSettings.mockResolvedValue({ primary_color: '#D9272D' });
-    updateThemeSettings.mockImplementation(async (primaryColor) => ({
-      primary_color: primaryColor,
+    fetchThemeSettings.mockResolvedValue({
+      primary_color: '#D9272D',
+      library_name: null,
+    });
+    updateThemeSettings.mockImplementation(async ({ primaryColor, libraryName }) => ({
+      primary_color: primaryColor || '#D9272D',
+      library_name: libraryName?.trim() || null,
     }));
   });
 
@@ -33,7 +37,9 @@ describe('AdminThemePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '#007DBB' }));
     await screen.findByText('Current primary color: #007DBB');
-    expect(updateThemeSettings).toHaveBeenCalledWith('#007DBB');
+    expect(updateThemeSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ primaryColor: '#007DBB' })
+    );
   });
 
   test('warns when selected color fails AA contrast on white', async () => {
@@ -54,6 +60,25 @@ describe('AdminThemePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apply Custom Color' }));
 
     await screen.findByText('Current primary color: #123456');
-    expect(updateThemeSettings).toHaveBeenCalledWith('#123456');
+    expect(updateThemeSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ primaryColor: '#123456' })
+    );
+  });
+
+  test('allows saving and clearing library/convention name', async () => {
+    renderPage();
+    await screen.findByText(/Current library\/convention name:/i);
+
+    fireEvent.change(screen.getByLabelText('Library / Convention Name'), {
+      target: { value: 'PAX East' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
+    await screen.findByText('Current library/convention name: PAX East');
+
+    fireEvent.change(screen.getByLabelText('Library / Convention Name'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
+    await screen.findByText('Current library/convention name: (not set)');
   });
 });

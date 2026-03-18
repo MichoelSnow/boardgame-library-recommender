@@ -149,6 +149,7 @@ MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_LIBRARY_IMPORT_CSV_BYTES = 2 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
 THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
+LIBRARY_NAME_SETTING_KEY = "library_name"
 DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
 
 
@@ -1757,13 +1758,41 @@ def activate_admin_library_import(
     return schemas.LibraryImportSummary(**summary_row)
 
 
+@app.delete(
+    "/api/admin/library-imports/{import_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_admin_library_import(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    try:
+        deleted = crud.delete_library_import(db, import_id=import_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Library import not found")
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)
 def get_theme_settings(db: Session = Depends(get_db)):
     primary_color = DEFAULT_THEME_PRIMARY_COLOR
+    library_name = None
     setting = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
     if setting and setting.value:
         primary_color = setting.value
-    return schemas.ThemeSettingsResponse(primary_color=primary_color)
+    library_name_setting = crud.get_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+    if library_name_setting and library_name_setting.value:
+        library_name = library_name_setting.value
+    return schemas.ThemeSettingsResponse(
+        primary_color=primary_color,
+        library_name=library_name,
+    )
 
 
 @app.put("/api/admin/theme", response_model=schemas.ThemeSettingsResponse)
@@ -1773,12 +1802,45 @@ def update_theme_settings(
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
     _require_admin(current_user)
-    setting = crud.upsert_app_setting(
-        db,
-        key=THEME_PRIMARY_COLOR_SETTING_KEY,
-        value=request.primary_color.upper(),
+    if request.primary_color is not None:
+        color_setting = crud.upsert_app_setting(
+            db,
+            key=THEME_PRIMARY_COLOR_SETTING_KEY,
+            value=request.primary_color.upper(),
+        )
+        primary_color = color_setting.value
+    else:
+        existing_color = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
+        primary_color = (
+            existing_color.value
+            if existing_color and existing_color.value
+            else DEFAULT_THEME_PRIMARY_COLOR
+        )
+
+    if request.library_name is not None:
+        normalized_library_name = request.library_name.strip()
+        if normalized_library_name:
+            library_name_setting = crud.upsert_app_setting(
+                db,
+                key=LIBRARY_NAME_SETTING_KEY,
+                value=normalized_library_name,
+            )
+            library_name = library_name_setting.value
+        else:
+            crud.delete_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+            library_name = None
+    else:
+        existing_library_name = crud.get_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+        library_name = (
+            existing_library_name.value
+            if existing_library_name and existing_library_name.value
+            else None
+        )
+
+    return schemas.ThemeSettingsResponse(
+        primary_color=primary_color,
+        library_name=library_name,
     )
-    return schemas.ThemeSettingsResponse(primary_color=setting.value)
 
 
 @app.get("/api/users/me/", response_model=schemas.User)

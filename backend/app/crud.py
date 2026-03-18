@@ -745,6 +745,15 @@ def upsert_app_setting(db: Session, key: str, value: str):
     return setting
 
 
+def delete_app_setting(db: Session, key: str) -> bool:
+    setting = get_app_setting(db, key)
+    if not setting:
+        return False
+    db.delete(setting)
+    db.commit()
+    return True
+
+
 def get_active_library_import(db: Session) -> Optional[models.LibraryImport]:
     return (
         db.query(models.LibraryImport)
@@ -945,6 +954,25 @@ def activate_library_import(
     clear_total_count_cache()
     db.refresh(library_import)
     return library_import
+
+
+def delete_library_import(db: Session, *, import_id: int) -> bool:
+    library_import = (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.id == import_id)
+        .first()
+    )
+    if library_import is None:
+        return False
+    if library_import.is_active:
+        raise ValueError("Active library import cannot be deleted.")
+
+    db.query(models.LibraryImportItem).filter(
+        models.LibraryImportItem.library_import_id == library_import.id
+    ).delete(synchronize_session=False)
+    db.delete(library_import)
+    db.commit()
+    return True
 
 
 def find_missing_games_for_ids(db: Session, bgg_ids: list[int]) -> list[int]:
