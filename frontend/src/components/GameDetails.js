@@ -80,6 +80,7 @@ const GameDetails = ({
   onLike,
   onDislike,
   isLibraryGame = false,
+  libraryGameIds = [],
   selectedDesignerIds = [],
   selectedArtistIds = [],
   selectedMechanicIds = [],
@@ -99,6 +100,10 @@ const GameDetails = ({
   const recommendations = recommendationResponse?.data || [];
   const recommendationsAvailable =
     recommendationResponse?.headers?.['x-recommendations-available'] !== 'false';
+  const libraryGameIdSet = React.useMemo(
+    () => new Set(libraryGameIds),
+    [libraryGameIds]
+  );
   const detailImageCandidates = buildGameDetailImageCandidates({
     gameId: game?.id,
     imageUrl: game?.image,
@@ -294,6 +299,7 @@ const GameDetails = ({
               onClick={() => handleRecommendationClick(rec)}
               sortBy="rank"
               compact={true}
+              isLibraryGame={libraryGameIdSet.has(rec.id)}
             />
           </Grid>
         ))}

@@ -1300,6 +1300,7 @@ const GameList = () => {
             selectedArtistIds={selectedArtists.map((artist) => artist.boardgameartist_id)}
             selectedMechanicIds={selectedMechanicIds}
             selectedCategoryIds={selectedCategoryIds}
+            libraryGameIds={libraryGameIds}
           />
         )}
       </Container>

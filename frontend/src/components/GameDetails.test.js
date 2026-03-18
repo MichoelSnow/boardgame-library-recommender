@@ -7,8 +7,15 @@ jest.mock('../hooks/useGameListQueries', () => ({
 }));
 
 jest.mock('./GameCard', () => {
-  return function MockGameCard({ game }) {
-    return <div>{game.name}</div>;
+  return function MockGameCard({ game, isLibraryGame }) {
+    return (
+      <div>
+        <span>{game.name}</span>
+        {isLibraryGame && (
+          <span data-testid={`library-indicator-${game.id}`}>In Library</span>
+        )}
+      </div>
+    );
   };
 });
 
@@ -69,6 +76,21 @@ describe('GameDetails recommendations integration', () => {
     render(<GameDetails {...defaultProps} />);
 
     expect(screen.getByText('Recommended A')).toBeTruthy();
+  });
+
+  test('shows in-library indicator for similar games when recommendation is in library', () => {
+    useGameRecommendationsQuery.mockReturnValue({
+      data: {
+        data: [{ id: 2, name: 'Recommended A' }],
+        headers: {},
+      },
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<GameDetails {...defaultProps} libraryGameIds={[2]} />);
+
+    expect(screen.getByTestId('library-indicator-2')).toBeTruthy();
   });
 
   test('renders recommendation error state on query failure', () => {

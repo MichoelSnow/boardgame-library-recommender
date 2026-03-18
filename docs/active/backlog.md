@@ -6,7 +6,7 @@ If an item becomes launch-critical, move it into `pre_convention_readiness_check
 ## Product and UX
 - [x] Show preferred/best player counts in game dialog.
 - [x] Add in-library indicators to the game details dialog content area.
-- [ ] Add in-library indicators to similar games shown in the dialog recommendations section.
+- [x] Add in-library indicators to similar games shown in the dialog recommendations section.
 - [x] Keep dialog open when dialog filters are applied.
 - [x] Show selected-state styling for already-applied filter chips and avoid invisible toggle behavior.
 - [x] Reset catalog pagination to page 1 when toggling `library_only` vs all-games.
