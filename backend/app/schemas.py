@@ -421,6 +421,22 @@ class ThemeSettingsUpdateRequest(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class CatalogStateResponse(BaseModel):
+    active_library_import_id: Optional[int] = None
+    active_library_activated_at: Optional[datetime] = None
+    total_games: int = Field(
+        ge=0, description="Total number of games currently in the catalog."
+    )
+    app_version: str
+    git_sha: str
+    build_timestamp: str
+    state_token: str = Field(
+        description="Stable token that changes when catalog/library/build state changes."
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AdminUser(BaseModel):
     id: int
     username: str

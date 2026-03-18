@@ -741,6 +741,39 @@ async def api_version():
     }
 
 
+@app.get("/api/catalog/state", response_model=schemas.CatalogStateResponse)
+def api_catalog_state(response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    active_import = crud.get_active_library_import(db)
+    total_games = crud.get_games_count(db)
+    app_version = app.version
+    git_sha = os.getenv("APP_GIT_SHA", "unknown")
+    build_timestamp = os.getenv("APP_BUILD_TIMESTAMP", "unknown")
+    active_library_import_id = active_import.id if active_import else None
+    active_library_activated_at = active_import.activated_at if active_import else None
+    activated_at_token = (
+        active_library_activated_at.isoformat() if active_library_activated_at else "none"
+    )
+    state_token = (
+        f"lib:{active_library_import_id or 'none'}|"
+        f"activated:{activated_at_token}|"
+        f"games:{total_games}|"
+        f"sha:{git_sha}|"
+        f"build:{build_timestamp}"
+    )
+
+    return schemas.CatalogStateResponse(
+        active_library_import_id=active_library_import_id,
+        active_library_activated_at=active_library_activated_at,
+        total_games=total_games,
+        app_version=app_version,
+        git_sha=git_sha,
+        build_timestamp=build_timestamp,
+        state_token=state_token,
+    )
+
+
 def check_db_readiness() -> tuple[bool, str | None]:
     """Check whether the DB is reachable for request serving."""
     db = SessionLocal()

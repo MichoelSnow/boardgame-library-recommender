@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import AuthContext from '../context/AuthContext';
 import GameList from './GameList';
-import { withQueryClient } from '../test/testProviders';
+import { createTestQueryClient, withQueryClient } from '../test/testProviders';
 
 const pageOneGames = {
   games: Array.from({ length: 24 }, (_, index) => ({
@@ -46,6 +46,7 @@ jest.mock('../hooks/useGameListQueries', () => ({
   useMechanicsQuery: () => ({ data: [] }),
   useCategoriesQuery: () => ({ data: [] }),
   useLibraryGameIdsQuery: () => ({ data: [1, 2, 3, 4, 5] }),
+  useCatalogStateQuery: () => ({ data: { state_token: 'token-1' } }),
   useGamesQuery: (params) => mockUseGamesQuery(params),
   useGameDetailsQuery: () => ({ data: null }),
   useConventionKioskStatusQuery: () => ({ data: { convention_mode: false, kiosk_mode: false } }),
@@ -77,14 +78,15 @@ jest.mock('../hooks/useRecommendationSessionState', () => ({
 }));
 
 describe('GameList', () => {
-  const renderGameList = () =>
+  const renderGameList = (queryClient = createTestQueryClient()) =>
     render(
       withQueryClient(
         <MemoryRouter>
           <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
             <GameList />
           </AuthContext.Provider>
-        </MemoryRouter>
+        </MemoryRouter>,
+        queryClient
       )
     );
 
@@ -176,5 +178,26 @@ describe('GameList', () => {
     expect(searchInput).toHaveValue('');
 
     confirmSpy.mockRestore();
+  });
+
+  test('manual refresh button triggers active catalog query refetch', async () => {
+    const queryClient = createTestQueryClient();
+    const refetchSpy = jest
+      .spyOn(queryClient, 'refetchQueries')
+      .mockResolvedValue([]);
+
+    renderGameList(queryClient);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh Catalog' }));
+
+    await waitFor(() => {
+      expect(refetchSpy).toHaveBeenCalled();
+    });
+    expect(refetchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['games'], type: 'active' })
+    );
+    expect(refetchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
+    );
   });
 });

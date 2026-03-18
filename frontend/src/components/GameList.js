@@ -1,4 +1,11 @@
-import React, { useState, useEffect, memo, useContext } from 'react';
+import React, {
+  useState,
+  useEffect,
+  memo,
+  useContext,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Container,
   Grid,
@@ -31,11 +38,14 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
 import poweredByBggLogo from '../assets/powered-by-bgg.svg';
+import { useQueryClient } from '@tanstack/react-query';
 import { useConventionUiState } from '../hooks/useConventionUiState';
 import {
+  useCatalogStateQuery,
   useCategoriesQuery,
   useConventionKioskStatusQuery,
   useGameDetailsQuery,
@@ -189,13 +199,17 @@ const GameList = () => {
   const [activeFilter, setActiveFilter] = useState(null);
 
   const { user } = useContext(AuthContext);
+  const queryClient = useQueryClient();
 
   const [isLikedGamesDialogOpen, setIsLikedGamesDialogOpen] = useState(false);
   const [gameList, setGameList] = useState([]);
   const [totalGames, setTotalGames] = useState(0);
   const [isRecommendation, setIsRecommendation] = useState(false);
   const [recommendationNotice, setRecommendationNotice] = useState(null);
+  const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(false);
+  const lastCatalogStateTokenRef = useRef(null);
   const { data: kioskStatus } = useConventionKioskStatusQuery();
+  const { data: catalogState } = useCatalogStateQuery();
   const isConventionKiosk = Boolean(kioskStatus?.kiosk_mode);
   const {
     libraryOnly,
@@ -236,7 +250,6 @@ const GameList = () => {
     data: response = { games: [], total: 0 },
     isLoading,
     error,
-    isFetching,
   } = useGamesQuery({
     gamesPerPage,
     currentPage,
@@ -256,6 +269,36 @@ const GameList = () => {
     gameId: selectedGameId,
     enabled: detailsOpen,
   });
+
+  const refreshCatalogData = useCallback(
+    async ({ manual = false } = {}) => {
+      if (manual) {
+        setIsCatalogRefreshing(true);
+      }
+      try {
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ['games'], type: 'active' }),
+          queryClient.refetchQueries({
+            queryKey: ['library_game_ids'],
+            type: 'active',
+          }),
+          queryClient.refetchQueries({
+            queryKey: ['mechanics_alphabetically'],
+            type: 'active',
+          }),
+          queryClient.refetchQueries({
+            queryKey: ['categories_alphabetically'],
+            type: 'active',
+          }),
+        ]);
+      } finally {
+        if (manual) {
+          setIsCatalogRefreshing(false);
+        }
+      }
+    },
+    [queryClient]
+  );
 
   const handleRecommend = async () => {
     try {
@@ -516,6 +559,21 @@ const GameList = () => {
       setTotalGames(response.total);
     }
   }, [response, isRecommendation]);
+
+  useEffect(() => {
+    const token = catalogState?.state_token;
+    if (!token) {
+      return;
+    }
+    if (lastCatalogStateTokenRef.current === null) {
+      lastCatalogStateTokenRef.current = token;
+      return;
+    }
+    if (lastCatalogStateTokenRef.current !== token) {
+      lastCatalogStateTokenRef.current = token;
+      refreshCatalogData();
+    }
+  }, [catalogState?.state_token, refreshCatalogData]);
 
   useEffect(() => {
     if (showingRecommendations && hasRecommendations) {
@@ -923,9 +981,19 @@ const GameList = () => {
                 clearAriaLabel: 'Clear categories filter',
               })}
             </Stack>
-            <Button onClick={handleClearAll} size="small" disabled={isRecommendation}>
-              Clear All
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                onClick={() => refreshCatalogData({ manual: true })}
+                startIcon={<RefreshIcon />}
+                disabled={isCatalogRefreshing || isRecommendationLoading}
+              >
+                {isCatalogRefreshing ? 'Refreshing...' : 'Refresh Catalog'}
+              </Button>
+              <Button onClick={handleClearAll} size="small" disabled={isRecommendation}>
+                Clear All
+              </Button>
+            </Stack>
           </Stack>
           
           {/* Active Filter Panel */}
@@ -1125,12 +1193,6 @@ const GameList = () => {
           </Box>
         </Stack>
 
-        {isFetching && !isRecommendation && (
-          <Box sx={{ width: '100%', mb: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        
         {isRecommendationLoading && (
           <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(255,255,255,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Stack spacing={2} alignItems="center">

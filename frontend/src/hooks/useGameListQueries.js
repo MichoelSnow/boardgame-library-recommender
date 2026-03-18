@@ -1,8 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchCategories, fetchMechanics } from '../api/filters';
-import { fetchGameDetails, fetchGames, fetchLibraryGameIds } from '../api/games';
+import {
+  fetchCatalogState,
+  fetchGameDetails,
+  fetchGames,
+  fetchLibraryGameIds,
+} from '../api/games';
 import { fetchRecommendationsForGame } from '../api/recommendations';
 import { fetchConventionKioskStatus } from '../api/convention';
+
+const CATALOG_STATE_POLL_INTERVAL_MS = 60 * 1000;
 
 export const useMechanicsQuery = () =>
   useQuery({
@@ -93,8 +100,8 @@ export const useGamesQuery = ({
     enabled: !isRecommendation,
     staleTime: 30 * 1000,
     refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchInterval: libraryOnly ? 30 * 1000 : false,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 
 export const useLibraryGameIdsQuery = () =>
@@ -103,8 +110,18 @@ export const useLibraryGameIdsQuery = () =>
     queryFn: fetchLibraryGameIds,
     staleTime: 30 * 1000,
     refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchInterval: 30 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+  });
+
+export const useCatalogStateQuery = () =>
+  useQuery({
+    queryKey: ['catalog_state'],
+    queryFn: fetchCatalogState,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
+    refetchInterval: CATALOG_STATE_POLL_INTERVAL_MS,
   });
 
 export const useGameDetailsQuery = ({ gameId, enabled }) =>

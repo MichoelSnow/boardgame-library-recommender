@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from datetime import datetime, timezone
 
 import httpx
 import pytest
@@ -88,6 +89,34 @@ async def test_library_game_ids_endpoint_sets_no_store_headers(monkeypatch, api_
 
     assert response.status_code == 200
     assert response.json() == [1, 2, 3]
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["pragma"] == "no-cache"
+
+
+@pytest.mark.anyio
+async def test_catalog_state_endpoint_returns_state_token(monkeypatch, api_client):
+    monkeypatch.setattr(main.crud, "get_games_count", lambda db: 123)
+    monkeypatch.setattr(
+        main.crud,
+        "get_active_library_import",
+        lambda db: SimpleNamespace(
+            id=7,
+            activated_at=datetime(2026, 3, 18, 0, 0, tzinfo=timezone.utc),
+        ),
+    )
+    monkeypatch.setenv("APP_GIT_SHA", "abc123")
+    monkeypatch.setenv("APP_BUILD_TIMESTAMP", "2026-03-18T00:00:00Z")
+
+    response = await api_client.get("/api/catalog/state")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["active_library_import_id"] == 7
+    assert payload["total_games"] == 123
+    assert payload["git_sha"] == "abc123"
+    assert payload["build_timestamp"] == "2026-03-18T00:00:00Z"
+    assert "lib:7" in payload["state_token"]
+    assert "games:123" in payload["state_token"]
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["pragma"] == "no-cache"
 

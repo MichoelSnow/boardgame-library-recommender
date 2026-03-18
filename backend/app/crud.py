@@ -806,6 +806,11 @@ def get_library_ids_for_runtime(db: Session) -> list[int]:
     return [row[0] for row in legacy_rows if row[0] is not None]
 
 
+def get_games_count(db: Session) -> int:
+    """Return total count of catalog games."""
+    return db.query(models.BoardGame.id).count()
+
+
 def list_library_import_summaries(db: Session) -> list[dict[str, Any]]:
     imports = (
         db.query(models.LibraryImport).order_by(models.LibraryImport.id.desc()).all()

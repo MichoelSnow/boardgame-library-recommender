@@ -14,3 +14,8 @@ export const fetchLibraryGameIds = async () => {
   const response = await apiClient.get('/library_game_ids/');
   return response.data;
 };
+
+export const fetchCatalogState = async () => {
+  const response = await apiClient.get('/catalog/state');
+  return response.data;
+};
