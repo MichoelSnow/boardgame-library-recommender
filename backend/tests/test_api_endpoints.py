@@ -404,7 +404,9 @@ async def test_admin_library_import_endpoints_require_admin(api_client):
     delete_response = await api_client.delete("/api/admin/library-imports/1")
     assert delete_response.status_code == 401
 
-    refresh_catalog = await api_client.post("/api/admin/library-imports/refresh-catalog")
+    refresh_catalog = await api_client.post(
+        "/api/admin/library-imports/refresh-catalog"
+    )
     assert refresh_catalog.status_code == 401
 
 
