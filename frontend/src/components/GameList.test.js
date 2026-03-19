@@ -231,6 +231,8 @@ describe('GameList', () => {
       expect(refetchSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: ['games'], type: 'active' })
       );
+    });
+    await waitFor(() => {
       expect(refetchSpy).toHaveBeenCalledWith(
         expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
       );
