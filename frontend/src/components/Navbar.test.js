@@ -5,6 +5,7 @@ import Navbar from './Navbar';
 import AuthContext from '../context/AuthContext';
 
 const mockNavigate = jest.fn();
+const mockUseThemeSettings = jest.fn();
 
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
@@ -19,10 +20,7 @@ jest.mock('./GuidedTour', () => () => null);
 jest.mock('./SuggestionsModal', () => () => null);
 jest.mock('./PasswordChangeModal', () => () => null);
 jest.mock('../context/ThemeSettingsContext', () => ({
-  useThemeSettings: () => ({
-    navbarTextColor: '#FFFFFF',
-    primaryColor: '#D9272D',
-  }),
+  useThemeSettings: () => mockUseThemeSettings(),
 }));
 
 const renderNavbar = (authValue) =>
@@ -37,6 +35,11 @@ const renderNavbar = (authValue) =>
 describe('Navbar admin navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseThemeSettings.mockReturnValue({
+      navbarTextColor: '#FFFFFF',
+      primaryColor: '#D9272D',
+      libraryName: '',
+    });
   });
 
   test('shows Admin Panel button for admin users', () => {
@@ -65,5 +68,21 @@ describe('Navbar admin navigation', () => {
 
     fireEvent.click(screen.getByText('Admin Panel'));
     expect(mockNavigate).toHaveBeenCalledWith('/admin');
+  });
+
+  test('prefixes navbar title when library name is set', () => {
+    mockUseThemeSettings.mockReturnValue({
+      navbarTextColor: '#FFFFFF',
+      primaryColor: '#D9272D',
+      libraryName: 'PAX East',
+    });
+    renderNavbar({
+      user: { username: 'admin', is_admin: true, is_guest: false },
+      logout: jest.fn(),
+    });
+
+    expect(
+      screen.getByText('PAX East Board Game Library & Recommendation Engine')
+    ).toBeInTheDocument();
   });
 });

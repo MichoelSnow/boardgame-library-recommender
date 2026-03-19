@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Card, CardContent, Chip, Stack, TextField, Typography } from '@mui/material';
 import { useThemeSettings } from '../context/ThemeSettingsContext';
 import { normalizeHexColor } from '../utils/colorContrast';
@@ -7,17 +7,24 @@ const AdminThemePage = () => {
   const {
     contrastRatioOnWhite,
     isPrimaryColorLimited,
+    libraryName,
     minAaContrastRatio,
     primaryColor,
     presetPrimaryColors,
+    setLibraryName,
     setPrimaryColor,
   } = useThemeSettings();
   const [customColor, setCustomColor] = useState(primaryColor);
+  const [nameInput, setNameInput] = useState(libraryName);
   const [themeError, setThemeError] = useState('');
   const normalizedCustomColor = useMemo(
     () => normalizeHexColor(customColor),
     [customColor]
   );
+
+  useEffect(() => {
+    setNameInput(libraryName);
+  }, [libraryName]);
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
@@ -25,10 +32,14 @@ const AdminThemePage = () => {
         <CardContent>
           <Stack spacing={2}>
             <Typography variant="h4" component="h1">
-              Theme Color
+              Theme Color & Library Name
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Current primary color: {primaryColor}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Current library/convention name:{' '}
+              {libraryName ? libraryName : '(not set)'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Contrast on white: {contrastRatioOnWhite.toFixed(2)}:1 (AA target:{' '}
@@ -96,6 +107,30 @@ const AdminThemePage = () => {
                 disabled={!normalizedCustomColor}
               >
                 Apply Custom Color
+              </Button>
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <TextField
+                label="Library / Convention Name"
+                value={nameInput}
+                onChange={(event) => setNameInput(event.target.value)}
+                placeholder="Optional name prefix"
+                size="small"
+                inputProps={{ maxLength: 80 }}
+                fullWidth
+              />
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  const ok = await setLibraryName(nameInput);
+                  if (!ok) {
+                    setThemeError('Failed to save library/convention name.');
+                    return;
+                  }
+                  setThemeError('');
+                }}
+              >
+                Save Name
               </Button>
             </Stack>
             {themeError && (

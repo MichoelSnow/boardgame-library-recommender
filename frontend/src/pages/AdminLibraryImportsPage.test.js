@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import AdminLibraryImportsPage from './AdminLibraryImportsPage';
 import {
   activateLibraryImport,
+  deleteLibraryImport,
   fetchLibraryImports,
   validateLibraryImportCsv,
   uploadLibraryImportCsv,
@@ -14,6 +15,7 @@ jest.mock('../api/libraryImports', () => ({
   validateLibraryImportCsv: jest.fn(),
   uploadLibraryImportCsv: jest.fn(),
   activateLibraryImport: jest.fn(),
+  deleteLibraryImport: jest.fn(),
 }));
 
 describe('AdminLibraryImportsPage', () => {
@@ -22,6 +24,7 @@ describe('AdminLibraryImportsPage', () => {
     validateLibraryImportCsv.mockReset();
     uploadLibraryImportCsv.mockReset();
     activateLibraryImport.mockReset();
+    deleteLibraryImport.mockReset();
   });
 
   test('renders import rows and allows activation', async () => {
@@ -61,6 +64,34 @@ describe('AdminLibraryImportsPage', () => {
     const activateButton = screen.getByRole('button', { name: 'Activate' });
     fireEvent.click(activateButton);
     await waitFor(() => expect(activateLibraryImport).toHaveBeenCalledWith(2));
+  });
+
+  test('deletes an inactive import after confirmation', async () => {
+    fetchLibraryImports.mockResolvedValue([
+      {
+        id: 2,
+        label: 'spring',
+        import_method: 'csv_upload',
+        total_items: 20,
+        is_active: false,
+        imported_by_username: 'admin',
+        created_at: '2026-03-16T11:00:00Z',
+      },
+    ]);
+    deleteLibraryImport.mockResolvedValue(undefined);
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(
+      <MemoryRouter>
+        <AdminLibraryImportsPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('spring');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteLibraryImport).toHaveBeenCalledWith(2));
+    confirmSpy.mockRestore();
   });
 
   test('submits csv upload form', async () => {

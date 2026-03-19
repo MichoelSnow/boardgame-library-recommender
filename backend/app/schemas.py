@@ -394,14 +394,44 @@ class ThemeSettingsResponse(BaseModel):
         pattern=r"^#[0-9A-Fa-f]{6}$",
         description="Current global primary hex color for the app theme.",
     )
+    library_name: Optional[str] = Field(
+        default=None,
+        max_length=80,
+        description="Optional global library/convention name shown in UI copy.",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ThemeSettingsUpdateRequest(BaseModel):
-    primary_color: str = Field(
+    primary_color: Optional[str] = Field(
+        default=None,
         pattern=r"^#[0-9A-Fa-f]{6}$",
-        description="New global primary hex color for the app theme.",
+        description="Optional new global primary hex color for the app theme.",
+    )
+    library_name: Optional[str] = Field(
+        default=None,
+        max_length=80,
+        description=(
+            "Optional global library/convention name shown in UI copy. "
+            "Send an empty string to clear."
+        ),
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CatalogStateResponse(BaseModel):
+    active_library_import_id: Optional[int] = None
+    active_library_activated_at: Optional[datetime] = None
+    total_games: int = Field(
+        ge=0, description="Total number of games currently in the catalog."
+    )
+    app_version: str
+    git_sha: str
+    build_timestamp: str
+    state_token: str = Field(
+        description="Stable token that changes when catalog/library/build state changes."
     )
 
     model_config = ConfigDict(from_attributes=True)

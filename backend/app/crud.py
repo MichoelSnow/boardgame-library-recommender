@@ -41,6 +41,12 @@ def _cache_set_total(cache_key: tuple[Any, ...], value: int) -> None:
         _total_count_cache[cache_key] = (now + _TOTAL_CACHE_TTL_SECONDS, value)
 
 
+def clear_total_count_cache() -> None:
+    """Clear cached game totals so pagination reflects fresh library state."""
+    with _TOTAL_CACHE_LOCK:
+        _total_count_cache.clear()
+
+
 def _build_total_cache_key(
     *,
     search: Optional[str],
@@ -52,6 +58,7 @@ def _build_total_cache_key(
     mechanics: Optional[str],
     categories: Optional[str],
     library_only: Optional[bool],
+    runtime_library_version: Optional[str] = None,
 ) -> tuple[Any, ...]:
     return (
         search,
@@ -63,6 +70,7 @@ def _build_total_cache_key(
         mechanics,
         categories,
         bool(library_only),
+        runtime_library_version,
     )
 
 
@@ -127,9 +135,15 @@ def get_games(
         if sort_by == "recommendation_score":
             sort_by = "rank"
 
+        active_import = None
+        runtime_library_version = None
         if library_only:
+            active_import = get_active_library_import(db)
+            runtime_library_version = (
+                f"import:{active_import.id}" if active_import is not None else "legacy"
+            )
             query = query.filter(
-                exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
+                build_runtime_library_only_filter(db, active_import=active_import)
             )
 
         # Apply simple filters first
@@ -304,6 +318,7 @@ def get_games(
             mechanics=mechanics,
             categories=categories,
             library_only=library_only,
+            runtime_library_version=runtime_library_version,
         )
 
         cached_total = _cache_get_total(cache_key)
@@ -730,6 +745,15 @@ def upsert_app_setting(db: Session, key: str, value: str):
     return setting
 
 
+def delete_app_setting(db: Session, key: str) -> bool:
+    setting = get_app_setting(db, key)
+    if not setting:
+        return False
+    db.delete(setting)
+    db.commit()
+    return True
+
+
 def get_active_library_import(db: Session) -> Optional[models.LibraryImport]:
     return (
         db.query(models.LibraryImport)
@@ -737,6 +761,29 @@ def get_active_library_import(db: Session) -> Optional[models.LibraryImport]:
         .order_by(models.LibraryImport.id.desc())
         .first()
     )
+
+
+def build_runtime_library_only_filter(
+    db: Session,
+    *,
+    active_import: Optional[models.LibraryImport] = None,
+):
+    """
+    Build a library-only filter expression for BoardGame queries.
+
+    Prefers the active library import items table; falls back to the
+    legacy library_games table when no active import exists.
+    """
+    if active_import is None:
+        active_import = get_active_library_import(db)
+    if active_import is not None:
+        return exists().where(
+            and_(
+                models.LibraryImportItem.library_import_id == active_import.id,
+                models.LibraryImportItem.bgg_id == models.BoardGame.id,
+            )
+        )
+    return exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
 
 
 def get_library_ids_for_runtime(db: Session) -> list[int]:
@@ -757,6 +804,11 @@ def get_library_ids_for_runtime(db: Session) -> list[int]:
         .all()
     )
     return [row[0] for row in legacy_rows if row[0] is not None]
+
+
+def get_games_count(db: Session) -> int:
+    """Return total count of catalog games."""
+    return db.query(models.BoardGame.id).count()
 
 
 def list_library_import_summaries(db: Session) -> list[dict[str, Any]]:
@@ -873,6 +925,7 @@ def create_library_import(
         library_import.activated_at = now
 
     db.commit()
+    clear_total_count_cache()
     db.refresh(library_import)
     return library_import
 
@@ -903,8 +956,39 @@ def activate_library_import(
     library_import.activated_by_user_id = activated_by_user_id
     library_import.activated_at = now
     db.commit()
+    clear_total_count_cache()
     db.refresh(library_import)
     return library_import
+
+
+def delete_library_import(db: Session, *, import_id: int) -> bool:
+    library_import = (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.id == import_id)
+        .with_for_update()
+        .first()
+    )
+    if library_import is None:
+        return False
+    if library_import.is_active:
+        raise ValueError("Active library import cannot be deleted.")
+
+    db.query(models.LibraryImportItem).filter(
+        models.LibraryImportItem.library_import_id == library_import.id
+    ).delete(synchronize_session=False)
+    deleted_import_count = (
+        db.query(models.LibraryImport)
+        .filter(
+            models.LibraryImport.id == library_import.id,
+            models.LibraryImport.is_active.is_(False),
+        )
+        .delete(synchronize_session=False)
+    )
+    if deleted_import_count != 1:
+        db.rollback()
+        raise ValueError("Active library import cannot be deleted.")
+    db.commit()
+    return True
 
 
 def find_missing_games_for_ids(db: Session, bgg_ids: list[int]) -> list[int]:

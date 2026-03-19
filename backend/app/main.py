@@ -149,6 +149,7 @@ MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_LIBRARY_IMPORT_CSV_BYTES = 2 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
 THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
+LIBRARY_NAME_SETTING_KEY = "library_name"
 DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
 
 
@@ -740,6 +741,41 @@ async def api_version():
     }
 
 
+@app.get("/api/catalog/state", response_model=schemas.CatalogStateResponse)
+def api_catalog_state(response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    active_import = crud.get_active_library_import(db)
+    total_games = crud.get_games_count(db)
+    app_version = app.version
+    git_sha = os.getenv("APP_GIT_SHA", "unknown")
+    build_timestamp = os.getenv("APP_BUILD_TIMESTAMP", "unknown")
+    active_library_import_id = active_import.id if active_import else None
+    active_library_activated_at = active_import.activated_at if active_import else None
+    activated_at_token = (
+        active_library_activated_at.isoformat()
+        if active_library_activated_at
+        else "none"
+    )
+    state_token = (
+        f"lib:{active_library_import_id or 'none'}|"
+        f"activated:{activated_at_token}|"
+        f"games:{total_games}|"
+        f"sha:{git_sha}|"
+        f"build:{build_timestamp}"
+    )
+
+    return schemas.CatalogStateResponse(
+        active_library_import_id=active_library_import_id,
+        active_library_activated_at=active_library_activated_at,
+        total_games=total_games,
+        app_version=app_version,
+        git_sha=git_sha,
+        build_timestamp=build_timestamp,
+        state_token=state_token,
+    )
+
+
 def check_db_readiness() -> tuple[bool, str | None]:
     """Check whether the DB is reachable for request serving."""
     db = SessionLocal()
@@ -1113,6 +1149,7 @@ async def get_cached_image(
 
 @app.get("/api/games/", response_model=schemas.GameListResponse)
 async def list_games(
+    response: Response,
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(24, ge=1, le=100),
@@ -1145,6 +1182,8 @@ async def list_games(
             categories=categories,
             library_only=library_only,
         )
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
         return {"games": games, "total": total}
     except HTTPException:
         raise
@@ -1195,7 +1234,8 @@ async def get_recommendations(
         limit: Maximum number of recommendations to return
         disliked_games: Comma-separated list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations (higher values = stronger anti-recommendations)
-        library_only: If true, only recommend games that are in the Library games table
+        library_only: If true, only recommend games from the active library import
+            (falling back to legacy library_games if no active import exists)
     """
     try:
         # Parse disliked games if provided
@@ -1310,8 +1350,11 @@ def read_categories(db: Session = Depends(get_db)):
 @app.get(
     "/api/library_game_ids/", response_model=List[int]
 )  # Add endpoint with trailing slash
-async def get_library_game_ids(db: Session = Depends(get_db)):
+async def get_library_game_ids(response: Response, db: Session = Depends(get_db)):
     """Return a list of all Library game BGG IDs (integers)."""
+    # This endpoint reflects mutable admin state; avoid intermediary caches.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     return crud.get_library_ids_for_runtime(db)
 
 
@@ -1750,13 +1793,41 @@ def activate_admin_library_import(
     return schemas.LibraryImportSummary(**summary_row)
 
 
+@app.delete(
+    "/api/admin/library-imports/{import_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_admin_library_import(
+    import_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    try:
+        deleted = crud.delete_library_import(db, import_id=import_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Library import not found")
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)
 def get_theme_settings(db: Session = Depends(get_db)):
     primary_color = DEFAULT_THEME_PRIMARY_COLOR
+    library_name = None
     setting = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
     if setting and setting.value:
         primary_color = setting.value
-    return schemas.ThemeSettingsResponse(primary_color=primary_color)
+    library_name_setting = crud.get_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+    if library_name_setting and library_name_setting.value:
+        library_name = library_name_setting.value
+    return schemas.ThemeSettingsResponse(
+        primary_color=primary_color,
+        library_name=library_name,
+    )
 
 
 @app.put("/api/admin/theme", response_model=schemas.ThemeSettingsResponse)
@@ -1766,12 +1837,45 @@ def update_theme_settings(
     current_user: schemas.User = Depends(security.get_current_active_user),
 ):
     _require_admin(current_user)
-    setting = crud.upsert_app_setting(
-        db,
-        key=THEME_PRIMARY_COLOR_SETTING_KEY,
-        value=request.primary_color.upper(),
+    if request.primary_color is not None:
+        color_setting = crud.upsert_app_setting(
+            db,
+            key=THEME_PRIMARY_COLOR_SETTING_KEY,
+            value=request.primary_color.upper(),
+        )
+        primary_color = color_setting.value
+    else:
+        existing_color = crud.get_app_setting(db, THEME_PRIMARY_COLOR_SETTING_KEY)
+        primary_color = (
+            existing_color.value
+            if existing_color and existing_color.value
+            else DEFAULT_THEME_PRIMARY_COLOR
+        )
+
+    if request.library_name is not None:
+        normalized_library_name = request.library_name.strip()
+        if normalized_library_name:
+            library_name_setting = crud.upsert_app_setting(
+                db,
+                key=LIBRARY_NAME_SETTING_KEY,
+                value=normalized_library_name,
+            )
+            library_name = library_name_setting.value
+        else:
+            crud.delete_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+            library_name = None
+    else:
+        existing_library_name = crud.get_app_setting(db, LIBRARY_NAME_SETTING_KEY)
+        library_name = (
+            existing_library_name.value
+            if existing_library_name and existing_library_name.value
+            else None
+        )
+
+    return schemas.ThemeSettingsResponse(
+        primary_color=primary_color,
+        library_name=library_name,
     )
-    return schemas.ThemeSettingsResponse(primary_color=setting.value)
 
 
 @app.get("/api/users/me/", response_model=schemas.User)

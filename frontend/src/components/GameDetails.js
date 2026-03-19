@@ -20,6 +20,8 @@ import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpOutlinedIcon from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlinedIcon from '@mui/icons-material/ThumbDownOutlined';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import EmergencyIcon from '@mui/icons-material/Emergency';
 import PeopleIcon from '@mui/icons-material/People';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
@@ -40,28 +42,41 @@ const extractAccentColor = (img) => {
   if (!ctx || !img?.width || !img?.height) {
     return DEFAULT_IMAGE_BG_COLOR;
   }
-  canvas.width = img.width;
-  canvas.height = img.height;
-  ctx.drawImage(img, 0, 0);
+  try {
+    const sourceWidth = img.naturalWidth || img.width;
+    const sourceHeight = img.naturalHeight || img.height;
+    const sampleSize = 50;
+    const sampleWidth = Math.max(1, Math.min(sampleSize, sourceWidth));
+    const sampleHeight = Math.max(1, Math.min(sampleSize, sourceHeight));
 
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  const total = imageData.length / 4;
+    canvas.width = sampleWidth;
+    canvas.height = sampleHeight;
+    ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight, 0, 0, sampleWidth, sampleHeight);
 
-  for (let i = 0; i < imageData.length; i += 4) {
-    r += imageData[i];
-    g += imageData[i + 1];
-    b += imageData[i + 2];
+    const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight).data;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    const total = imageData.length / 4;
+    if (!total) {
+      return DEFAULT_IMAGE_BG_COLOR;
+    }
+
+    for (let i = 0; i < imageData.length; i += 4) {
+      r += imageData[i];
+      g += imageData[i + 1];
+      b += imageData[i + 2];
+    }
+
+    r = Math.floor(r / total);
+    g = Math.floor(g / total);
+    b = Math.floor(b / total);
+
+    const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
+    return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`;
+  } catch (error) {
+    return DEFAULT_IMAGE_BG_COLOR;
   }
-
-  r = Math.floor(r / total);
-  g = Math.floor(g / total);
-  b = Math.floor(b / total);
-
-  const lighten = (color) => Math.min(255, Math.floor(color * 1.2));
-  return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.3)`;
 };
 
 const GameDetails = ({
@@ -73,6 +88,12 @@ const GameDetails = ({
   dislikedGames,
   onLike,
   onDislike,
+  isLibraryGame = false,
+  libraryGameIds = [],
+  selectedDesignerIds = [],
+  selectedArtistIds = [],
+  selectedMechanicIds = [],
+  selectedCategoryIds = [],
 }) => {
   const [bgColor, setBgColor] = useState(DEFAULT_IMAGE_BG_COLOR);
   const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
@@ -88,6 +109,10 @@ const GameDetails = ({
   const recommendations = recommendationResponse?.data || [];
   const recommendationsAvailable =
     recommendationResponse?.headers?.['x-recommendations-available'] !== 'false';
+  const libraryGameIdSet = React.useMemo(
+    () => new Set(libraryGameIds),
+    [libraryGameIds]
+  );
   const detailImageCandidates = buildGameDetailImageCandidates({
     gameId: game?.id,
     imageUrl: game?.image,
@@ -112,6 +137,55 @@ const GameDetails = ({
     }
   };
 
+  const playerCountSummary = React.useMemo(() => {
+    const suggestedPlayers = Array.isArray(game?.suggested_players)
+      ? game.suggested_players
+      : [];
+    const best = new Set();
+    const recommended = new Set();
+
+    suggestedPlayers.forEach((entry) => {
+      const parsedCount = Number.parseInt(String(entry?.player_count), 10);
+      if (Number.isNaN(parsedCount)) {
+        return;
+      }
+
+      const level = entry?.recommendation_level;
+      if (level === 'best') {
+        best.add(parsedCount);
+        return;
+      }
+      if (level === 'recommended') {
+        recommended.add(parsedCount);
+        return;
+      }
+
+      const bestVotes = Number(entry?.best || 0);
+      const recommendedVotes = Number(entry?.recommended || 0);
+      const notRecommendedVotes = Number(entry?.not_recommended || 0);
+
+      if (bestVotes > 0 && bestVotes >= recommendedVotes && bestVotes >= notRecommendedVotes) {
+        best.add(parsedCount);
+      } else if (
+        recommendedVotes > 0 &&
+        recommendedVotes >= bestVotes &&
+        recommendedVotes >= notRecommendedVotes
+      ) {
+        recommended.add(parsedCount);
+      }
+    });
+
+    const sortedBest = [...best].sort((a, b) => a - b);
+    const sortedRecommended = [...recommended]
+      .filter((count) => !best.has(count))
+      .sort((a, b) => a - b);
+
+    return {
+      best: sortedBest,
+      recommended: sortedRecommended,
+    };
+  }, [game?.suggested_players]);
+
   if (!game) return null;
 
   const handleLikeClick = (e) => {
@@ -125,8 +199,23 @@ const GameDetails = ({
   };
 
   const handleRecommendationClick = (rec) => {
-    onClose();
     onFilter('game', rec.id, rec.name);
+  };
+
+  const isFilterSelected = (type, id) => {
+    if (type === 'designer') {
+      return selectedDesignerIds.includes(id);
+    }
+    if (type === 'artist') {
+      return selectedArtistIds.includes(id);
+    }
+    if (type === 'mechanic') {
+      return selectedMechanicIds.includes(id);
+    }
+    if (type === 'category') {
+      return selectedCategoryIds.includes(id);
+    }
+    return false;
   };
 
   const renderList = (items, label, type) => {
@@ -148,28 +237,31 @@ const GameDetails = ({
                       item.boardgamepublisher_id;
             const isClickable = type === 'designer' || type === 'artist' || 
                               type === 'mechanic' || type === 'category';
+            const isSelected = isClickable ? isFilterSelected(type, id) : false;
             
             return (
-              <Tooltip 
+              <Chip
                 key={id}
-                title={isClickable ? `Click to filter by ${name}` : name}
-                placement="top"
-              >
-                <Chip
-                  label={name}
-                  size="small"
-                  onClick={isClickable ? () => {
-                    onFilter(type, id, name);
-                    onClose();
-                  } : undefined}
-                  sx={isClickable ? {
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: 'action.hover'
+                label={name}
+                size="small"
+                color={isSelected ? 'primary' : 'default'}
+                variant={isSelected ? 'filled' : 'outlined'}
+                onClick={isClickable
+                  ? () => {
+                      onFilter(type, id, name);
                     }
-                  } : undefined}
-                />
-              </Tooltip>
+                  : undefined}
+                sx={isClickable ? {
+                  cursor: 'pointer',
+                  '&:hover': isSelected
+                    ? {
+                        backgroundColor: 'primary.dark',
+                      }
+                    : {
+                        backgroundColor: 'action.hover',
+                      },
+                } : undefined}
+              />
             );
           })}
         </Box>
@@ -216,6 +308,7 @@ const GameDetails = ({
               onClick={() => handleRecommendationClick(rec)}
               sortBy="rank"
               compact={true}
+              isLibraryGame={libraryGameIdSet.has(rec.id)}
             />
           </Grid>
         ))}
@@ -273,6 +366,30 @@ const GameDetails = ({
                     {dislikedGames.some(g => g.id === game.id) ? <ThumbDownIcon color="error" /> : <ThumbDownOutlinedIcon />}
                   </IconButton>
                 </Tooltip>
+                {isLibraryGame && (
+                  <Tooltip
+                    title={
+                      game.avg_box_volume && game.avg_box_volume <= 100
+                        ? 'Available in Library, small games section'
+                        : 'Available in Library'
+                    }
+                  >
+                    <IconButton size="small" aria-label="Available in Library">
+                      <MenuBookIcon color="primary" />
+                      {game.avg_box_volume && game.avg_box_volume <= 100 && (
+                        <EmergencyIcon
+                          sx={{
+                            position: 'absolute',
+                            top: -3,
+                            right: -3,
+                            fontSize: '1rem',
+                            color: 'primary.main',
+                          }}
+                        />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
               
               {/* Game Statistics */}
@@ -286,11 +403,23 @@ const GameDetails = ({
                 <Tooltip title="Player Count">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <PeopleIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {game.min_players === game.max_players
-                        ? `${game.min_players} players`
-                        : `${game.min_players}-${game.max_players} players`}
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {game.min_players === game.max_players
+                          ? `${game.min_players} players`
+                          : `${game.min_players}-${game.max_players} players`}
+                      </Typography>
+                      {playerCountSummary.best.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {`Best: ${playerCountSummary.best.join(', ')}`}
+                        </Typography>
+                      )}
+                      {playerCountSummary.recommended.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          {`Rec: ${playerCountSummary.recommended.join(', ')}`}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 </Tooltip>
                 

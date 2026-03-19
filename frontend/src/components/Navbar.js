@@ -24,7 +24,8 @@ import { useThemeSettings } from '../context/ThemeSettingsContext';
 function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useContext(AuthContext);
-  const { navbarTextColor, primaryColor } = useThemeSettings();
+  const { navbarTextColor, primaryColor, libraryName = '' } = useThemeSettings();
+  const libraryNamePrefix = libraryName ? `${libraryName} ` : '';
   const isGuestUser = Boolean(user?.is_guest);
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -54,7 +55,7 @@ function Navbar() {
           component="div"
           sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}
         >
-          Board Game Library & Recommendation Engine
+          {libraryNamePrefix}Board Game Library & Recommendation Engine
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -128,10 +129,12 @@ function Navbar() {
         open={helpOpen} 
         onClose={() => setHelpOpen(false)}
         onStartTour={() => setTourOpen(true)}
+        libraryName={libraryName}
       />
       <GuidedTour 
         isOpen={tourOpen} 
-        onClose={() => setTourOpen(false)} 
+        onClose={() => setTourOpen(false)}
+        libraryName={libraryName}
       />
       <SuggestionsModal 
         open={suggestionsOpen} 

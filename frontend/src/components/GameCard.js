@@ -251,8 +251,8 @@ const GameCard = memo(({
       >
         {isLibraryGame ? (
           <Tooltip title={game.avg_box_volume && game.avg_box_volume <= 100 ? 
-            "Available in Library Library, small games section" : 
-            "Available in Library Library"} 
+            "Available in Library, small games section" : 
+            "Available in Library"} 
             placement="left">
             <IconButton size="small" sx={{ mb: 2, cursor: 'default' }}>
               <MenuBookIcon color="primary" />

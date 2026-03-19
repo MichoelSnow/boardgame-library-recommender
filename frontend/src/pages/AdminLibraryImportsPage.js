@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import {
   activateLibraryImport,
+  deleteLibraryImport,
   fetchLibraryImports,
   validateLibraryImportCsv,
   uploadLibraryImportCsv,
@@ -48,6 +49,7 @@ const AdminLibraryImportsPage = () => {
   const [validating, setValidating] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [activatingId, setActivatingId] = React.useState(null);
+  const [deletingId, setDeletingId] = React.useState(null);
 
   const loadImports = React.useCallback(async () => {
     setLoading(true);
@@ -139,6 +141,28 @@ const AdminLibraryImportsPage = () => {
       setError(requestError?.response?.data?.detail || 'Activation failed.');
     } finally {
       setActivatingId(null);
+    }
+  };
+
+  const onDelete = async (item) => {
+    const confirmed = window.confirm(
+      `Delete import "${item.label}"? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(item.id);
+    setError('');
+    setSuccess('');
+    try {
+      await deleteLibraryImport(item.id);
+      setSuccess(`Deleted import "${item.label}".`);
+      await loadImports();
+    } catch (requestError) {
+      setError(requestError?.response?.data?.detail || 'Delete failed.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -270,14 +294,25 @@ const AdminLibraryImportsPage = () => {
                           Current
                         </Typography>
                       ) : (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => onActivate(item.id)}
-                          disabled={activatingId === item.id}
-                        >
-                          {activatingId === item.id ? 'Activating...' : 'Activate'}
-                        </Button>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => onActivate(item.id)}
+                            disabled={activatingId === item.id || deletingId === item.id}
+                          >
+                            {activatingId === item.id ? 'Activating...' : 'Activate'}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={() => onDelete(item)}
+                            disabled={deletingId === item.id || activatingId === item.id}
+                          >
+                            {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                          </Button>
+                        </Stack>
                       )}
                     </TableCell>
                   </TableRow>

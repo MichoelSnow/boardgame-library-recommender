@@ -1,4 +1,11 @@
-import React, { useState, useEffect, memo, useContext } from 'react';
+import React, {
+  useState,
+  useEffect,
+  memo,
+  useContext,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   Container,
   Grid,
@@ -18,6 +25,7 @@ import {
   Stack,
   Switch,
   Tooltip,
+  IconButton,
 } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
@@ -28,11 +36,16 @@ import GameDetails from './GameDetails';
 import GameCard from './GameCard';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
+import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
+import poweredByBggLogo from '../assets/powered-by-bgg.svg';
+import { useQueryClient } from '@tanstack/react-query';
 import { useConventionUiState } from '../hooks/useConventionUiState';
 import {
+  useCatalogStateQuery,
   useCategoriesQuery,
   useConventionKioskStatusQuery,
   useGameDetailsQuery,
@@ -186,13 +199,17 @@ const GameList = () => {
   const [activeFilter, setActiveFilter] = useState(null);
 
   const { user } = useContext(AuthContext);
+  const queryClient = useQueryClient();
 
   const [isLikedGamesDialogOpen, setIsLikedGamesDialogOpen] = useState(false);
   const [gameList, setGameList] = useState([]);
   const [totalGames, setTotalGames] = useState(0);
   const [isRecommendation, setIsRecommendation] = useState(false);
   const [recommendationNotice, setRecommendationNotice] = useState(null);
+  const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(false);
+  const lastCatalogStateTokenRef = useRef(null);
   const { data: kioskStatus } = useConventionKioskStatusQuery();
+  const { data: catalogState } = useCatalogStateQuery();
   const isConventionKiosk = Boolean(kioskStatus?.kiosk_mode);
   const {
     libraryOnly,
@@ -233,7 +250,6 @@ const GameList = () => {
     data: response = { games: [], total: 0 },
     isLoading,
     error,
-    isFetching,
   } = useGamesQuery({
     gamesPerPage,
     currentPage,
@@ -253,6 +269,32 @@ const GameList = () => {
     gameId: selectedGameId,
     enabled: detailsOpen,
   });
+
+  const refreshCatalogData = useCallback(
+    async ({ manual = false, includeFilters = true } = {}) => {
+      if (manual) {
+        setIsCatalogRefreshing(true);
+      }
+      const querySpecs = [
+        { queryKey: ['games'], type: 'active' },
+        { queryKey: ['library_game_ids'], type: 'active' },
+      ];
+      if (includeFilters) {
+        querySpecs.push(
+          { queryKey: ['mechanics_alphabetically'], type: 'active' },
+          { queryKey: ['categories_alphabetically'], type: 'active' }
+        );
+      }
+      try {
+        await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
+      } finally {
+        if (manual) {
+          setIsCatalogRefreshing(false);
+        }
+      }
+    },
+    [queryClient]
+  );
 
   const handleRecommend = async () => {
     try {
@@ -339,6 +381,25 @@ const GameList = () => {
     // Reset recommendation states
     resetRecommendationState();
     setRecommendationNotice(null);
+  };
+
+  const handleClearAll = () => {
+    const hasRecommendationState =
+      hasRecommendations ||
+      allRecommendations.length > 0 ||
+      likedGames.length > 0 ||
+      dislikedGames.length > 0;
+
+    if (hasRecommendationState) {
+      const confirmed = window.confirm(
+        'Clear All will also remove liked/disliked games and reset recommendations. Continue?'
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    handleResetFilters();
   };
 
   const handlePlayerCountChange = (event, newCount) => {
@@ -496,6 +557,21 @@ const GameList = () => {
   }, [response, isRecommendation]);
 
   useEffect(() => {
+    const token = catalogState?.state_token;
+    if (!token) {
+      return;
+    }
+    if (lastCatalogStateTokenRef.current === null) {
+      lastCatalogStateTokenRef.current = token;
+      return;
+    }
+    if (lastCatalogStateTokenRef.current !== token) {
+      lastCatalogStateTokenRef.current = token;
+      refreshCatalogData({ includeFilters: false });
+    }
+  }, [catalogState?.state_token, refreshCatalogData]);
+
+  useEffect(() => {
     if (showingRecommendations && hasRecommendations) {
       let newGameList = allRecommendations;
       if (libraryOnly && libraryGameIds.length > 0) {
@@ -542,6 +618,100 @@ const GameList = () => {
 
   const isCategoriesFiltered = selectedCategories.length > 0;
   const categoriesButtonLabel = isCategoriesFiltered ? selectedCategories.map(c => c.boardgamecategory_name).join(', ') : 'Categories';
+
+  const clearSortFilter = () => {
+    setSortBy('rank');
+    if (activeFilter === 'sort') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearPlayersFilter = () => {
+    setPlayerOptions({ count: null, recommendation: 'allowed' });
+    if (activeFilter === 'players') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearWeightFilter = () => {
+    setWeight({ beginner: false, midweight: false, heavy: false });
+    if (activeFilter === 'weight') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearMechanicsFilter = () => {
+    setSelectedMechanics([]);
+    if (activeFilter === 'mechanics') {
+      setActiveFilter(null);
+    }
+  };
+
+  const clearCategoriesFilter = () => {
+    setSelectedCategories([]);
+    if (activeFilter === 'categories') {
+      setActiveFilter(null);
+    }
+  };
+
+  const renderFilterButton = ({
+    label,
+    variant,
+    onToggle,
+    startIcon,
+    disabled,
+    showClear = false,
+    onClear,
+    clearAriaLabel,
+    dataTour,
+  }) => (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <Button
+        variant={variant}
+        onClick={onToggle}
+        startIcon={startIcon}
+        disabled={disabled}
+        sx={{
+          textTransform: 'none',
+          pr: showClear ? 3 : undefined,
+        }}
+        data-tour={dataTour}
+      >
+        {label}
+      </Button>
+      {showClear && onClear && (
+        <IconButton
+          aria-label={clearAriaLabel}
+          size="small"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClear();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
+          disabled={disabled}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            transform: 'translate(40%, -40%)',
+            p: 0.2,
+            zIndex: 1,
+            color: '#000000',
+            backgroundColor: '#ffffff',
+            border: (theme) => `1px solid ${theme.palette.secondary.main}`,
+            '&:hover': {
+              backgroundColor: '#ffffff',
+            },
+          }}
+        >
+          <CloseIcon sx={{ fontSize: '0.85rem' }} />
+        </IconButton>
+      )}
+    </Box>
+  );
 
   // Reset page when filters change
   useEffect(() => {
@@ -721,6 +891,21 @@ const GameList = () => {
                     <SearchIcon />
                   </InputAdornment>
                 ),
+                endAdornment: inputValue ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="Clear search"
+                      edge="end"
+                      size="small"
+                      onClick={() => {
+                        setInputValue('');
+                        setSearchTerm('');
+                      }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
               }}
             />
           </Tooltip>
@@ -733,74 +918,78 @@ const GameList = () => {
                   control={<Switch checked={!libraryOnly} onChange={(e) => {
                     const showNonLibrary = e.target.checked;
                     toggleAllBoardGames(showNonLibrary);
+                    setCurrentPage(1);
                   }} />}
                   label="All Board Games"
                   sx={{ mr: 2 }}
                   data-tour="library-toggle"
                 />
               </Tooltip>
-              <Tooltip title={isRecommendation ? "Sort is disabled in recommendation mode" : sortButtonLabel}>
-                <Button
-                  variant={isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('sort')}
-                  startIcon={<SortIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {sortButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Player filter is disabled in recommendation mode" : playerButtonLabel}>
-                <Button
-                  variant={isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('players')}
-                  startIcon={<PeopleIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                  data-tour="player-filter"
-                >
-                  {playerButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Weight filter is disabled in recommendation mode" : weightButtonLabel}>
-                <Button
-                  variant={isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('weight')}
-                  startIcon={<PsychologyAltOutlinedIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {weightButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Mechanics filter is disabled in recommendation mode" : mechanicsButtonLabel}>
-                <Button
-                  variant={isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('mechanics')}
-                  startIcon={<ConstructionIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {mechanicsButtonLabel}
-                </Button>
-              </Tooltip>
-              <Tooltip title={isRecommendation ? "Categories filter is disabled in recommendation mode" : categoriesButtonLabel}>
-                <Button
-                  variant={isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined'}
-                  onClick={() => handleToggleFilter('categories')}
-                  startIcon={<CategoryIcon />}
-                  disabled={isRecommendation}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {categoriesButtonLabel}
-                </Button>
-              </Tooltip>
+              {renderFilterButton({
+                label: sortButtonLabel,
+                variant: isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('sort'),
+                startIcon: <SortIcon />,
+                disabled: isRecommendation,
+                showClear: isSortFiltered,
+                onClear: clearSortFilter,
+                clearAriaLabel: 'Clear sort filter',
+              })}
+              {renderFilterButton({
+                label: playerButtonLabel,
+                variant: isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('players'),
+                startIcon: <PeopleIcon />,
+                disabled: isRecommendation,
+                showClear: isPlayersFiltered,
+                onClear: clearPlayersFilter,
+                clearAriaLabel: 'Clear players filter',
+                dataTour: 'player-filter',
+              })}
+              {renderFilterButton({
+                label: weightButtonLabel,
+                variant: isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('weight'),
+                startIcon: <PsychologyAltOutlinedIcon />,
+                disabled: isRecommendation,
+                showClear: isWeightFiltered,
+                onClear: clearWeightFilter,
+                clearAriaLabel: 'Clear weight filter',
+              })}
+              {renderFilterButton({
+                label: mechanicsButtonLabel,
+                variant: isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('mechanics'),
+                startIcon: <ConstructionIcon />,
+                disabled: isRecommendation,
+                showClear: isMechanicsFiltered,
+                onClear: clearMechanicsFilter,
+                clearAriaLabel: 'Clear mechanics filter',
+              })}
+              {renderFilterButton({
+                label: categoriesButtonLabel,
+                variant: isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined',
+                onToggle: () => handleToggleFilter('categories'),
+                startIcon: <CategoryIcon />,
+                disabled: isRecommendation,
+                showClear: isCategoriesFiltered,
+                onClear: clearCategoriesFilter,
+                clearAriaLabel: 'Clear categories filter',
+              })}
             </Stack>
-            <Tooltip title={isRecommendation ? "Reset filters is disabled in recommendation mode" : "Clear all active filters and search"}>
-              <Button onClick={handleResetFilters} size="small" disabled={isRecommendation}>
-                  Reset Filters
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                onClick={() => refreshCatalogData({ manual: true })}
+                startIcon={<RefreshIcon />}
+                disabled={isCatalogRefreshing || isRecommendationLoading}
+              >
+                {isCatalogRefreshing ? 'Refreshing...' : 'Refresh Catalog'}
               </Button>
-            </Tooltip>
+              <Button onClick={handleClearAll} size="small" disabled={isRecommendation}>
+                Clear All
+              </Button>
+            </Stack>
           </Stack>
           
           {/* Active Filter Panel */}
@@ -981,7 +1170,13 @@ const GameList = () => {
                     control={
                       <Switch 
                         checked={showingRecommendations} 
-                        onChange={(e) => setShowingRecommendations(e.target.checked)}
+                        onChange={(e) => {
+                          const nextChecked = e.target.checked;
+                          if (nextChecked) {
+                            setActiveFilter(null);
+                          }
+                          setShowingRecommendations(nextChecked);
+                        }}
                         data-tour="show-recommendations-toggle"
                       />
                     }
@@ -994,12 +1189,6 @@ const GameList = () => {
           </Box>
         </Stack>
 
-        {isFetching && !isRecommendation && (
-          <Box sx={{ width: '100%', mb: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
-        
         {isRecommendationLoading && (
           <Box sx={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', bgcolor: 'rgba(255,255,255,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Stack spacing={2} alignItems="center">
@@ -1032,21 +1221,60 @@ const GameList = () => {
 
         {renderGameGrid()}
 
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 4, gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {isRecommendation 
-              ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
-              : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`
-            }
-          </Typography>
-          <Pagination
-            count={Math.ceil(totalGames / gamesPerPage)}
-            page={currentPage}
-            onChange={handlePageChange}
-            color="primary"
-            showFirstButton
-            showLastButton
-          />
+        <Box sx={{ mt: 4 }}>
+          <Box
+            sx={{
+              display: { xs: 'flex', md: 'grid' },
+              flexDirection: { xs: 'column', md: 'row' },
+              gridTemplateColumns: { md: '1fr auto 1fr' },
+              alignItems: 'center',
+              gap: 2,
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 2,
+                gridColumn: { md: 2 },
+                width: { xs: '100%', md: 'auto' },
+              }}
+            >
+            <Typography variant="body2" color="text.secondary">
+              {isRecommendation
+                ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
+                : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`}
+            </Typography>
+            <Pagination
+              count={Math.ceil(totalGames / gamesPerPage)}
+              page={currentPage}
+              onChange={handlePageChange}
+              color="primary"
+              showFirstButton
+              showLastButton
+            />
+            </Box>
+            <Box
+              sx={{
+                width: { xs: '100%', md: 'auto' },
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gridColumn: { md: 3 },
+              }}
+            >
+              <a
+                className="powered-by-bgg-badge"
+                href="https://boardgamegeek.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Powered by BoardGameGeek"
+              >
+                <img src={poweredByBggLogo} alt="Powered by BGG" />
+              </a>
+            </Box>
+          </Box>
         </Box>
 
         {detailsOpen && (selectedGame || selectedGamePreview) && (
@@ -1063,6 +1291,12 @@ const GameList = () => {
             likedGames={likedGames}
             dislikedGames={dislikedGames}
             onFilter={handleFilter}
+            isLibraryGame={libraryGameIds.includes((selectedGame || selectedGamePreview).id)}
+            selectedDesignerIds={selectedDesigners.map((designer) => designer.boardgamedesigner_id)}
+            selectedArtistIds={selectedArtists.map((artist) => artist.boardgameartist_id)}
+            selectedMechanicIds={selectedMechanicIds}
+            selectedCategoryIds={selectedCategoryIds}
+            libraryGameIds={libraryGameIds}
           />
         )}
       </Container>

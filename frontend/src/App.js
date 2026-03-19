@@ -39,60 +39,62 @@ const AppContent = () => {
   const showNavbar = location.pathname !== '/login';
 
   return (
-    <>
+    <div className="app-shell">
       {showNavbar && <Navbar />}
-      <Routes>
-        <Route 
-          path="/" 
-          element={
-            <ProtectedRoute>
-              <GameList />
-            </ProtectedRoute>
-          } 
-        />
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminPanelPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/theme"
-          element={
-            <AdminRoute>
-              <AdminThemePage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <AdminRoute>
-              <AdminUsersPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/admin/library-imports"
-          element={
-            <AdminRoute>
-              <AdminLibraryImportsPage />
-            </AdminRoute>
-          }
-        />
-        <Route
-          path="/kiosk/setup"
-          element={
-            <AdminRoute>
-              <KioskSetupPage />
-            </AdminRoute>
-          }
-        />
-        <Route path="/login" element={<LoginPage />} />
-      </Routes>
-    </>
+      <main className="app-main">
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <GameList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPanelPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/theme"
+            element={
+              <AdminRoute>
+                <AdminThemePage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <AdminUsersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/library-imports"
+            element={
+              <AdminRoute>
+                <AdminLibraryImportsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/kiosk/setup"
+            element={
+              <AdminRoute>
+                <KioskSetupPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="/login" element={<LoginPage />} />
+        </Routes>
+      </main>
+    </div>
   );
 };
 

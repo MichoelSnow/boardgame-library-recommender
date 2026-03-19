@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Backdrop,
   Paper,
@@ -12,40 +12,35 @@ import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 
-const tourSteps = [
+const buildTourSteps = (libraryName = '') => {
+  const libraryNamePrefix = libraryName ? `${libraryName} ` : '';
+  return [
   {
     id: 'welcome',
-    title: 'Welcome to the Board Game Catalog!',
-    content: 'This quick tour will show you the key features. Perfect for convention guests who want to jump right in!',
+    title: `Welcome to the ${libraryNamePrefix}Board Game Catalog!`,
+    content: 'This quick tour will show you the key features. Perfect for guests who want to jump right in!',
     target: null,
     position: 'center'
   },
-  {
-    id: 'library-toggle',
-    title: 'All Board Games Toggle',
-    content: 'By default, you see only Library library games. Toggle this on to include all board games for broader recommendations.',
-    target: '[data-tour="library-toggle"]',
-    position: 'bottom'
-  },
-  {
+   {
     id: 'library-indicator',
     title: 'Library Game Indicator',
-    content: 'Look for the book icon on game cards - it shows which games are available in the Library library. Games without this icon are not at the convention.',
+    content: 'Look for the book icon on game cards - it shows which games are available in the library. Games without this icon are not in the library.',
     target: '[data-tour="game-card"]:first-child',
     position: 'top',
     highlight: '[data-tour="like-buttons"]'
-  },
+  }, 
   {
-    id: 'player-filter',
-    title: 'Player Count Filter',
-    content: 'Set this to your group size. You can also specify if that count should be "Recommended" or "Best" rather than just "Allowed".',
-    target: '[data-tour="player-filter"]',
+    id: 'library-toggle',
+    title: 'All Board Games Toggle',
+    content: `By default, you see only ${libraryNamePrefix}library games. Toggle this on to include all board games for broader recommendations.`,
+    target: '[data-tour="library-toggle"]',
     position: 'bottom'
   },
   {
     id: 'like-buttons',
     title: 'Like & Dislike Games',
-    content: 'Use the thumbs up and thumbs down buttons to indicate your preferences. Library games (with book icons) are great to like since you can actually play them!',
+    content: 'Use the thumbs up and thumbs down buttons to like/dislike games in order to generate recommendations.  You can like or dislike as many games as you want, even games not in the library',
     target: '[data-tour="game-card"]:first-child',
     position: 'top',
     highlight: '[data-tour="like-buttons"]'
@@ -55,13 +50,6 @@ const tourSteps = [
     title: 'Get Recommendations',
     content: 'After liking/disliking games, click this button to get recommendations based on your preferences.',
     target: '[data-tour="recommend-button"]',
-    position: 'top'
-  },
-  {
-    id: 'game-details',
-    title: 'Game Details',
-    content: 'Click any game card to see detailed information. You can click on mechanics, categories, and designers to filter for similar games.',
-    target: '[data-tour="game-card"]:first-child',
     position: 'top'
   },
   {
@@ -80,17 +68,33 @@ const tourSteps = [
     position: 'top'
   },
   {
+    id: 'player-filter',
+    title: 'Player Count Filter',
+    content: 'Set this to your group size. You can also specify if that count should be "Recommended" or "Best" rather than just "Allowed".',
+    target: '[data-tour="player-filter"]',
+    position: 'bottom'
+  },
+  {
+    id: 'game-details',
+    title: 'Game Details',
+    content: 'Click any game card to see detailed information. You can click on mechanics, categories, and designers to filter for similar games.',
+    target: '[data-tour="game-card"]:first-child',
+    position: 'top'
+  },
+  {
     id: 'help-button',
     title: 'Need More Help?',
     content: 'Click the help button in the top bar anytime for detailed instructions. Your preferences persist during your active session and reset when the session ends.',
     target: '[data-tour="help-button"]',
     position: 'bottom'
   }
-];
+  ];
+};
 
-const GuidedTour = ({ isOpen, onClose, currentMode = 'browse' }) => {
+const GuidedTour = ({ isOpen, onClose, currentMode = 'browse', libraryName = '' }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [highlightedElement, setHighlightedElement] = useState(null);
+  const tourSteps = useMemo(() => buildTourSteps(libraryName), [libraryName]);
 
   const isLastStep = currentStep >= tourSteps.length - 1;
   const isFirstStep = currentStep === 0;
@@ -114,7 +118,7 @@ const GuidedTour = ({ isOpen, onClose, currentMode = 'browse' }) => {
     } else {
       setHighlightedElement(null);
     }
-  }, [isOpen, currentStep]);
+  }, [isOpen, currentStep, tourSteps]);
 
   const handleNext = () => {
     if (isLastStep) {
