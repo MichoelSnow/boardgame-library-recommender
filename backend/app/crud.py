@@ -965,6 +965,7 @@ def delete_library_import(db: Session, *, import_id: int) -> bool:
     library_import = (
         db.query(models.LibraryImport)
         .filter(models.LibraryImport.id == import_id)
+        .with_for_update()
         .first()
     )
     if library_import is None:
@@ -975,7 +976,17 @@ def delete_library_import(db: Session, *, import_id: int) -> bool:
     db.query(models.LibraryImportItem).filter(
         models.LibraryImportItem.library_import_id == library_import.id
     ).delete(synchronize_session=False)
-    db.delete(library_import)
+    deleted_import_count = (
+        db.query(models.LibraryImport)
+        .filter(
+            models.LibraryImport.id == library_import.id,
+            models.LibraryImport.is_active.is_(False),
+        )
+        .delete(synchronize_session=False)
+    )
+    if deleted_import_count != 1:
+        db.rollback()
+        raise ValueError("Active library import cannot be deleted.")
     db.commit()
     return True
 

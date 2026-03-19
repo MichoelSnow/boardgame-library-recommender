@@ -41,12 +41,13 @@ const pageTwoGames = {
 };
 
 const mockUseGamesQuery = jest.fn();
+let mockCatalogStateToken = 'token-1';
 
 jest.mock('../hooks/useGameListQueries', () => ({
   useMechanicsQuery: () => ({ data: [] }),
   useCategoriesQuery: () => ({ data: [] }),
   useLibraryGameIdsQuery: () => ({ data: [1, 2, 3, 4, 5] }),
-  useCatalogStateQuery: () => ({ data: { state_token: 'token-1' } }),
+  useCatalogStateQuery: () => ({ data: { state_token: mockCatalogStateToken } }),
   useGamesQuery: (params) => mockUseGamesQuery(params),
   useGameDetailsQuery: () => ({ data: null }),
   useConventionKioskStatusQuery: () => ({ data: { convention_mode: false, kiosk_mode: false } }),
@@ -91,6 +92,7 @@ describe('GameList', () => {
     );
 
   beforeEach(() => {
+    mockCatalogStateToken = 'token-1';
     mockUseGamesQuery.mockImplementation(({ currentPage }) => ({
       data: currentPage === 2 ? pageTwoGames : pageOneGames,
       isLoading: false,
@@ -198,6 +200,53 @@ describe('GameList', () => {
     );
     expect(refetchSpy).toHaveBeenCalledWith(
       expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
+    );
+  });
+
+  test('state token change refetches games and library ids without filter lists', async () => {
+    const queryClient = createTestQueryClient();
+    const refetchSpy = jest
+      .spyOn(queryClient, 'refetchQueries')
+      .mockResolvedValue([]);
+
+    const view = renderGameList(queryClient);
+
+    await waitFor(() => {
+      expect(refetchSpy).not.toHaveBeenCalled();
+    });
+
+    mockCatalogStateToken = 'token-2';
+    view.rerender(
+      withQueryClient(
+        <MemoryRouter>
+          <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
+            <GameList />
+          </AuthContext.Provider>
+        </MemoryRouter>,
+        queryClient
+      )
+    );
+
+    await waitFor(() => {
+      expect(refetchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['games'], type: 'active' })
+      );
+      expect(refetchSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
+      );
+    });
+
+    expect(refetchSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['mechanics_alphabetically'],
+        type: 'active',
+      })
+    );
+    expect(refetchSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ['categories_alphabetically'],
+        type: 'active',
+      })
     );
   });
 });

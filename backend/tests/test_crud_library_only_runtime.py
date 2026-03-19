@@ -1,3 +1,4 @@
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -103,3 +104,62 @@ def test_get_games_library_only_total_updates_when_active_import_changes() -> No
         db, skip=0, limit=10, sort_by="rank", library_only=True
     )
     assert total_two == 2
+
+
+def test_delete_library_import_removes_inactive_import_and_items() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    models.Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    library_import = models.LibraryImport(
+        label="delete_me",
+        import_method="csv_upload",
+        is_active=False,
+    )
+    db.add(library_import)
+    db.flush()
+    db.add_all(
+        [
+            models.LibraryImportItem(library_import_id=library_import.id, bgg_id=10),
+            models.LibraryImportItem(library_import_id=library_import.id, bgg_id=11),
+        ]
+    )
+    db.commit()
+    library_import_id = library_import.id
+
+    deleted = crud.delete_library_import(db, import_id=library_import_id)
+
+    assert deleted is True
+    assert (
+        db.query(models.LibraryImport)
+        .filter(models.LibraryImport.id == library_import_id)
+        .first()
+        is None
+    )
+    assert (
+        db.query(models.LibraryImportItem)
+        .filter(models.LibraryImportItem.library_import_id == library_import_id)
+        .count()
+        == 0
+    )
+
+
+def test_delete_library_import_rejects_active_import() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    models.Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    library_import = models.LibraryImport(
+        label="active_import",
+        import_method="csv_upload",
+        is_active=True,
+    )
+    db.add(library_import)
+    db.flush()
+    db.add(models.LibraryImportItem(library_import_id=library_import.id, bgg_id=12))
+    db.commit()
+
+    with pytest.raises(ValueError, match="Active library import cannot be deleted."):
+        crud.delete_library_import(db, import_id=library_import.id)

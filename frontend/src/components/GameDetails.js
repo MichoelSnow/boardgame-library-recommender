@@ -43,15 +43,24 @@ const extractAccentColor = (img) => {
     return DEFAULT_IMAGE_BG_COLOR;
   }
   try {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx.drawImage(img, 0, 0);
+    const sourceWidth = img.naturalWidth || img.width;
+    const sourceHeight = img.naturalHeight || img.height;
+    const sampleSize = 50;
+    const sampleWidth = Math.max(1, Math.min(sampleSize, sourceWidth));
+    const sampleHeight = Math.max(1, Math.min(sampleSize, sourceHeight));
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    canvas.width = sampleWidth;
+    canvas.height = sampleHeight;
+    ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight, 0, 0, sampleWidth, sampleHeight);
+
+    const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight).data;
     let r = 0;
     let g = 0;
     let b = 0;
     const total = imageData.length / 4;
+    if (!total) {
+      return DEFAULT_IMAGE_BG_COLOR;
+    }
 
     for (let i = 0; i < imageData.length; i += 4) {
       r += imageData[i];

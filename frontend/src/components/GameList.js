@@ -271,26 +271,22 @@ const GameList = () => {
   });
 
   const refreshCatalogData = useCallback(
-    async ({ manual = false } = {}) => {
+    async ({ manual = false, includeFilters = true } = {}) => {
       if (manual) {
         setIsCatalogRefreshing(true);
       }
+      const querySpecs = [
+        { queryKey: ['games'], type: 'active' },
+        { queryKey: ['library_game_ids'], type: 'active' },
+      ];
+      if (includeFilters) {
+        querySpecs.push(
+          { queryKey: ['mechanics_alphabetically'], type: 'active' },
+          { queryKey: ['categories_alphabetically'], type: 'active' }
+        );
+      }
       try {
-        await Promise.all([
-          queryClient.refetchQueries({ queryKey: ['games'], type: 'active' }),
-          queryClient.refetchQueries({
-            queryKey: ['library_game_ids'],
-            type: 'active',
-          }),
-          queryClient.refetchQueries({
-            queryKey: ['mechanics_alphabetically'],
-            type: 'active',
-          }),
-          queryClient.refetchQueries({
-            queryKey: ['categories_alphabetically'],
-            type: 'active',
-          }),
-        ]);
+        await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
       } finally {
         if (manual) {
           setIsCatalogRefreshing(false);
@@ -571,7 +567,7 @@ const GameList = () => {
     }
     if (lastCatalogStateTokenRef.current !== token) {
       lastCatalogStateTokenRef.current = token;
-      refreshCatalogData();
+      refreshCatalogData({ includeFilters: false });
     }
   }, [catalogState?.state_token, refreshCatalogData]);
 
