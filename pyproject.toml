@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bg-lib-recommender"
-version = "0.6.0"
+version = "0.7.0"
 description = "BoardGameGeek data pipeline and recommender system"
 authors = ["MichoelSnow <michoelsnow@gmail.com>"]
 readme = "README.md"
