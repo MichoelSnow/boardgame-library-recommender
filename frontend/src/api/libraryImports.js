@@ -37,3 +37,8 @@ export const activateLibraryImport = async (importId) => {
 export const deleteLibraryImport = async (importId) => {
   await apiClient.delete(`/admin/library-imports/${importId}`);
 };
+
+export const refreshCatalog = async () => {
+  const response = await apiClient.post('/admin/library-imports/refresh-catalog');
+  return response.data;
+};

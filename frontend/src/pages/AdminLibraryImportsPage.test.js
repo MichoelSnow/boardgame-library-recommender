@@ -6,6 +6,7 @@ import {
   activateLibraryImport,
   deleteLibraryImport,
   fetchLibraryImports,
+  refreshCatalog,
   validateLibraryImportCsv,
   uploadLibraryImportCsv,
 } from '../api/libraryImports';
@@ -16,6 +17,7 @@ jest.mock('../api/libraryImports', () => ({
   uploadLibraryImportCsv: jest.fn(),
   activateLibraryImport: jest.fn(),
   deleteLibraryImport: jest.fn(),
+  refreshCatalog: jest.fn(),
 }));
 
 describe('AdminLibraryImportsPage', () => {
@@ -25,6 +27,7 @@ describe('AdminLibraryImportsPage', () => {
     uploadLibraryImportCsv.mockReset();
     activateLibraryImport.mockReset();
     deleteLibraryImport.mockReset();
+    refreshCatalog.mockReset();
   });
 
   test('renders import rows and allows activation', async () => {
@@ -149,5 +152,23 @@ describe('AdminLibraryImportsPage', () => {
         allowUnknownIds: false,
       })
     );
+  });
+
+  test('requests catalog refresh from admin page', async () => {
+    fetchLibraryImports.mockResolvedValue([]);
+    refreshCatalog.mockResolvedValue({ message: 'Catalog refresh requested.' });
+
+    render(
+      <MemoryRouter>
+        <AdminLibraryImportsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(fetchLibraryImports).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh Catalog' }));
+
+    await waitFor(() => expect(refreshCatalog).toHaveBeenCalled());
+    expect(screen.getByText('Catalog refresh requested.')).toBeInTheDocument();
   });
 });

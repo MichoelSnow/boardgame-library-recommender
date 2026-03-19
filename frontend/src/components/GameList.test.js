@@ -182,27 +182,6 @@ describe('GameList', () => {
     confirmSpy.mockRestore();
   });
 
-  test('manual refresh button triggers active catalog query refetch', async () => {
-    const queryClient = createTestQueryClient();
-    const refetchSpy = jest
-      .spyOn(queryClient, 'refetchQueries')
-      .mockResolvedValue([]);
-
-    renderGameList(queryClient);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh Catalog' }));
-
-    await waitFor(() => {
-      expect(refetchSpy).toHaveBeenCalled();
-    });
-    expect(refetchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['games'], type: 'active' })
-    );
-    expect(refetchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
-    );
-  });
-
   test('state token change refetches games and library ids without filter lists', async () => {
     const queryClient = createTestQueryClient();
     const refetchSpy = jest

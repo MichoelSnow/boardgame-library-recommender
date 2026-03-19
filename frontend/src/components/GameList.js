@@ -38,7 +38,6 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import CategoryIcon from '@mui/icons-material/Category';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import LikedGamesDialog from './LikedGamesDialog';
 import AuthContext from '../context/AuthContext';
 import poweredByBggLogo from '../assets/powered-by-bgg.svg';
@@ -206,7 +205,6 @@ const GameList = () => {
   const [totalGames, setTotalGames] = useState(0);
   const [isRecommendation, setIsRecommendation] = useState(false);
   const [recommendationNotice, setRecommendationNotice] = useState(null);
-  const [isCatalogRefreshing, setIsCatalogRefreshing] = useState(false);
   const lastCatalogStateTokenRef = useRef(null);
   const { data: kioskStatus } = useConventionKioskStatusQuery();
   const { data: catalogState } = useCatalogStateQuery();
@@ -271,10 +269,7 @@ const GameList = () => {
   });
 
   const refreshCatalogData = useCallback(
-    async ({ manual = false, includeFilters = true } = {}) => {
-      if (manual) {
-        setIsCatalogRefreshing(true);
-      }
+    async ({ includeFilters = true } = {}) => {
       const querySpecs = [
         { queryKey: ['games'], type: 'active' },
         { queryKey: ['library_game_ids'], type: 'active' },
@@ -285,13 +280,7 @@ const GameList = () => {
           { queryKey: ['categories_alphabetically'], type: 'active' }
         );
       }
-      try {
-        await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
-      } finally {
-        if (manual) {
-          setIsCatalogRefreshing(false);
-        }
-      }
+      await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
     },
     [queryClient]
   );
@@ -978,15 +967,7 @@ const GameList = () => {
               })}
             </Stack>
             <Stack direction="row" spacing={1}>
-              <Button
-                size="small"
-                onClick={() => refreshCatalogData({ manual: true })}
-                startIcon={<RefreshIcon />}
-                disabled={isCatalogRefreshing || isRecommendationLoading}
-              >
-                {isCatalogRefreshing ? 'Refreshing...' : 'Refresh Catalog'}
-              </Button>
-              <Button onClick={handleClearAll} size="small" disabled={isRecommendation}>
+              <Button onClick={handleClearAll} size="small">
                 Clear All
               </Button>
             </Stack>

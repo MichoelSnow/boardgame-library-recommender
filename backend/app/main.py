@@ -59,7 +59,7 @@ from .image_processing import build_thumbnail_relative_path, write_webp_thumbnai
 import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 import os
 from tenacity import (
     retry,
@@ -151,6 +151,7 @@ RATE_LIMIT_WINDOW_SECONDS = 60
 THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
 LIBRARY_NAME_SETTING_KEY = "library_name"
 DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
+CATALOG_REFRESH_TRIGGERED_AT_SETTING_KEY = "catalog_refresh_triggered_at"
 
 
 class InMemoryRateLimiter:
@@ -1812,6 +1813,20 @@ def delete_admin_library_import(
         raise HTTPException(status_code=404, detail="Library import not found")
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.post("/api/admin/library-imports/refresh-catalog")
+def refresh_admin_library_catalog(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(security.get_current_active_user),
+):
+    _require_admin(current_user)
+    crud.upsert_app_setting(
+        db,
+        key=CATALOG_REFRESH_TRIGGERED_AT_SETTING_KEY,
+        value=datetime.utcnow().isoformat(),
+    )
+    return {"message": "Catalog refresh requested."}
 
 
 @app.get("/api/theme", response_model=schemas.ThemeSettingsResponse)

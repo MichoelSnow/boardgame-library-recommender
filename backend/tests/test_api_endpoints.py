@@ -404,6 +404,11 @@ async def test_admin_library_import_endpoints_require_admin(api_client):
     delete_response = await api_client.delete("/api/admin/library-imports/1")
     assert delete_response.status_code == 401
 
+    refresh_catalog = await api_client.post(
+        "/api/admin/library-imports/refresh-catalog"
+    )
+    assert refresh_catalog.status_code == 401
+
 
 @pytest.mark.anyio
 async def test_admin_library_import_upload_and_activate(monkeypatch, api_client):
@@ -493,6 +498,29 @@ async def test_admin_library_import_upload_and_activate(monkeypatch, api_client)
     activated = await api_client.post("/api/admin/library-imports/99/activate")
     assert activated.status_code == 200
     assert activated.json()["is_active"] is True
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_admin_library_import_refresh_catalog(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    captured = {}
+
+    def _mock_upsert_app_setting(db, key, value):
+        captured["key"] = key
+        captured["value"] = value
+        return SimpleNamespace(key=key, value=value)
+
+    monkeypatch.setattr(main.crud, "upsert_app_setting", _mock_upsert_app_setting)
+
+    response = await api_client.post("/api/admin/library-imports/refresh-catalog")
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Catalog refresh requested."
+    assert captured["key"] == "catalog_refresh_triggered_at"
+    assert captured["value"]
     main.app.dependency_overrides.clear()
 
 
