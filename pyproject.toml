@@ -40,7 +40,7 @@ starlette = "^0.49.1"
 
 
 [tool.poetry.group.dev.dependencies]
-notebook = "==6.*"
+notebook = "==7.*"
 jupyter-contrib-nbextensions = "^0.7.0"
 jupyter-nbextensions-configurator = "0.6.3"
 rapidfuzz = "^3.13.0"
