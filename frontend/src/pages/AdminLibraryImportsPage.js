@@ -20,6 +20,7 @@ import {
   activateLibraryImport,
   deleteLibraryImport,
   fetchLibraryImports,
+  refreshCatalog,
   validateLibraryImportCsv,
   uploadLibraryImportCsv,
 } from '../api/libraryImports';
@@ -50,6 +51,7 @@ const AdminLibraryImportsPage = () => {
   const [submitting, setSubmitting] = React.useState(false);
   const [activatingId, setActivatingId] = React.useState(null);
   const [deletingId, setDeletingId] = React.useState(null);
+  const [refreshingCatalog, setRefreshingCatalog] = React.useState(false);
 
   const loadImports = React.useCallback(async () => {
     setLoading(true);
@@ -166,6 +168,20 @@ const AdminLibraryImportsPage = () => {
     }
   };
 
+  const onRefreshCatalog = async () => {
+    setRefreshingCatalog(true);
+    setError('');
+    setSuccess('');
+    try {
+      const payload = await refreshCatalog();
+      setSuccess(payload?.message || 'Catalog refresh requested.');
+    } catch (requestError) {
+      setError(requestError?.response?.data?.detail || 'Catalog refresh request failed.');
+    } finally {
+      setRefreshingCatalog(false);
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 1265, mx: 'auto', mt: 4, px: 2.5 }}>
       <Card>
@@ -177,6 +193,15 @@ const AdminLibraryImportsPage = () => {
             <Typography variant="body2" color="text.secondary">
               Upload validated Library BGG ID CSV files, label each import, and switch the active library version.
             </Typography>
+            <Box>
+              <Button
+                variant="outlined"
+                onClick={onRefreshCatalog}
+                disabled={refreshingCatalog}
+              >
+                {refreshingCatalog ? 'Requesting...' : 'Refresh Catalog'}
+              </Button>
+            </Box>
 
             {error && <Alert severity="error">{error}</Alert>}
             {success && <Alert severity="success">{success}</Alert>}
