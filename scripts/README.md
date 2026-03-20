@@ -46,6 +46,14 @@ scripts/deploy/fly_stack.sh prod down
 scripts/deploy/fly_stack.sh prod status
 ```
 
+### 2a) Deploy/Run Dedicated Ingest Worker
+```bash
+scripts/deploy/fly_ingest_deploy.sh
+scripts/deploy/fly_ingest_set_secrets.sh
+scripts/deploy/fly_ingest_start.sh
+scripts/deploy/fly_ingest_status.sh
+```
+
 ### 3) Validate Dev Deploy
 ```bash
 poetry run python scripts/validate/validate_dev_deploy.py

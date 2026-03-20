@@ -19,12 +19,14 @@ import pandas as pd
 import logging
 import math
 import json
+import os
 from time import sleep, time
 from pathlib import Path
 import argparse
 import bs4
 import csv
 import duckdb
+from dotenv import load_dotenv
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -45,6 +47,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BATCH_REQUEST_TIMEOUT_SECONDS = 20
+BGG_TOKEN_ENV_VAR = "BGG_TOKEN"
+
+
+def _get_bgg_token() -> str:
+    token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
+    if token:
+        return token
+
+    repo_root_dotenv = Path(__file__).resolve().parents[3] / ".env"
+    if repo_root_dotenv.exists():
+        load_dotenv(dotenv_path=repo_root_dotenv, override=False)
+        token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
+        if token:
+            return token
+
+    return ""
+
+
+def _build_bgg_auth_headers() -> dict[str, str]:
+    token = _get_bgg_token()
+    if not token:
+        raise ValueError(
+            f"Missing required {BGG_TOKEN_ENV_VAR} environment variable for BGG API auth."
+        )
+    return {"Authorization": f"Bearer {token}"}
 
 
 @retry(
@@ -54,7 +81,11 @@ BATCH_REQUEST_TIMEOUT_SECONDS = 20
     reraise=True,
 )
 def _http_get_bgg_xml(url: str) -> requests.Response:
-    response = requests.get(url, timeout=BATCH_REQUEST_TIMEOUT_SECONDS)
+    response = requests.get(
+        url,
+        headers=_build_bgg_auth_headers(),
+        timeout=BATCH_REQUEST_TIMEOUT_SECONDS,
+    )
     response.raise_for_status()
     return response
 
@@ -163,14 +194,14 @@ def _run_game_data_ingest(
             ]
             batch_id_strings = [str(game_id) for game_id in batch_ids]
             bg_info_url = (
-                "https://www.boardgamegeek.com/xmlapi2/thing"
+                "https://boardgamegeek.com/xmlapi2/thing"
                 "?type=boardgame,boardgameexpansion&stats=1"
                 "&versions=1&ratingcomments=1&pagesize=100&page=1"
                 f"&id={','.join(batch_id_strings)}"
             )
             if simple_mode:
                 bg_info_url = (
-                    "https://www.boardgamegeek.com/xmlapi2/thing"
+                    "https://boardgamegeek.com/xmlapi2/thing"
                     "?type=boardgame,boardgameexpansion&stats=1"
                     "&ratingcomments=1&pagesize=10&page=1"
                     f"&id={','.join(batch_id_strings)}"

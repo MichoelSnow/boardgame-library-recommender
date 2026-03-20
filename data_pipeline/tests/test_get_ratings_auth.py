@@ -1,0 +1,73 @@
+import pytest
+
+from data_pipeline.src.ingest.get_ratings import _http_get_bgg_xml
+
+
+def test_http_get_bgg_xml_includes_bearer_token(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Response:
+        content = b"<items></items>"
+
+        def raise_for_status(self):
+            return None
+
+    def _fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.setenv("BGG_TOKEN", "ratings-token")
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.requests.get",
+        _fake_get,
+    )
+
+    _http_get_bgg_xml("https://www.boardgamegeek.com/xmlapi2/thing?id=1")
+
+    assert captured["headers"] == {"Authorization": "Bearer ratings-token"}
+
+
+def test_http_get_bgg_xml_reads_token_from_repo_root_dotenv(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Response:
+        content = b"<items></items>"
+
+        def raise_for_status(self):
+            return None
+
+    def _fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.delenv("BGG_TOKEN", raising=False)
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.Path.exists",
+        lambda _self: True,
+    )
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.load_dotenv",
+        lambda *args, **kwargs: monkeypatch.setenv("BGG_TOKEN", "dotenv-token"),
+    )
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.requests.get",
+        _fake_get,
+    )
+
+    _http_get_bgg_xml("https://www.boardgamegeek.com/xmlapi2/thing?id=1")
+
+    assert captured["headers"] == {"Authorization": "Bearer dotenv-token"}
+
+
+def test_http_get_bgg_xml_raises_when_bgg_token_missing(monkeypatch):
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings._get_bgg_token",
+        lambda: "",
+    )
+
+    with pytest.raises(ValueError, match="Missing required BGG_TOKEN"):
+        _http_get_bgg_xml("https://www.boardgamegeek.com/xmlapi2/thing?id=1")

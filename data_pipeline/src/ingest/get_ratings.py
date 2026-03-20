@@ -19,12 +19,20 @@ import pandas as pd
 import logging
 import math
 import json
+import os
 from time import sleep, time
 from pathlib import Path
 import argparse
 import bs4
 import duckdb
 import csv
+from dotenv import load_dotenv
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -38,6 +46,49 @@ logging.basicConfig(
     handlers=build_log_handlers("get_ratings.log"),
 )
 logger = logging.getLogger(__name__)
+
+BATCH_REQUEST_TIMEOUT_SECONDS = 20
+BGG_TOKEN_ENV_VAR = "BGG_TOKEN"
+
+
+def _get_bgg_token() -> str:
+    token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
+    if token:
+        return token
+
+    repo_root_dotenv = Path(__file__).resolve().parents[3] / ".env"
+    if repo_root_dotenv.exists():
+        load_dotenv(dotenv_path=repo_root_dotenv, override=False)
+        token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
+        if token:
+            return token
+
+    return ""
+
+
+def _build_bgg_auth_headers() -> dict[str, str]:
+    token = _get_bgg_token()
+    if not token:
+        raise ValueError(
+            f"Missing required {BGG_TOKEN_ENV_VAR} environment variable for BGG API auth."
+        )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@retry(
+    retry=retry_if_exception_type(requests.RequestException),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    reraise=True,
+)
+def _http_get_bgg_xml(url: str) -> requests.Response:
+    response = requests.get(
+        url,
+        headers=_build_bgg_auth_headers(),
+        timeout=BATCH_REQUEST_TIMEOUT_SECONDS,
+    )
+    response.raise_for_status()
+    return response
 
 
 def load_game_data_from_duckdb(duckdb_path: Path) -> pd.DataFrame:
@@ -87,6 +138,7 @@ def save_game_data_to_duckdb(boardgame_data: pd.DataFrame, save_path: Path) -> N
 def get_boardgame_ratings(
     boardgame_data: pd.DataFrame,
     boardgame_ratings: pd.DataFrame = None,
+    ratings_store_path: Path | None = None,
     batch_saves: bool = False,
     batch_size: int = 20,
     log_level: str = "INFO",
@@ -100,6 +152,7 @@ def get_boardgame_ratings(
     Args:
         boardgame_data (pd.DataFrame): DataFrame from get_boardgame_data()
         boardgame_ratings (pd.DataFrame, optional): Existing ratings data to update
+        ratings_store_path (Path, optional): Ratings DuckDB file path to write/update
         batch_saves (bool): Whether to save data after each batch
         batch_size (int): Number of games to process in each batch. BGG API has a limit of 20 IDs per request.
         log_level (str): Logging level for this function
@@ -113,18 +166,18 @@ def get_boardgame_ratings(
     current_level = logger.level
     logger.setLevel(getattr(logging, log_level.upper()))
 
-    query_time = int(time())
     project_root = Path(__file__).resolve().parents[3]
     ratings_dir = project_root / "data" / "ingest" / "ratings"
-    ratings_state_dir = project_root / "data" / "ingest" / "ratings_state"
     game_data_dir = project_root / "data" / "ingest" / "game_data"
     ratings_dir.mkdir(parents=True, exist_ok=True)
-    ratings_state_dir.mkdir(parents=True, exist_ok=True)
     game_data_dir.mkdir(parents=True, exist_ok=True)
-    save_path = ratings_dir / f"boardgame_ratings_{query_time}.parquet"
 
     # Initialize DuckDB persistent store for ratings
-    duckdb_path = ratings_state_dir / "ratings.duckdb"
+    if ratings_store_path is None:
+        query_time = int(time())
+        ratings_store_path = ratings_dir / f"boardgame_ratings_{query_time}.duckdb"
+    duckdb_path = ratings_store_path
+    logger.info("Using ratings DuckDB store: %s", duckdb_path)
     con = duckdb.connect(str(duckdb_path))
     con.execute(
         """
@@ -237,7 +290,6 @@ def get_boardgame_ratings(
                     ratings_count_dict=ratings_count_dict,
                     start_page=start_page,
                     batch_saves=batch_saves,
-                    save_path=save_path,
                     duckdb_conn=con,
                 )
                 logger.info(f"Successfully completed fetching ratings for {row['id']}")
@@ -264,12 +316,16 @@ def get_boardgame_ratings(
                 batch_ids = [str(x) for x in batch_ids]
                 logger.debug(f"Processing boardgame IDs for numratings: {batch_ids}")
 
-                bg_info_url = f"https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&id={','.join(batch_ids)}"
-                bgg_response = requests.get(bg_info_url)
+                bg_info_url = f"https://boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&id={','.join(batch_ids)}"
+                bgg_response = _http_get_bgg_xml(bg_info_url)
                 soup_xml = BeautifulSoup(bgg_response.content, "xml")
                 games_xml_list = soup_xml.find_all(
                     "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
                 )
+                if len(games_xml_list) == 0:
+                    raise RuntimeError(
+                        f"BGG API returned zero items for batch URL: {bg_info_url}"
+                    )
 
                 for game_xml in games_xml_list:
                     game_id = int(game_xml["id"])
@@ -320,19 +376,13 @@ def get_boardgame_ratings(
             max_ratings_page=max_ratings_page,
             ratings_count_dict=ratings_count_dict,
             batch_saves=batch_saves,
-            save_path=save_path,
             duckdb_conn=con,
         )
 
-        # Ratings are persisted to DuckDB incrementally; skip interim Parquet writes
-
     if len(boardgame_ids) > 0:
         logger.info(
-            "Successfully completed fetching all ratings. Exporting snapshot to Parquet..."
+            "Successfully completed fetching all ratings to DuckDB state store."
         )
-        df_ratings_wide = build_wide_ratings_df_from_duckdb(con)
-        df_ratings_wide.to_parquet(save_path)
-        logger.info(f"Saved final data to {save_path}")
     else:
         logger.warning("No ratings were fetched")
 
@@ -347,7 +397,6 @@ def iterate_through_ratings_pages(
     ratings_count_dict: dict,
     start_page: int = 1,
     batch_saves: bool = False,
-    save_path: str = None,
     duckdb_conn: duckdb.DuckDBPyConnection = None,
 ):
     """
@@ -358,8 +407,7 @@ def iterate_through_ratings_pages(
         max_ratings_page (int): Maximum number of rating pages to process. Derived from the number of ratings for each game.
         ratings_count_dict (dict): Dictionary mapping game IDs to number of ratings
         start_page (int): Page number to start processing from
-        batch_saves (bool): Whether to save data periodically
-        save_path (str): Path to save data to
+        batch_saves (bool): Retained for API compatibility; DuckDB writes are incremental.
 
     Returns:
         dict: Updated dictionary containing rating data
@@ -371,10 +419,14 @@ def iterate_through_ratings_pages(
             for x in ratings_count_dict.keys()
             if math.ceil(ratings_count_dict[x] / 100) >= page_num
         ]
-        bg_rating_url = f"https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&pagesize=100&page={page_num}&id={','.join(batch_ids_ratings)}"
-        bgg_rating_response = requests.get(bg_rating_url)
+        bg_rating_url = f"https://boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&pagesize=100&page={page_num}&id={','.join(batch_ids_ratings)}"
+        bgg_rating_response = _http_get_bgg_xml(bg_rating_url)
         soup_rating_xml = BeautifulSoup(bgg_rating_response.content, "xml")
         ratings_xml_list = soup_rating_xml.find_all("item", attrs={"type": "boardgame"})
+        if len(ratings_xml_list) == 0:
+            raise RuntimeError(
+                f"BGG API returned zero rating items for page URL: {bg_rating_url}"
+            )
 
         rows_for_page = []
         for game_xml in ratings_xml_list:
@@ -437,7 +489,7 @@ def parse_ratings_to_dict(game_xml: bs4.element.Tag) -> dict:
 def build_wide_ratings_df_from_duckdb(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """
     Build the wide ratings DataFrame (id + rating bucket columns of username lists)
-    from the persistent DuckDB table to match prior Parquet format.
+    from the persistent DuckDB table.
     """
     df_long = con.execute(
         """
@@ -504,7 +556,7 @@ def main():
         ranks_dir = project_root / "data" / "ingest" / "ranks"
         game_data_dir = project_root / "data" / "ingest" / "game_data"
         ratings_dir = project_root / "data" / "ingest" / "ratings"
-        ratings_state_dir = project_root / "data" / "ingest" / "ratings_state"
+        ratings_dir.mkdir(parents=True, exist_ok=True)
         game_ranks_files = list(ranks_dir.glob("boardgame_ranks_*.csv"))
         if not game_ranks_files:
             raise FileNotFoundError("No game ranks files found")
@@ -519,9 +571,8 @@ def main():
         )
         non_expansion_ids = df_ranks.loc[df_ranks["is_expansion"] == 0, "id"].tolist()
 
-        # Get the most recent game data file (DuckDB preferred, Parquet fallback).
+        # Get the most recent game data file (DuckDB only).
         game_files = list(game_data_dir.glob("boardgame_data_*.duckdb"))
-        game_files.extend(game_data_dir.glob("boardgame_data_*.parquet"))
         if not game_files:
             raise FileNotFoundError("No game data files found")
 
@@ -529,35 +580,37 @@ def main():
         logger.info(f"Using game data file: {latest_games}")
 
         # Read game data
-        if latest_games.suffix == ".duckdb":
-            df_games = load_game_data_from_duckdb(latest_games)
-        else:
-            df_games = pd.read_parquet(latest_games)
+        df_games = load_game_data_from_duckdb(latest_games)
         df_games = df_games.loc[df_games["id"].isin(non_expansion_ids)]
 
-        # Get existing ratings if continuing (prefer DuckDB snapshot if present)
+        # Get existing ratings if continuing (DuckDB only)
         existing_ratings = None
+        ratings_store_path = ratings_dir / f"boardgame_ratings_{int(time())}.duckdb"
         if args.continue_from_last:
-            duckdb_path = ratings_state_dir / "ratings.duckdb"
-            if duckdb_path.exists():
-                logger.info(f"Continuing from DuckDB ratings at: {duckdb_path}")
-                con = duckdb.connect(str(duckdb_path))
+            ratings_files = list(ratings_dir.glob("boardgame_ratings_*.duckdb"))
+            if ratings_files:
+                latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
+                ratings_store_path = latest_ratings
+                logger.info("Continuing from DuckDB ratings at: %s", latest_ratings)
+                con = duckdb.connect(str(latest_ratings))
                 try:
                     existing_ratings = build_wide_ratings_df_from_duckdb(con)
                 finally:
                     con.close()
-                logger.info(f"Pulled ratings from DuckDB ratings at: {duckdb_path}")
+                logger.info("Pulled ratings from DuckDB ratings at: %s", latest_ratings)
             else:
-                ratings_files = list(ratings_dir.glob("boardgame_ratings_*.parquet"))
-                if ratings_files:
-                    latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
-                    logger.info(f"Continuing from ratings file: {latest_ratings}")
-                    existing_ratings = pd.read_parquet(latest_ratings)
+                logger.info(
+                    "No prior ratings DuckDB file found; starting fresh at %s",
+                    ratings_store_path,
+                )
+        else:
+            logger.info("Starting fresh ratings DuckDB at: %s", ratings_store_path)
 
         # Get ratings
         get_boardgame_ratings(
             boardgame_data=df_games,
             boardgame_ratings=existing_ratings,
+            ratings_store_path=ratings_store_path,
             batch_saves=True,
             update_numratings=args.update_numratings,
             keep_partial_ratings=args.keep_partial_ratings,

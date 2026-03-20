@@ -64,6 +64,11 @@ Behavior:
 - Writes `boardgame_data_<timestamp>.duckdb` under `data/ingest/game_data/`.
 - Resume mode (`--continue-from-last`) reuses the latest DuckDB store and skips completed game IDs.
 
+Required input:
+- `BGG_TOKEN` token, sent as `Authorization: Bearer <token>`.
+  - The script first checks process env.
+  - If missing, it auto-loads repo-root `.env` and retries.
+
 Resume mode:
 
 ```bash
@@ -79,11 +84,14 @@ poetry run python -m data_pipeline.src.ingest.get_ratings
 Behavior:
 - Crawls ratings pages for games with sufficient ratings.
 - Persists raw ratings incrementally to DuckDB during crawling.
-- Exports a Parquet snapshot for downstream processing when complete.
+
+Required input:
+- `BGG_TOKEN` token, sent as `Authorization: Bearer <token>`.
+  - The script first checks process env.
+  - If missing, it auto-loads repo-root `.env` and retries.
 
 Artifacts:
-- DuckDB store: `data/ingest/ratings_state/ratings.duckdb`
-- Snapshot: `data/ingest/ratings/boardgame_ratings_<timestamp>.parquet`
+- DuckDB store(s): `data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb`
 
 Resume mode:
 
@@ -95,13 +103,12 @@ poetry run python -m data_pipeline.src.ingest.get_ratings --continue-from-last
 
 The ratings crawler uses DuckDB as a persistent crawl-time store.
 
-- Location: `data/ingest/ratings_state/ratings.duckdb`
+- Location pattern: `data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb`
 - Table: `boardgame_ratings(game_id BIGINT, rating_round DOUBLE, username TEXT)`
 - Index: `idx_boardgame_ratings` on `(game_id, rating_round, username)`
 
 Notes:
 - Inserts are de-duplicated during crawl.
-- Final Parquet snapshot preserves downstream pipeline compatibility.
 - Resume mode prefers the DuckDB-backed state when present.
 
 ### 4) Process and Normalize Data
@@ -124,6 +131,120 @@ poetry run python -m data_pipeline.src.features.create_embeddings
 Behavior:
 - Builds sparse recommendation artifacts from ratings data.
 - Writes embedding + mapping outputs used by the backend recommendation engine.
+
+## Running Ingest on Fly (`bg-lib-ingest`)
+
+Use the dedicated ingest app instead of request-serving app machines.
+
+Files:
+- Fly config: `fly.ingest.toml`
+- Image build: `Dockerfile.ingest`
+- Orchestrator: `scripts/data_pipeline/run_ingest_pipeline.py`
+- Deploy/start/status helpers:
+  - `scripts/deploy/fly_ingest_deploy.sh`
+  - `scripts/deploy/fly_ingest_start.sh`
+  - `scripts/deploy/fly_ingest_status.sh`
+
+Machine profile:
+- `shared-cpu-4x`
+- `2GB` RAM
+- volume mounted at `/app/data`
+
+Run flow:
+1. Create ingest app (one-time):
+```bash
+fly apps create "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+2. Create ingest volume (one-time):
+```bash
+fly volumes create bg_lib_ingest_data \
+  --app "${FLY_APP_NAME_INGEST:-bg-lib-ingest}" \
+  --region iad \
+  --size 4 \
+  --yes
+```
+3. Deploy ingest app image (the deploy script will stop the machine after deploy):
+```bash
+scripts/deploy/fly_ingest_deploy.sh
+```
+4. Populate `.env` (Brevo + ingest):
+```bash
+FLY_APP_NAME_INGEST=bg-lib-ingest
+BGG_TOKEN=<your_bgg_token>
+BGG_RANKS_ZIP_URL=<signed_bgg_ranks_zip_url>
+INGEST_NOTIFY_EMAIL_TO=<your_email>
+INGEST_NOTIFY_EMAIL_FROM=<verified_sender>
+BREVO_SMTP_LOGIN=<brevo_smtp_login_or_username>
+BREVO_SMTP_KEY=<brevo_smtp_key>
+# optional overrides:
+# INGEST_NOTIFY_SMTP_HOST=smtp-relay.brevo.com
+# INGEST_NOTIFY_SMTP_PORT=587
+# INGEST_NOTIFY_SMTP_STARTTLS=true
+```
+5. Sync secrets from `.env` to Fly:
+```bash
+scripts/deploy/fly_ingest_set_secrets.sh
+```
+6. Start run manually (this is what actually starts ingestion):
+```bash
+scripts/deploy/fly_ingest_start.sh
+```
+7. Check status:
+```bash
+scripts/deploy/fly_ingest_status.sh
+```
+8. Optional: tail logs in real time:
+```bash
+# Ingest machine orchestrator + stage logs
+fly logs -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+
+# Current run-state snapshot
+fly ssh console -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}" -C "cat /app/data/ingest/run_state.json"
+```
+9. List available remote ingest artifacts:
+```bash
+scripts/deploy/fly_ingest_list_artifacts.sh
+```
+10. Download large ingest artifacts back to local (resumable + checksum verified):
+```bash
+# Example: ranks CSV (downloads to data/ingest/ranks by default)
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv
+
+# Example: game-data DuckDB
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/game_data/boardgame_data_<timestamp>.duckdb \
+  --chunk-mb 256
+
+# Example: ratings DuckDB
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb \
+  --chunk-mb 256
+```
+
+Notes:
+- The orchestrator runs stages in order: `get_ranks` -> `get_game_data` -> `get_ratings`.
+- `get_game_data` and `get_ratings` always run with `--continue-from-last`.
+- On repeated stage failure (max attempts), a failure notification is sent (if configured), stage attempts are reset to `0`, and the run exits.
+- On completion, a completion notification is sent (if configured).
+- The machine exits when pipeline exits; with restart policy `no`, it stays stopped until manually started again.
+- Logs are written in real time to:
+  - orchestrator: `/app/data/logs/ingest/run_ingest_pipeline_<timestamp>.log`
+  - stage scripts: `/app/data/logs/ingest/stages/get_ranks.log`, `/app/data/logs/ingest/stages/get_game_data.log`, `/app/data/logs/ingest/stages/get_ratings.log`
+- Download helper behavior for large files:
+  - if `--output-dir` is omitted, default local destinations are:
+    - ranks -> `data/ingest/ranks`
+    - game data -> `data/ingest/game_data`
+    - ratings -> `data/ingest/ratings`
+  - stores chunk cache in selected destination as `.<filename>.parts/`
+  - rerun with same args to resume from prior completed chunks
+  - computes remote and local SHA-256 and only finalizes output on exact match
+  - removes `.parts` after successful verified download (use `--keep-parts` to retain)
+- Maintenance mode for manual SSH/debug:
+  - set secret `INGEST_MAINTENANCE_MODE=true`
+  - start machine
+  - SSH/run manual commands
+  - unset `INGEST_MAINTENANCE_MODE` before normal ingest runs
 
 ## Importing Data to Backend
 

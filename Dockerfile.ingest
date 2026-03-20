@@ -1,0 +1,28 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc curl sqlite3 && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml poetry.lock ./
+
+RUN pip install --no-cache-dir "poetry==2.3.2" && \
+    poetry config virtualenvs.create false && \
+    poetry install --without dev --no-root && \
+    rm -rf /root/.cache/pip
+
+COPY data_pipeline/ /app/data_pipeline/
+COPY scripts/ /app/scripts/
+
+ENV PYTHONPATH=/app
+ENV APP_GIT_SHA=${GIT_SHA}
+ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
+ENV INGEST_RUN_STATE_PATH=/app/data/ingest/run_state.json
+ENV INGEST_MAX_STAGE_ATTEMPTS=3
+ENV INGEST_RETRY_DELAY_SECONDS=30
+ENV INGEST_LOG_LEVEL=INFO
+
+CMD ["poetry", "run", "python", "scripts/data_pipeline/run_ingest_pipeline.py"]

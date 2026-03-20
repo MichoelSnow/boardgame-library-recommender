@@ -1,0 +1,33 @@
+# fly.ingest.toml app configuration file for bg-lib-ingest
+
+app = "bg-lib-ingest"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile.ingest"
+
+[env]
+  INGEST_RUN_STATE_PATH = "/app/data/ingest/run_state.json"
+  INGEST_LOG_DIR = "/app/data/logs/ingest"
+  DATA_PIPELINE_LOG_DIR = "/app/data/logs/ingest/stages"
+  INGEST_MAX_STAGE_ATTEMPTS = "3"
+  INGEST_RETRY_DELAY_SECONDS = "30"
+  INGEST_LOG_LEVEL = "INFO"
+
+[[vm]]
+  size = "shared-cpu-4x"
+  memory = 4096
+
+[mounts]
+  source = "bg_lib_ingest_data"
+  destination = "/app/data"
+  initial_size = "4GB"
+  auto_extend_size_threshold = 80
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "50GB"
+
+[[restart]]
+  policy = "never"
+
+[processes]
+  app = "poetry run python scripts/data_pipeline/run_ingest_pipeline.py"

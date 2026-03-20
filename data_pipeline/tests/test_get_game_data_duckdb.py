@@ -6,6 +6,7 @@ from data_pipeline.src.ingest.get_game_data import (
     _initialize_game_data_store,
     _load_completed_ids,
     _load_game_data_from_store,
+    _http_get_bgg_xml,
     get_boardgame_data,
     _upsert_game_batch,
 )
@@ -62,3 +63,69 @@ def test_get_game_data_raises_if_batch_returns_no_items(tmp_path, monkeypatch):
             batch_size=20,
             save_every_n_batches=1,
         )
+
+
+def test_http_get_bgg_xml_includes_bearer_token(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+    def _fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.setenv("BGG_TOKEN", "test-token")
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_game_data.requests.get",
+        _fake_get,
+    )
+
+    _http_get_bgg_xml("https://boardgamegeek.com/xmlapi2/thing?id=1")
+
+    assert captured["headers"] == {"Authorization": "Bearer test-token"}
+
+
+def test_http_get_bgg_xml_reads_token_from_repo_root_dotenv(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+    def _fake_get(url, headers=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.delenv("BGG_TOKEN", raising=False)
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_game_data.Path.exists",
+        lambda _self: True,
+    )
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_game_data.load_dotenv",
+        lambda *args, **kwargs: monkeypatch.setenv("BGG_TOKEN", "dotenv-token"),
+    )
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_game_data.requests.get",
+        _fake_get,
+    )
+
+    _http_get_bgg_xml("https://boardgamegeek.com/xmlapi2/thing?id=1")
+
+    assert captured["headers"] == {"Authorization": "Bearer dotenv-token"}
+
+
+def test_http_get_bgg_xml_raises_when_bgg_token_missing(monkeypatch):
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_game_data._get_bgg_token",
+        lambda: "",
+    )
+
+    with pytest.raises(ValueError, match="Missing required BGG_TOKEN"):
+        _http_get_bgg_xml("https://boardgamegeek.com/xmlapi2/thing?id=1")
