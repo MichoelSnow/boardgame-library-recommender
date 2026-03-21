@@ -16,7 +16,7 @@ SPEC.loader.exec_module(MODULE)
 transform_schema = MODULE.transform_schema
 
 
-def test_transform_schema_renames_legacy_pax_games_objects():
+def test_transform_schema_removes_legacy_pax_games_objects():
     input_sql = """
 CREATE TABLE public.pax_games (id integer NOT NULL, bgg_id integer);
 CREATE SEQUENCE public.pax_games_id_seq;
@@ -31,8 +31,4 @@ ALTER TABLE ONLY public.pax_games ADD CONSTRAINT pax_games_bgg_id_fkey FOREIGN K
     assert "pax_games_pkey" not in output_sql
     assert "ix_pax_games_bgg_id" not in output_sql
     assert "pax_games_bgg_id_fkey" not in output_sql
-    assert "public.library_games" in output_sql
-    assert "library_games_id_seq" in output_sql
-    assert "library_games_pkey" in output_sql
-    assert "ix_library_games_bgg_id" in output_sql
-    assert "library_games_bgg_id_fkey" in output_sql
+    assert "library_games" not in output_sql

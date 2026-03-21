@@ -67,28 +67,8 @@ def normalize_row_for_target(
     valid_game_ids: set[int] | None = None,
     anomaly_counts: dict[str, int] | None = None,
 ) -> dict:
-    normalized_row = dict(row)
-
-    if table_name == "library_games":
-        bgg_id = normalized_row.get("bgg_id")
-        if bgg_id == 0:
-            normalized_row["bgg_id"] = None
-            if anomaly_counts is not None:
-                anomaly_counts["library_games_zero_bgg_id"] = (
-                    anomaly_counts.get("library_games_zero_bgg_id", 0) + 1
-                )
-        elif (
-            bgg_id is not None
-            and valid_game_ids is not None
-            and int(bgg_id) not in valid_game_ids
-        ):
-            normalized_row["bgg_id"] = None
-            if anomaly_counts is not None:
-                anomaly_counts["library_games_orphan_bgg_id"] = (
-                    anomaly_counts.get("library_games_orphan_bgg_id", 0) + 1
-                )
-
-    return normalized_row
+    _ = (table_name, valid_game_ids, anomaly_counts)
+    return dict(row)
 
 
 def ensure_target_tables_exist(

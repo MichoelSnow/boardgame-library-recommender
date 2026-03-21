@@ -187,7 +187,6 @@ def get_recommendations(
         disliked_games: Optional list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations
         library_only: If true, only recommend games from the active library import
-            (falling back to legacy library_games if no active import exists)
 
     Returns:
         List of recommended game payloads

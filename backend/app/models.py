@@ -338,26 +338,6 @@ class Version(Base):
     game = relationship("BoardGame", back_populates="versions")
 
 
-class LibraryGame(Base):
-    __tablename__ = "library_games"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    name_raw = Column(String)
-    bgg_id = Column(
-        Integer, ForeignKey("games.id"), nullable=True, index=True
-    )  # Links to BoardGame if exists - indexed for library_only filtering
-    publisher = Column(String)
-    min_titles_id = Column(Integer)
-    titles_id_list = Column(String)  # Comma-separated list of title IDs
-    convention_name = Column(String)
-    convention_year = Column(Integer)
-    year_title_first_added = Column(Integer)
-
-    # Relationship to BoardGame if bgg_id exists
-    board_game = relationship("BoardGame", foreign_keys=[bgg_id])
-
-
 # Composite Performance Indexes
 # These indexes exist in production and improve query performance for common operations
 

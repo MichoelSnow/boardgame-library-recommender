@@ -23,7 +23,6 @@ def test_get_games_library_only_prefers_active_import() -> None:
     db = Session()
 
     _seed_board_games(db)
-    db.add(models.LibraryGame(name="Legacy", bgg_id=2))
     db.flush()
     active_import = models.LibraryImport(
         label="active_import",
@@ -43,22 +42,21 @@ def test_get_games_library_only_prefers_active_import() -> None:
     assert [game.id for game in games] == [3]
 
 
-def test_get_games_library_only_falls_back_to_legacy_table() -> None:
+def test_get_games_library_only_requires_active_import() -> None:
     engine = create_engine("sqlite:///:memory:")
     models.Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     db = Session()
 
     _seed_board_games(db)
-    db.add(models.LibraryGame(name="Legacy", bgg_id=2))
     db.commit()
 
     games, total = crud.get_games(
         db, skip=0, limit=10, sort_by="rank", library_only=True
     )
 
-    assert total == 1
-    assert [game.id for game in games] == [2]
+    assert total == 0
+    assert games == []
 
 
 def test_get_games_library_only_total_updates_when_active_import_changes() -> None:

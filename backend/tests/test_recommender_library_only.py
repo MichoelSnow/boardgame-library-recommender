@@ -28,7 +28,6 @@ def test_get_recommendations_library_only_prefers_active_import() -> None:
             models.BoardGame(id=3, name="Library Candidate"),
         ]
     )
-    db.add(models.LibraryGame(name="Legacy Library Entry", bgg_id=2))
     db.flush()
     active_import = models.LibraryImport(
         label="active_import",
@@ -76,7 +75,7 @@ def test_get_recommendations_library_only_prefers_active_import() -> None:
     assert library_only_ids == [3]
 
 
-def test_get_recommendations_library_only_falls_back_to_legacy_table() -> None:
+def test_get_recommendations_library_only_requires_active_import() -> None:
     engine = create_engine("sqlite:///:memory:")
     models.Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
@@ -85,11 +84,10 @@ def test_get_recommendations_library_only_falls_back_to_legacy_table() -> None:
     db.add_all(
         [
             models.BoardGame(id=1, name="Liked Seed"),
-            models.BoardGame(id=2, name="Legacy Library Candidate"),
+            models.BoardGame(id=2, name="Candidate"),
             models.BoardGame(id=3, name="Non-Library Candidate"),
         ]
     )
-    db.add(models.LibraryGame(name="Legacy Library Entry", bgg_id=2))
     db.commit()
 
     manager = _reset_model_manager()
@@ -111,4 +109,4 @@ def test_get_recommendations_library_only_falls_back_to_legacy_table() -> None:
     )
 
     library_only_ids = [int(game["id"]) for game in library_only_results]
-    assert library_only_ids == [2]
+    assert library_only_ids == []
