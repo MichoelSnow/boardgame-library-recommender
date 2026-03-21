@@ -109,6 +109,8 @@ poetry run python scripts/users/create_smoke_test_user.py --env prod
 ### 10) Run Perf and Load Tests
 ```bash
 poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --library-only true
+poetry run python scripts/perf/profile_hot_endpoints.py --iterations 10
+poetry run python scripts/perf/profile_hot_endpoints.py --environment dev --iterations 10
 
 k6 run \
   -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
