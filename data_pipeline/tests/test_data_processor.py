@@ -83,12 +83,6 @@ def test_combine_crawler_data_applies_exclude_ids_before_save(monkeypatch, tmp_p
             {"id": 2, "rank": 20, "queried_at_utc": "2026-01-01T00:00:00Z"},
         ]
     )
-    data = pd.DataFrame(
-        [
-            {"id": 1, "name": "Keep"},
-            {"id": 2, "name": "Drop"},
-        ]
-    )
     ranks_path = tmp_path / "ranks.csv"
     data_path = tmp_path / "boardgame_data_123.duckdb"
     ranks.to_csv(ranks_path, sep="|", index=False)

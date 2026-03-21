@@ -14,12 +14,15 @@ import time
 import urllib.parse
 import urllib.error
 import urllib.request
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
 from scripts.validation_common import build_url, load_dotenv
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 
 logger = logging.getLogger(__name__)
