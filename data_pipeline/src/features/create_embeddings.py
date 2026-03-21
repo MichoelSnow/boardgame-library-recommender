@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 import json
 
+import duckdb
+
 try:
     from ..common.logging_utils import build_log_handlers
 except ImportError:
@@ -19,6 +21,11 @@ logging.basicConfig(
     handlers=build_log_handlers("recommender.log"),
 )
 logger = logging.getLogger(__name__)
+
+
+def resolve_embeddings_output_dir() -> Path:
+    """Return the canonical backend database directory for embedding artifacts."""
+    return Path(__file__).resolve().parents[3] / "backend" / "database"
 
 
 class GameRecommender:
@@ -214,6 +221,47 @@ class GameRecommender:
     #     ]
 
 
+def load_wide_ratings_from_duckdb(ratings_duckdb_path: Path) -> pd.DataFrame:
+    """
+    Build the wide ratings DataFrame expected by GameRecommender from
+    the DuckDB ratings store.
+
+    Input table schema (long format):
+    - boardgame_ratings(game_id BIGINT, rating_round DOUBLE, username TEXT)
+
+    Output DataFrame (wide format):
+    - id + rating bucket columns containing list[usernames]
+    """
+    con = duckdb.connect(str(ratings_duckdb_path), read_only=True)
+    try:
+        table_names = {row[0] for row in con.execute("SHOW TABLES").fetchall()}
+        if "boardgame_ratings" not in table_names:
+            raise ValueError(
+                f"Table 'boardgame_ratings' not found in {ratings_duckdb_path}"
+            )
+        df_long = con.execute(
+            """
+            SELECT game_id, rating_round, list(username) AS usernames
+            FROM boardgame_ratings
+            GROUP BY game_id, rating_round
+            """
+        ).fetch_df()
+    finally:
+        con.close()
+
+    if df_long.empty:
+        return pd.DataFrame(columns=["id"])
+
+    df_long["usernames"] = df_long["usernames"].apply(
+        lambda x: x.tolist() if hasattr(x, "tolist") else list(x)
+    )
+    df_wide = df_long.pivot(index="game_id", columns="rating_round", values="usernames")
+    df_wide.columns.name = None
+    df_wide = df_wide.reset_index(names="id")
+    df_wide.columns = df_wide.columns.astype(str)
+    return df_wide
+
+
 def main():
     """Main function to train and save the recommender model."""
     try:
@@ -237,15 +285,15 @@ def main():
         ratings_dir = (
             Path(__file__).resolve().parents[3] / "data" / "ingest" / "ratings"
         )
-        ratings_files = list(ratings_dir.glob("boardgame_ratings_*.parquet"))
+        ratings_files = list(ratings_dir.glob("boardgame_ratings_*.duckdb"))
         if not ratings_files:
             raise FileNotFoundError("No ratings files found")
 
         latest_ratings = max(ratings_files, key=lambda x: x.stat().st_mtime)
         logger.info(f"Using ratings file: {latest_ratings}")
 
-        # Read ratings data
-        df_ratings = pd.read_parquet(latest_ratings)
+        # Read ratings data (DuckDB long format -> wide format)
+        df_ratings = load_wide_ratings_from_duckdb(latest_ratings)
 
         # Initialize and train the recommender
         recommender = GameRecommender(
@@ -263,7 +311,8 @@ def main():
         timestamp = latest_ratings.stem.split("_")[-1]
 
         # Save game embeddings as npz
-        database_dir = Path(__file__).parent.parent.parent / "backend" / "database"
+        database_dir = resolve_embeddings_output_dir()
+        database_dir.mkdir(parents=True, exist_ok=True)
         embeddings_path = database_dir / f"game_embeddings_{timestamp}.npz"
         sparse.save_npz(
             file=embeddings_path,

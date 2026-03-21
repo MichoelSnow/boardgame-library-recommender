@@ -1,7 +1,13 @@
 import numpy as np
 import pandas as pd
+import duckdb
+import pytest
 
-from data_pipeline.src.features.create_embeddings import GameRecommender
+from data_pipeline.src.features.create_embeddings import (
+    GameRecommender,
+    load_wide_ratings_from_duckdb,
+    resolve_embeddings_output_dir,
+)
 
 
 def test_create_rating_matrix_builds_expected_shape_and_values():
@@ -59,3 +65,48 @@ def test_fit_sets_embeddings_with_expected_game_axis():
     assert recommender.game_embeddings is not None
     # Embeddings are game vectors, so rows should match number of games.
     assert recommender.game_embeddings.shape[0] == 3
+
+
+def test_load_wide_ratings_from_duckdb(tmp_path):
+    db_path = tmp_path / "boardgame_ratings_123.duckdb"
+    con = duckdb.connect(str(db_path))
+    try:
+        con.execute(
+            """
+            CREATE TABLE boardgame_ratings (
+                game_id BIGINT,
+                rating_round DOUBLE,
+                username TEXT
+            )
+            """
+        )
+        con.execute(
+            """
+            INSERT INTO boardgame_ratings (game_id, rating_round, username) VALUES
+            (10, 8.0, 'u1'),
+            (10, 8.0, 'u2'),
+            (10, 9.0, 'u3'),
+            (20, 7.0, 'u1')
+            """
+        )
+    finally:
+        con.close()
+
+    df = load_wide_ratings_from_duckdb(db_path)
+    assert set(df["id"].tolist()) == {10, 20}
+    row_10 = df.loc[df["id"] == 10].iloc[0]
+    assert set(row_10["8.0"]) == {"u1", "u2"}
+    assert row_10["9.0"] == ["u3"]
+
+
+def test_load_wide_ratings_from_duckdb_raises_if_table_missing(tmp_path):
+    db_path = tmp_path / "empty.duckdb"
+    con = duckdb.connect(str(db_path))
+    con.close()
+    with pytest.raises(ValueError, match="boardgame_ratings"):
+        load_wide_ratings_from_duckdb(db_path)
+
+
+def test_resolve_embeddings_output_dir_points_to_repo_backend_database():
+    output_dir = resolve_embeddings_output_dir()
+    assert output_dir.as_posix().endswith("/backend/database")

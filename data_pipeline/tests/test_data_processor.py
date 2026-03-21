@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 
 from data_pipeline.src.transform import data_processor
@@ -88,9 +89,30 @@ def test_combine_crawler_data_applies_exclude_ids_before_save(monkeypatch, tmp_p
         ]
     )
     ranks_path = tmp_path / "ranks.csv"
-    data_path = tmp_path / "data.parquet"
+    data_path = tmp_path / "boardgame_data_123.duckdb"
     ranks.to_csv(ranks_path, sep="|", index=False)
-    data.to_parquet(data_path, index=False)
+    with duckdb.connect(str(data_path)) as conn:
+        conn.execute(
+            """
+            CREATE TABLE boardgame_data (
+                id BIGINT PRIMARY KEY,
+                payload_json TEXT
+            )
+            """
+        )
+        payload_rows = [
+            {"id": 1, "payload_json": '{"id": 1, "name": "Keep"}'},
+            {"id": 2, "payload_json": '{"id": 2, "name": "Drop"}'},
+        ]
+        conn.register("payload_rows", pd.DataFrame(payload_rows))
+        conn.execute(
+            """
+            INSERT INTO boardgame_data (id, payload_json)
+            SELECT id, payload_json
+            FROM payload_rows
+            """
+        )
+        conn.unregister("payload_rows")
 
     captured = {}
 
@@ -124,3 +146,38 @@ def test_combine_crawler_data_applies_exclude_ids_before_save(monkeypatch, tmp_p
     assert merged["rank"].tolist() == [10]
     assert "queried_at_utc" not in merged.columns
     assert captured["timestamp"] == 999
+
+
+def test_save_suggested_num_players_handles_total_votes_int_entry(tmp_path):
+    timestamp = 222
+    output_file_base = str(tmp_path / "processed_games")
+    df = pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "suggested_numplayers": {
+                    "total_votes": 100,
+                    "1": {
+                        "Best": 20,
+                        "Recommended": 30,
+                        "Not Recommended": 10,
+                        "total_votes": 60,
+                    },
+                    "2": {
+                        "Best": 25,
+                        "Recommended": 35,
+                        "Not Recommended": 5,
+                        "total_votes": 65,
+                    },
+                },
+            }
+        ]
+    )
+
+    data_processor.save_suggested_num_players(df, output_file_base, timestamp)
+
+    output_path = Path(f"{output_file_base}_suggested_num_players_{timestamp}.csv")
+    assert output_path.exists()
+    saved = pd.read_csv(output_path, sep="|", escapechar="\\")
+    assert len(saved) == 2
+    assert set(saved["player_count"].tolist()) == {1, 2}

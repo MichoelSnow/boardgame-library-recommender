@@ -140,15 +140,26 @@ def collect_candidates(
     include_expansions: bool,
 ) -> list[tuple[int, str]]:
     include_library, include_top_rank = parse_bool_scope(scope)
-    library_ids = {
-        row[0]
-        for row in db.execute(
-            select(models.LibraryGame.bgg_id).where(
-                models.LibraryGame.bgg_id.isnot(None)
-            )
-        ).all()
-        if row[0] is not None
-    }
+    active_import = db.execute(
+        select(models.LibraryImport.id)
+        .where(models.LibraryImport.is_active.is_(True))
+        .order_by(models.LibraryImport.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    library_ids = (
+        {
+            row[0]
+            for row in db.execute(
+                select(models.LibraryImportItem.bgg_id).where(
+                    models.LibraryImportItem.library_import_id == active_import,
+                    models.LibraryImportItem.bgg_id.isnot(None),
+                )
+            ).all()
+            if row[0] is not None
+        }
+        if active_import is not None
+        else set()
+    )
 
     query = select(
         models.BoardGame.id,
