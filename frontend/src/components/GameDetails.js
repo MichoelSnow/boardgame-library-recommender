@@ -505,9 +505,6 @@ const GameDetails = ({
               {renderList(game.publishers, 'Publishers', 'publisher')}
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Description
-              </Typography>
               <Typography 
                 variant="body1" 
                 sx={{ 
