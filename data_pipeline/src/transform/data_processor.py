@@ -70,6 +70,7 @@ def save_basic_info(
         "numcomments",
         "numweights",
         "numratings",
+        "avg_box_volume",
     ]
 
     float_cols = [
@@ -92,6 +93,8 @@ def save_basic_info(
 
     # Covert columns to int
     for col in int_cols:
+        if col not in df_merged.columns:
+            df_merged[col] = pd.NA
         df_merged[col] = df_merged[col].fillna(value=pd.NA).astype(pd.Int64Dtype())
 
     # Convert columns to float
@@ -110,6 +113,50 @@ def save_basic_info(
     logger.info(
         f"Successfully saved basic info for {len(df_merged)} games to {output_file_data}"
     )
+
+
+def add_avg_box_volume(df_merged: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute avg_box_volume from English versions and attach to merged game rows.
+
+    avg_box_volume = round(avg(length * width * depth)) across English versions.
+    """
+    result = df_merged.copy()
+    if "versions" not in result.columns:
+        result["avg_box_volume"] = pd.NA
+        return result
+
+    volume_rows: list[dict[str, float | int]] = []
+    for game_id, versions in zip(result["id"], result["versions"], strict=False):
+        if not isinstance(versions, list):
+            continue
+        for version in versions:
+            if not isinstance(version, dict):
+                continue
+            language = str(version.get("language", "")).strip().lower()
+            if language != "english":
+                continue
+            length = pd.to_numeric(version.get("length"), errors="coerce")
+            width = pd.to_numeric(version.get("width"), errors="coerce")
+            depth = pd.to_numeric(version.get("depth"), errors="coerce")
+            if pd.isna(length) or pd.isna(width) or pd.isna(depth):
+                continue
+            volume_rows.append(
+                {"id": int(game_id), "volume": float(length * width * depth)}
+            )
+
+    if not volume_rows:
+        result["avg_box_volume"] = pd.NA
+        return result
+
+    df_volumes = pd.DataFrame(volume_rows)
+    df_avg = df_volumes.groupby("id", as_index=False)["volume"].mean()
+    df_avg["avg_box_volume"] = (
+        (df_avg["volume"] + 0.5).astype(float).astype(int).astype("Int64")
+    )
+    result = result.merge(df_avg[["id", "avg_box_volume"]], on="id", how="left")
+    result["avg_box_volume"] = result["avg_box_volume"].astype("Int64")
+    return result
 
 
 def save_dict_id_cols(
@@ -363,6 +410,7 @@ def combine_crawler_data(
 
     # Merge rankings data with game data
     df_merged = pd.merge(df_data, df_ranks, on="id", how="inner")
+    df_merged = add_avg_box_volume(df_merged)
 
     # Filter out excluded games
     if exclude_ids:

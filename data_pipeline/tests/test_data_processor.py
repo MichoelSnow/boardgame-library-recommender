@@ -71,6 +71,7 @@ def test_save_basic_info_writes_expected_columns_and_rank_zero_as_null(tmp_path)
     assert set(["id", "name", "thumbnail", "image", "description"]).issubset(
         saved.columns
     )
+    assert "avg_box_volume" in saved.columns
     assert pd.isna(saved.loc[saved["id"] == 1, "rank"]).all()
     assert int(saved.loc[saved["id"] == 2, "rank"].iloc[0]) == 10
 
@@ -181,3 +182,32 @@ def test_save_suggested_num_players_handles_total_votes_int_entry(tmp_path):
     saved = pd.read_csv(output_path, sep="|", escapechar="\\")
     assert len(saved) == 2
     assert set(saved["player_count"].tolist()) == {1, 2}
+
+
+def test_add_avg_box_volume_uses_english_versions_only():
+    df = pd.DataFrame(
+        [
+            {
+                "id": 1,
+                "versions": [
+                    {"language": "english", "length": 10, "width": 20, "depth": 3},
+                    {"language": "English", "length": 8, "width": 10, "depth": 2},
+                    {"language": "german", "length": 100, "width": 100, "depth": 10},
+                ],
+            },
+            {
+                "id": 2,
+                "versions": [
+                    {"language": "english", "length": 5, "width": 5, "depth": 5}
+                ],
+            },
+            {"id": 3, "versions": []},
+        ]
+    )
+
+    out = data_processor.add_avg_box_volume(df)
+
+    # game 1: round((600 + 160)/2) = 380
+    assert int(out.loc[out["id"] == 1, "avg_box_volume"].iloc[0]) == 380
+    assert int(out.loc[out["id"] == 2, "avg_box_volume"].iloc[0]) == 125
+    assert pd.isna(out.loc[out["id"] == 3, "avg_box_volume"].iloc[0])

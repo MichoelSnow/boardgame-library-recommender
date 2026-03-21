@@ -43,7 +43,9 @@ GAME_SOURCE_TO_TARGET = {
     "strategygames_rank": "strategy_games_rank",
     "thematic_rank": "thematic_rank",
     "wargames_rank": "wargames_rank",
+    "avg_box_volume": "avg_box_volume",
 }
+GAME_TARGET_COLUMNS = list(GAME_SOURCE_TO_TARGET.values())
 
 RELATION_SPECS = [
     {
@@ -228,7 +230,6 @@ RELATION_INTEGER_COLUMNS = {
         "not_recommended",
         "game_total_votes",
         "player_count_total_votes",
-        "recommendation_level",
     ],
     "language_dependence": [
         "game_id",
@@ -252,11 +253,11 @@ def _prepare_games_dataframe(games_df: pd.DataFrame) -> pd.DataFrame:
     for source, target in GAME_SOURCE_TO_TARGET.items():
         if source not in games_df.columns:
             prepared[target] = None
-    prepared = prepared[list(GAME_SOURCE_TO_TARGET.values())]
+    prepared = prepared[GAME_TARGET_COLUMNS]
     prepared = prepared.drop_duplicates(subset=["id"], keep="first")
     return _normalize_dataframe_for_copy(
         prepared,
-        integer_columns=GAMES_INTEGER_COLUMNS,
+        integer_columns=GAMES_INTEGER_COLUMNS + ["avg_box_volume"],
         float_columns=GAMES_FLOAT_COLUMNS,
         boolean_columns=GAMES_BOOLEAN_COLUMNS,
     )
@@ -371,8 +372,9 @@ def import_all_data_postgres(
     logger,
 ) -> None:
     games_file = f"{data_dir}/processed_games_data_{timestamp}.csv"
-    games_df = pd.read_csv(games_file, sep="|", escapechar="\\")
-    games_df = _prepare_games_dataframe(games_df)
+    games_df = _prepare_games_dataframe(
+        pd.read_csv(games_file, sep="|", escapechar="\\")
+    )
 
     raw_connection = engine.raw_connection()
     try:
@@ -383,7 +385,7 @@ def import_all_data_postgres(
         inserted_games = _copy_dataframe(
             raw_connection,
             table="games",
-            columns=list(GAME_SOURCE_TO_TARGET.values()),
+            columns=GAME_TARGET_COLUMNS,
             frame=games_df,
         )
         logger.info("Inserted %s game rows", inserted_games)

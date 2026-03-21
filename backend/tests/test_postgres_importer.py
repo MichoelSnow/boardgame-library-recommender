@@ -1,7 +1,7 @@
 import pandas as pd
 
 from backend.app.importers.postgres_importer import (
-    GAME_SOURCE_TO_TARGET,
+    GAME_TARGET_COLUMNS,
     RELATION_SPECS,
     _prepare_games_dataframe,
     _prepare_relation_dataframe,
@@ -26,10 +26,11 @@ def test_prepare_games_dataframe_renames_and_dedupes_ids():
 
     prepared = _prepare_games_dataframe(frame)
 
-    assert list(prepared.columns) == list(GAME_SOURCE_TO_TARGET.values())
+    assert list(prepared.columns) == GAME_TARGET_COLUMNS
     assert prepared["id"].tolist() == [1, 2]
     assert prepared["min_players"].tolist() == [1, 2]
     assert prepared["max_players"].tolist() == [4, 5]
+    assert prepared["avg_box_volume"].isna().all()
 
 
 def test_prepare_relation_dataframe_dedupes_designer_names_per_game():
@@ -84,3 +85,25 @@ def test_prepare_relation_dataframe_renames_language_dependence_columns():
     assert prepared.loc[0, "game_id"] == 10
     assert prepared.loc[0, "level_1"] == 1
     assert prepared.loc[0, "level_5"] == 5
+
+
+def test_prepare_relation_dataframe_preserves_suggested_players_recommendation_level():
+    spec = _relation_spec("suggested_num_players")
+    frame = pd.DataFrame(
+        [
+            {
+                "game_id": 1,
+                "player_count": 4,
+                "best": 10,
+                "recommended": 12,
+                "not_recommended": 2,
+                "game_total_votes": 24,
+                "total_votes": 24,
+                "recommendation_level": "recommended",
+            }
+        ]
+    )
+
+    prepared = _prepare_relation_dataframe(spec, frame)
+
+    assert prepared.loc[0, "recommendation_level"] == "recommended"
