@@ -69,7 +69,9 @@ def parse_endpoint(raw_endpoint: str) -> EndpointCase:
     method, path = pieces
     method = method.upper()
     if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
-        raise ValueError(f"Unsupported method '{method}' in endpoint spec '{raw_endpoint}'.")
+        raise ValueError(
+            f"Unsupported method '{method}' in endpoint spec '{raw_endpoint}'."
+        )
     if not path.startswith("/"):
         raise ValueError(f"Endpoint path must start with '/': '{raw_endpoint}'")
     return EndpointCase(method=method, path=path, expected_status=expected_status)
@@ -218,7 +220,9 @@ def get_bearer_token_local(
     payload = response.json()
     token = payload.get("access_token")
     if not token:
-        logger.warning("Auth response did not contain access_token. Skipping admin endpoints.")
+        logger.warning(
+            "Auth response did not contain access_token. Skipping admin endpoints."
+        )
         return None
     return str(token)
 
@@ -317,7 +321,9 @@ def run_profile_local(
 
                 profiler.start_request()
                 started = time.perf_counter()
-                response = client.request(endpoint.method, endpoint.path, headers=headers)
+                response = client.request(
+                    endpoint.method, endpoint.path, headers=headers
+                )
                 response_ms = (time.perf_counter() - started) * 1000
                 sql_entries = profiler.end_request()
                 sql_time_ms = sum(float(item["duration_ms"]) for item in sql_entries)
@@ -396,7 +402,9 @@ def run_profile_remote(
             headers = {"Accept": "application/json"}
             if endpoint.path.startswith("/api/admin/") and token:
                 headers["Authorization"] = f"Bearer {token}"
-            request = urllib.request.Request(url=url, method=endpoint.method, headers=headers)
+            request = urllib.request.Request(
+                url=url, method=endpoint.method, headers=headers
+            )
 
             status_code = 0
             ok = False
