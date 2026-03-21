@@ -36,6 +36,25 @@ scripts/deploy/fly_stack.sh dev status
   - `jq` installed
   - `.env` with `FLY_APP_NAME_*` and `FLY_DB_APP_NAME_*`
 
+## `fly_import_data_job.sh`
+- What it does:
+  - Runs `alembic upgrade head` + `app/import_data.py --delete-existing` as a detached remote job.
+  - Persists logs under `/data/logs/import_data/` on the Fly app volume.
+  - Streams the same output to Fly Machine Logs/Errors.
+  - Supports `start`, `status`, `tail`, and `stop` actions.
+- When to use:
+  - Long-running imports where SSH session drops are a risk.
+- How to use:
+```bash
+scripts/deploy/fly_import_data_job.sh dev start
+scripts/deploy/fly_import_data_job.sh dev status
+scripts/deploy/fly_import_data_job.sh dev tail
+scripts/deploy/fly_import_data_job.sh dev stop
+```
+- Requirements:
+  - `fly` CLI authenticated
+  - `.env` with `FLY_APP_NAME_DEV` / `FLY_APP_NAME_PROD`
+
 ## `fly_ingest_deploy.sh`
 - What it does:
   - Deploys the dedicated ingest app (`bg-lib-ingest`) using `fly.ingest.toml`.

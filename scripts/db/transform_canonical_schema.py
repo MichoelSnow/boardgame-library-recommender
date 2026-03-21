@@ -8,12 +8,11 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 
-REPLACEMENTS = [
-    (r"\bpublic\.pax_games\b", "public.library_games"),
-    (r"\bpax_games_id_seq\b", "library_games_id_seq"),
-    (r"\bpax_games_pkey\b", "library_games_pkey"),
-    (r"\bix_pax_games_bgg_id\b", "ix_library_games_bgg_id"),
-    (r"\bpax_games_bgg_id_fkey\b", "library_games_bgg_id_fkey"),
+LEGACY_PAX_GAMES_STATEMENTS = [
+    r"^CREATE TABLE public\.pax_games .*?;\n?",
+    r"^CREATE SEQUENCE public\.pax_games_id_seq.*?;\n?",
+    r"^ALTER TABLE ONLY public\.pax_games .*?;\n?",
+    r"^CREATE INDEX ix_pax_games_bgg_id .*?;\n?",
 ]
 
 
@@ -23,14 +22,14 @@ def configure_logging() -> None:
 
 def transform_schema(sql_text: str) -> str:
     transformed = sql_text
-    for pattern, replacement in REPLACEMENTS:
-        transformed = re.sub(pattern, replacement, transformed)
+    for pattern in LEGACY_PAX_GAMES_STATEMENTS:
+        transformed = re.sub(pattern, "", transformed, flags=re.MULTILINE | re.DOTALL)
     return transformed
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Transform canonical schema SQL from legacy pax_games naming to library_games naming."
+        description="Remove legacy pax_games schema objects from canonical schema SQL."
     )
     parser.add_argument(
         "--input",

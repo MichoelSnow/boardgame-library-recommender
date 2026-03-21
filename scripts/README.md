@@ -75,9 +75,15 @@ poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip
 ```bash
 poetry run python scripts/db/fly_postgres_backup.py --env dev
 poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-lib-prod-backup.sql
+# optional: write backup on remote DB machine
+poetry run python scripts/db/fly_postgres_backup.py --env dev --remote-output /var/lib/postgresql/backups/dev.sql
 
 poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/bg-lib-dev-backup.sql
 poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-lib-prod-backup.sql --restore-db bg_lib_recommender_restore_test
+# optional: restore from backup file already on remote DB machine
+poetry run python scripts/db/fly_postgres_restore.py --env dev --remote-input /var/lib/postgresql/backups/dev.sql --restore-db bg_lib_recommender_restore_test
+# optional: delete remote backup after successful restore
+poetry run python scripts/db/fly_postgres_restore.py --env dev --remote-input /var/lib/postgresql/backups/dev.sql --restore-db bg_lib_recommender_restore_test --delete-remote-after-restore
 poetry run python scripts/db/transform_canonical_schema.py --input .tmp/canonical_prod_schema.sql --output .tmp/canonical_repo_schema.sql
 poetry run python scripts/db/bootstrap_fly_postgres_baseline.py --env dev --schema-file .tmp/canonical_repo_schema.sql --reset-db
 ```
