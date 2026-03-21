@@ -41,7 +41,10 @@ scripts/deploy/fly_stack.sh dev status
   - Runs `alembic upgrade head` + `app/import_data.py --delete-existing` as a detached remote job.
   - Persists logs under `/data/logs/import_data/` on the Fly app volume.
   - Streams the same output to Fly Machine Logs/Errors.
-  - Supports `start`, `status`, `tail`, and `stop` actions.
+  - Sets machine `autostop=off` before `start` to prevent Fly idle shutdown during import.
+  - Restores machine `autostop=stop` on `stop`.
+  - `status` is read-only (reports PID/log without changing machine config).
+  - Supports `start`, `status`, `tail`, `log`, and `stop` actions.
 - When to use:
   - Long-running imports where SSH session drops are a risk.
 - How to use:
@@ -49,6 +52,7 @@ scripts/deploy/fly_stack.sh dev status
 scripts/deploy/fly_import_data_job.sh dev start
 scripts/deploy/fly_import_data_job.sh dev status
 scripts/deploy/fly_import_data_job.sh dev tail
+scripts/deploy/fly_import_data_job.sh dev log
 scripts/deploy/fly_import_data_job.sh dev stop
 ```
 - Requirements:

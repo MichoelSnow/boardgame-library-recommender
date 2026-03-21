@@ -462,19 +462,32 @@ Recommended (detached remote job; resilient to SSH disconnects):
 scripts/deploy/fly_import_data_job.sh dev start
 scripts/deploy/fly_import_data_job.sh dev status
 scripts/deploy/fly_import_data_job.sh dev tail
+scripts/deploy/fly_import_data_job.sh dev log
 ```
 
 ```bash
 scripts/deploy/fly_import_data_job.sh prod start
 scripts/deploy/fly_import_data_job.sh prod status
 scripts/deploy/fly_import_data_job.sh prod tail
+scripts/deploy/fly_import_data_job.sh prod log
 ```
+
+`log` downloads the latest remote import log to local:
+- `logs/import_data/<app_name>_import_data_latest_<timestamp>.log`
+
+Postgres import behavior note:
+- `data_pipeline/src/transform/data_processor.py` computes `avg_box_volume` during transform from English version dimensions.
+- `app/import_data.py` imports `avg_box_volume` directly from `processed_games_data_*`.
 
 Optional controls:
 ```bash
 scripts/deploy/fly_import_data_job.sh dev stop
 scripts/deploy/fly_import_data_job.sh prod stop
 ```
+
+Notes:
+- `status` is read-only and does not modify machine settings.
+- `stop` restores machine `autostop=stop` for normal app behavior.
 
 Fallback foreground SSH command:
 ```bash
