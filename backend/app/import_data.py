@@ -7,10 +7,12 @@ It handles the creation of all related entities (mechanics, categories, etc.).
 
 import pandas as pd
 from pathlib import Path
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 import sys
 import argparse
 import logging
+import os
 from typing import Dict, List, Any
 
 # Add the backend directory to Python path
@@ -20,6 +22,7 @@ sys.path.append(str(backend_dir))
 
 from app import models, schemas  # noqa: E402
 from app.database import SessionLocal, engine  # noqa: E402
+from app.importers import import_all_data_postgres  # noqa: E402
 from app.logging_utils import build_log_handlers  # noqa: E402
 
 
@@ -59,6 +62,81 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 200  # Number of games to process before committing
+IMPORT_DATA_ADVISORY_LOCK_ID = 94321077
+IMPORT_TABLES = [
+    models.Mechanic.__table__,
+    models.Category.__table__,
+    models.Designer.__table__,
+    models.Artist.__table__,
+    models.Publisher.__table__,
+    models.SuggestedPlayer.__table__,
+    models.LanguageDependence.__table__,
+    models.Integration.__table__,
+    models.Implementation.__table__,
+    models.Compilation.__table__,
+    models.Expansion.__table__,
+    models.Family.__table__,
+    models.Version.__table__,
+    models.BoardGame.__table__,
+]
+
+
+def acquire_import_data_lock():
+    """
+    Acquire a process-wide import lock.
+
+    Uses a Postgres advisory lock to prevent concurrent import_data runs.
+    Returns an open connection holding the lock, or None for non-Postgres engines.
+    """
+    dialect_name = getattr(engine.dialect, "name", "").lower()
+    if dialect_name != "postgresql":
+        return None
+
+    lock_connection = engine.connect()
+    acquired = bool(
+        lock_connection.execute(
+            text("SELECT pg_try_advisory_lock(:lock_id)"),
+            {"lock_id": IMPORT_DATA_ADVISORY_LOCK_ID},
+        ).scalar()
+    )
+    if not acquired:
+        lock_connection.close()
+        raise RuntimeError(
+            "Another import_data run is already active. "
+            "Wait for it to finish, or stop it before starting a new import."
+        )
+    return lock_connection
+
+
+def release_import_data_lock(lock_connection) -> None:
+    if lock_connection is None:
+        return
+    try:
+        lock_connection.execute(
+            text("SELECT pg_advisory_unlock(:lock_id)"),
+            {"lock_id": IMPORT_DATA_ADVISORY_LOCK_ID},
+        )
+    finally:
+        lock_connection.close()
+
+
+def _dedupe_relation_rows_by_name(
+    relation_df: pd.DataFrame, *, game_id: int, name_column: str
+) -> pd.DataFrame:
+    game_rows = relation_df[relation_df["game_id"] == game_id]
+    if game_rows.empty:
+        return game_rows
+    non_null_rows = game_rows[game_rows[name_column].notna()]
+    return non_null_rows.drop_duplicates(subset=[name_column], keep="first")
+
+
+def dedupe_games_dataframe(games_df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    duplicate_game_id_count = int(games_df.duplicated(subset=["id"]).sum())
+    if duplicate_game_id_count == 0:
+        return games_df, 0
+    return games_df.drop_duplicates(
+        subset=["id"], keep="first"
+    ), duplicate_game_id_count
 
 
 def run_image_sync(max_rank: int) -> bool:
@@ -89,6 +167,33 @@ def run_image_sync(max_rank: int) -> bool:
         logger.error("%s stdout: %s", log_label, exc.stdout)
         logger.error("%s stderr: %s", log_label, exc.stderr)
         return False
+
+
+def clear_import_tables_for_reimport() -> None:
+    """
+    Remove existing imported data without dropping schema objects.
+
+    Uses ordered DELETE to avoid FK/TRUNCATE edge cases with preserved tables.
+    """
+    db = SessionLocal()
+    try:
+        dialect_name = getattr(engine.dialect, "name", "").lower()
+        if dialect_name == "postgresql":
+            truncate_tables = [table.name for table in IMPORT_TABLES]
+            table_list_sql = ", ".join(truncate_tables)
+            db.execute(
+                text(f"TRUNCATE TABLE {table_list_sql} RESTART IDENTITY CASCADE")
+            )
+        else:
+            # SQLite path: delete child tables first, then games (already ordered above).
+            for table in IMPORT_TABLES:
+                db.execute(text(f"DELETE FROM {table.name}"))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
 
 
 def create_game_record(game_data: pd.Series) -> models.BoardGame:
@@ -158,65 +263,90 @@ def create_related_objects(
     # Add mechanics
     if "boardgamemechanic" in related_data:
         mechanics_df = related_data["boardgamemechanic"]
+        unique_mechanics_df = _dedupe_relation_rows_by_name(
+            mechanics_df,
+            game_id=game_id,
+            name_column="boardgamemechanic_name",
+        )
         mechanics = [
             models.Mechanic(
                 game_id=game_id,
                 boardgamemechanic_id=row["boardgamemechanic_id"],
                 boardgamemechanic_name=row["boardgamemechanic_name"],
             )
-            for _, row in mechanics_df[mechanics_df["game_id"] == game_id].iterrows()
+            for _, row in unique_mechanics_df.iterrows()
         ]
         related_objects.extend(mechanics)
 
     # Add categories
     if "boardgamecategory" in related_data:
         categories_df = related_data["boardgamecategory"]
+        unique_categories_df = _dedupe_relation_rows_by_name(
+            categories_df,
+            game_id=game_id,
+            name_column="boardgamecategory_name",
+        )
         categories = [
             models.Category(
                 game_id=game_id,
                 boardgamecategory_id=row["boardgamecategory_id"],
                 boardgamecategory_name=row["boardgamecategory_name"],
             )
-            for _, row in categories_df[categories_df["game_id"] == game_id].iterrows()
+            for _, row in unique_categories_df.iterrows()
         ]
         related_objects.extend(categories)
 
     # Add designers
     if "boardgamedesigner" in related_data:
         designers_df = related_data["boardgamedesigner"]
+        unique_designers_df = _dedupe_relation_rows_by_name(
+            designers_df,
+            game_id=game_id,
+            name_column="boardgamedesigner_name",
+        )
         designers = [
             models.Designer(
                 game_id=game_id,
                 boardgamedesigner_id=row["boardgamedesigner_id"],
                 boardgamedesigner_name=row["boardgamedesigner_name"],
             )
-            for _, row in designers_df[designers_df["game_id"] == game_id].iterrows()
+            for _, row in unique_designers_df.iterrows()
         ]
         related_objects.extend(designers)
 
     # Add artists
     if "boardgameartist" in related_data:
         artists_df = related_data["boardgameartist"]
+        unique_artists_df = _dedupe_relation_rows_by_name(
+            artists_df,
+            game_id=game_id,
+            name_column="boardgameartist_name",
+        )
         artists = [
             models.Artist(
                 game_id=game_id,
                 boardgameartist_id=row["boardgameartist_id"],
                 boardgameartist_name=row["boardgameartist_name"],
             )
-            for _, row in artists_df[artists_df["game_id"] == game_id].iterrows()
+            for _, row in unique_artists_df.iterrows()
         ]
         related_objects.extend(artists)
 
     # Add publishers
     if "boardgamepublisher" in related_data:
         publishers_df = related_data["boardgamepublisher"]
+        unique_publishers_df = _dedupe_relation_rows_by_name(
+            publishers_df,
+            game_id=game_id,
+            name_column="boardgamepublisher_name",
+        )
         publishers = [
             models.Publisher(
                 game_id=game_id,
                 boardgamepublisher_id=row["boardgamepublisher_id"],
                 boardgamepublisher_name=row["boardgamepublisher_name"],
             )
-            for _, row in publishers_df[publishers_df["game_id"] == game_id].iterrows()
+            for _, row in unique_publishers_df.iterrows()
         ]
         related_objects.extend(publishers)
 
@@ -407,30 +537,30 @@ def import_all_data(
     """
     logger.info(f"Starting data import from {data_dir}")
 
-    # If requested, drop only the tables related to the imported datasets (preserve users and library tables)
+    # If requested, clear only the data related to imported datasets
+    # (preserve users and library tables/schema).
     if delete_existing:
         logger.info(
-            "Dropping existing import-related tables (preserving users and library tables)..."
+            "Clearing existing import-related data (preserving users and library tables)..."
         )
-        tables_to_drop = [
-            models.Mechanic.__table__,
-            models.Category.__table__,
-            models.Designer.__table__,
-            models.Artist.__table__,
-            models.Publisher.__table__,
-            models.SuggestedPlayer.__table__,
-            models.LanguageDependence.__table__,
-            models.Integration.__table__,
-            models.Implementation.__table__,
-            models.Compilation.__table__,
-            models.Expansion.__table__,
-            models.Family.__table__,
-            models.Version.__table__,
-            models.BoardGame.__table__,
-        ]
-        # Drop children first, then parent (games)
-        models.Base.metadata.drop_all(bind=engine, tables=tables_to_drop)
-        logger.info("Import-related tables dropped")
+        clear_import_tables_for_reimport()
+        logger.info("Import-related data cleared")
+
+    if getattr(engine.dialect, "name", "").lower() == "postgresql":
+        logger.info("Using Postgres-optimized importer path.")
+        import_all_data_postgres(
+            engine=engine,
+            data_dir=data_dir,
+            timestamp=timestamp,
+            logger=logger,
+        )
+        if delete_existing:
+            logger.info("Running post-import SQL scripts...")
+            if run_post_import_scripts():
+                logger.info("Post-import SQL scripts completed successfully")
+            else:
+                logger.error("Some data calculations may be incomplete")
+        return
 
     # Create database tables
     logger.info("Creating database tables...")
@@ -468,6 +598,13 @@ def import_all_data(
                 )
             except FileNotFoundError:
                 logger.warning(f"File for {entity} not found, skipping...")
+
+        games_df, duplicate_game_id_count = dedupe_games_dataframe(games_df)
+        if duplicate_game_id_count > 0:
+            logger.warning(
+                "Detected %s duplicate game id rows in processed_games_data; keeping first occurrence per id.",
+                duplicate_game_id_count,
+            )
 
         logger.info(f"Successfully loaded data for {len(games_df)} games")
     except Exception as e:
@@ -532,12 +669,25 @@ def main():
     )
     args = parser.parse_args()
 
-    # Get the processed data root directory
-    processed_root_dir = project_root / "data" / "transform" / "processed"
-    if not processed_root_dir.exists():
+    # Resolve processed-data root directory.
+    configured_root = os.getenv("PROCESSED_DATA_ROOT")
+    candidate_dirs: list[Path] = []
+    if configured_root:
+        candidate_dirs.append(Path(configured_root))
+    candidate_dirs.extend(
+        [
+            Path("/data/transform/processed"),
+            project_root / "data" / "transform" / "processed",
+        ]
+    )
+
+    processed_root_dir = next((path for path in candidate_dirs if path.exists()), None)
+    if processed_root_dir is None:
+        candidate_text = ", ".join(str(path) for path in candidate_dirs)
         raise FileNotFoundError(
-            f"Processed data root directory not found: {processed_root_dir}"
+            f"Processed data root directory not found. Checked: {candidate_text}"
         )
+    logger.info("Using processed data root directory: %s", processed_root_dir)
 
     # Find the most recent timestamped processed directory.
     timestamp_dirs = [
@@ -556,14 +706,20 @@ def main():
         )
     logger.info(f"Using most recent processed games file: {latest_file}")
 
-    # Import the data with delete_existing from command line args
-    import_all_data(str(latest_dir), timestamp, delete_existing=args.delete_existing)
+    lock_connection = acquire_import_data_lock()
+    try:
+        # Import the data with delete_existing from command line args
+        import_all_data(
+            str(latest_dir), timestamp, delete_existing=args.delete_existing
+        )
 
-    if args.sync_images:
-        if run_image_sync(max_rank=args.sync_images_max_rank):
-            logger.info("Image sync completed successfully after data import.")
-        else:
-            logger.error("Image sync failed after data import.")
+        if args.sync_images:
+            if run_image_sync(max_rank=args.sync_images_max_rank):
+                logger.info("Image sync completed successfully after data import.")
+            else:
+                logger.error("Image sync failed after data import.")
+    finally:
+        release_import_data_lock(lock_connection)
 
 
 if __name__ == "__main__":
