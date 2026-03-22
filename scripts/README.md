@@ -96,7 +96,6 @@ poetry run python scripts/validate/validate_auth_flow.py --env dev
 poetry run python scripts/validate/validate_recommendation_artifacts.py --env dev
 poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev --game-id 224517
 poetry run python scripts/validate/validate_performance_gate.py --env dev
-python scripts/validate/validate_notebook_outputs.py
 python scripts/validate/validate_notebook_secrets.py
 ```
 
