@@ -1,6 +1,10 @@
 import pytest
+import pandas as pd
 
-from data_pipeline.src.ingest.get_ratings import _http_get_bgg_xml
+from data_pipeline.src.ingest.get_ratings import (
+    _http_get_bgg_xml,
+    get_boardgame_ratings,
+)
 
 
 def test_http_get_bgg_xml_includes_bearer_token(monkeypatch):
@@ -71,3 +75,36 @@ def test_http_get_bgg_xml_raises_when_bgg_token_missing(monkeypatch):
 
     with pytest.raises(ValueError, match="Missing required BGG_TOKEN"):
         _http_get_bgg_xml("https://www.boardgamegeek.com/xmlapi2/thing?id=1")
+
+
+def test_get_boardgame_ratings_closes_duckdb_connection_on_exception(
+    monkeypatch, tmp_path
+):
+    class _FakeDuckDbConnection:
+        def __init__(self):
+            self.closed = False
+
+        def execute(self, *_args, **_kwargs):
+            return self
+
+        def close(self):
+            self.closed = True
+
+    fake_connection = _FakeDuckDbConnection()
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.duckdb.connect",
+        lambda *_args, **_kwargs: fake_connection,
+    )
+    monkeypatch.setattr(
+        "data_pipeline.src.ingest.get_ratings.iterate_through_ratings_pages",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("forced failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="forced failure"):
+        get_boardgame_ratings(
+            boardgame_data=pd.DataFrame([{"id": 1, "numratings": 150}]),
+            ratings_store_path=tmp_path / "ratings.duckdb",
+            batch_size=20,
+        )
+
+    assert fake_connection.closed is True

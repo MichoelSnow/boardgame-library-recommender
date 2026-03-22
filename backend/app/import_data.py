@@ -93,18 +93,28 @@ def acquire_import_data_lock():
         return None
 
     lock_connection = engine.connect()
-    acquired = bool(
-        lock_connection.execute(
-            text("SELECT pg_try_advisory_lock(:lock_id)"),
-            {"lock_id": IMPORT_DATA_ADVISORY_LOCK_ID},
-        ).scalar()
-    )
+    try:
+        acquired = bool(
+            lock_connection.execute(
+                text("SELECT pg_try_advisory_lock(:lock_id)"),
+                {"lock_id": IMPORT_DATA_ADVISORY_LOCK_ID},
+            ).scalar()
+        )
+    except Exception:
+        lock_connection.close()
+        raise
     if not acquired:
         lock_connection.close()
         raise RuntimeError(
             "Another import_data run is already active. "
             "Wait for it to finish, or stop it before starting a new import."
         )
+    # End the transaction opened by the SELECT while keeping the session lock.
+    try:
+        lock_connection.commit()
+    except Exception:
+        lock_connection.close()
+        raise
     return lock_connection
 
 
@@ -116,6 +126,7 @@ def release_import_data_lock(lock_connection) -> None:
             text("SELECT pg_advisory_unlock(:lock_id)"),
             {"lock_id": IMPORT_DATA_ADVISORY_LOCK_ID},
         )
+        lock_connection.commit()
     finally:
         lock_connection.close()
 

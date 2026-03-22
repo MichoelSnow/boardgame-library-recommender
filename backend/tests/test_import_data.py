@@ -127,6 +127,7 @@ class _FakeLockConnection:
     def __init__(self, acquired=True):
         self._acquired = acquired
         self.closed = False
+        self.commit_calls = 0
         self.execute_calls = []
 
     def execute(self, statement, params):
@@ -137,6 +138,9 @@ class _FakeLockConnection:
 
     def close(self):
         self.closed = True
+
+    def commit(self):
+        self.commit_calls += 1
 
 
 def test_acquire_import_data_lock_postgres_acquired(monkeypatch):
@@ -154,6 +158,7 @@ def test_acquire_import_data_lock_postgres_acquired(monkeypatch):
 
     assert lock_connection is fake_connection
     assert fake_connection.closed is False
+    assert fake_connection.commit_calls == 1
     assert any(
         "pg_try_advisory_lock" in statement
         for statement, _ in fake_connection.execute_calls
@@ -177,3 +182,17 @@ def test_acquire_import_data_lock_postgres_rejected(monkeypatch):
     except RuntimeError as exc:
         assert "already active" in str(exc)
     assert fake_connection.closed is True
+    assert fake_connection.commit_calls == 0
+
+
+def test_release_import_data_lock_unlocks_and_commits():
+    fake_connection = _FakeLockConnection(acquired=True)
+
+    import_data.release_import_data_lock(fake_connection)
+
+    assert fake_connection.closed is True
+    assert fake_connection.commit_calls == 1
+    assert any(
+        "pg_advisory_unlock" in statement
+        for statement, _ in fake_connection.execute_calls
+    )

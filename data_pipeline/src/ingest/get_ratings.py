@@ -179,216 +179,228 @@ def get_boardgame_ratings(
     duckdb_path = ratings_store_path
     logger.info("Using ratings DuckDB store: %s", duckdb_path)
     con = duckdb.connect(str(duckdb_path))
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS boardgame_ratings (
-            game_id BIGINT,
-            rating_round DOUBLE,
-            username TEXT
-        );
-        """
-    )
-    # Index to speed up de-dup checks
-    con.execute(
-        "CREATE INDEX IF NOT EXISTS idx_boardgame_ratings ON boardgame_ratings(game_id, rating_round, username);"
-    )
+    try:
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS boardgame_ratings (
+                game_id BIGINT,
+                rating_round DOUBLE,
+                username TEXT
+            );
+            """
+        )
+        # Index to speed up de-dup checks
+        con.execute(
+            "CREATE INDEX IF NOT EXISTS idx_boardgame_ratings ON boardgame_ratings(game_id, rating_round, username);"
+        )
 
-    boardgame_master_dict = {}
-    boardgame_data_ratings = boardgame_data.loc[
-        boardgame_data["numratings"] > 100
-    ].sort_values(by="numratings", ascending=True)
-    boardgame_ids = boardgame_data_ratings["id"].tolist()
-    # Check if there are any ids which have not had all their ratings pulled down yet
-    if boardgame_ratings is not None:
-        df_ratings_len = boardgame_ratings.copy()
-        df_ratings_len = df_ratings_len.drop(columns=["id"])
-        df_ratings_len = df_ratings_len.fillna("")
-        for col in df_ratings_len.columns:
-            df_ratings_len[col] = df_ratings_len[col].apply(len)
-        df_ratings_pulled = pd.DataFrame(
-            {
-                "id": boardgame_ratings["id"].tolist(),
-                "ratings_pulled": df_ratings_len.sum(axis=1).tolist(),
-            }
-        )
-        boardgame_data_ratings = boardgame_data_ratings.merge(
-            df_ratings_pulled, on="id", how="left"
-        )
-        completed_ids = boardgame_data_ratings.loc[
-            (
-                boardgame_data_ratings["ratings_pulled"]
-                - boardgame_data_ratings["numratings"]
+        boardgame_master_dict = {}
+        boardgame_data_ratings = boardgame_data.loc[
+            boardgame_data["numratings"] > 100
+        ].sort_values(by="numratings", ascending=True)
+        boardgame_ids = boardgame_data_ratings["id"].tolist()
+        # Check if there are any ids which have not had all their ratings pulled down yet
+        if boardgame_ratings is not None:
+            df_ratings_len = boardgame_ratings.copy()
+            df_ratings_len = df_ratings_len.drop(columns=["id"])
+            df_ratings_len = df_ratings_len.fillna("")
+            for col in df_ratings_len.columns:
+                df_ratings_len[col] = df_ratings_len[col].apply(len)
+            df_ratings_pulled = pd.DataFrame(
+                {
+                    "id": boardgame_ratings["id"].tolist(),
+                    "ratings_pulled": df_ratings_len.sum(axis=1).tolist(),
+                }
             )
-            / (boardgame_data_ratings["numratings"])
-            >= -0.1,
-            "id",
-        ].tolist()
-        logger.info(
-            f"Found {len(completed_ids)} boardgames with all ratings already pulled to completion"
-        )
-        boardgame_ids = list(set(boardgame_ids).difference(set(completed_ids)))
-        # reorder boardgame_ids to match boardgame_data_ratings
-        boardgame_ids = boardgame_data_ratings.loc[
-            boardgame_data_ratings["id"].isin(boardgame_ids), "id"
-        ].tolist()
-        df_missing_ratings = boardgame_data_ratings.loc[
-            (
-                boardgame_data_ratings["ratings_pulled"]
-                - boardgame_data_ratings["numratings"]
+            boardgame_data_ratings = boardgame_data_ratings.merge(
+                df_ratings_pulled, on="id", how="left"
             )
-            / (boardgame_data_ratings["numratings"])
-            < -0.1
-        ]
-        logger.info(
-            f"Found {df_missing_ratings.shape[0]} boardgames with missing ratings"
-        )
-        if not keep_partial_ratings:
-            logger.info("Dropping partial ratings")
-            boardgame_ratings = boardgame_ratings.loc[
-                ~(boardgame_ratings["id"].isin(df_missing_ratings["id"]))
-            ]
-            # Also remove any partial rows for these games from the DuckDB snapshot
-            # so interim exports built from DuckDB cannot include half-complete data
-            if df_missing_ratings.shape[0] > 0:
-                ids_to_drop = df_missing_ratings["id"].dropna().astype("int64").tolist()
-                if len(ids_to_drop) > 0:
-                    try:
-                        con.register(
-                            "to_delete_games", pd.DataFrame({"game_id": ids_to_drop})
-                        )
-                        con.execute(
-                            """
-                            DELETE FROM boardgame_ratings
-                            WHERE game_id IN (SELECT game_id FROM to_delete_games);
-                            """
-                        )
-                        con.unregister("to_delete_games")
-                        logger.info(
-                            f"Removed {len(ids_to_drop)} game(s) with partial ratings from DuckDB"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to delete partial ratings from DuckDB: {str(e)}"
-                        )
-        else:
+            completed_ids = boardgame_data_ratings.loc[
+                (
+                    boardgame_data_ratings["ratings_pulled"]
+                    - boardgame_data_ratings["numratings"]
+                )
+                / (boardgame_data_ratings["numratings"])
+                >= -0.1,
+                "id",
+            ].tolist()
             logger.info(
-                "Keeping partial ratings and will continue to pull down the missing ratings"
+                f"Found {len(completed_ids)} boardgames with all ratings already pulled to completion"
             )
-
-        df_ratings_tmp = boardgame_ratings.copy().set_index("id")
-        df_ratings_tmp.index.name = None
-        boardgame_master_dict = df_ratings_tmp.to_dict(orient="index")
-
-        if keep_partial_ratings and df_missing_ratings.shape[0] > 0:
-            for _, row in df_missing_ratings.iterrows():
-                ratings_count_dict = {row["id"]: row["numratings"]}
-                max_ratings_page = math.ceil(row["numratings"] / 100)
-                start_page = int(row["ratings_pulled"] / 100) + 1
-                boardgame_master_dict = iterate_through_ratings_pages(
-                    boardgame_master_dict=boardgame_master_dict,
-                    max_ratings_page=max_ratings_page,
-                    ratings_count_dict=ratings_count_dict,
-                    start_page=start_page,
-                    batch_saves=batch_saves,
-                    duckdb_conn=con,
+            boardgame_ids = list(set(boardgame_ids).difference(set(completed_ids)))
+            # reorder boardgame_ids to match boardgame_data_ratings
+            boardgame_ids = boardgame_data_ratings.loc[
+                boardgame_data_ratings["id"].isin(boardgame_ids), "id"
+            ].tolist()
+            df_missing_ratings = boardgame_data_ratings.loc[
+                (
+                    boardgame_data_ratings["ratings_pulled"]
+                    - boardgame_data_ratings["numratings"]
                 )
-                logger.info(f"Successfully completed fetching ratings for {row['id']}")
-            df_ratings = (
-                pd.DataFrame()
-                .from_dict(data=boardgame_master_dict, orient="index")
-                .reset_index(names="id")
+                / (boardgame_data_ratings["numratings"])
+                < -0.1
+            ]
+            logger.info(
+                f"Found {df_missing_ratings.shape[0]} boardgames with missing ratings"
             )
-            boardgame_ids = list(
-                set(boardgame_ids).difference(set(df_ratings["id"].tolist()))
-            )
-
-        # Update numratings if requested
-        if update_numratings:
-            game_data_save_path = game_data_dir / f"boardgame_data_{query_time}.duckdb"
-            logger.info("Updating number of ratings for games with missing ratings")
-            for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
-                logger.info(
-                    f"Processing numratings batch {batch_num} of {math.ceil(len(boardgame_ids) / batch_size)}"
-                )
-                batch_ids = boardgame_ids[
-                    batch_num * batch_size : (batch_num + 1) * batch_size
+            if not keep_partial_ratings:
+                logger.info("Dropping partial ratings")
+                boardgame_ratings = boardgame_ratings.loc[
+                    ~(boardgame_ratings["id"].isin(df_missing_ratings["id"]))
                 ]
-                batch_ids = [str(x) for x in batch_ids]
-                logger.debug(f"Processing boardgame IDs for numratings: {batch_ids}")
-
-                bg_info_url = f"https://boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&id={','.join(batch_ids)}"
-                bgg_response = _http_get_bgg_xml(bg_info_url)
-                soup_xml = BeautifulSoup(bgg_response.content, "xml")
-                games_xml_list = soup_xml.find_all(
-                    "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
+                # Also remove any partial rows for these games from the DuckDB snapshot
+                # so interim exports built from DuckDB cannot include half-complete data
+                if df_missing_ratings.shape[0] > 0:
+                    ids_to_drop = (
+                        df_missing_ratings["id"].dropna().astype("int64").tolist()
+                    )
+                    if len(ids_to_drop) > 0:
+                        try:
+                            con.register(
+                                "to_delete_games",
+                                pd.DataFrame({"game_id": ids_to_drop}),
+                            )
+                            con.execute(
+                                """
+                                DELETE FROM boardgame_ratings
+                                WHERE game_id IN (SELECT game_id FROM to_delete_games);
+                                """
+                            )
+                            con.unregister("to_delete_games")
+                            logger.info(
+                                f"Removed {len(ids_to_drop)} game(s) with partial ratings from DuckDB"
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to delete partial ratings from DuckDB: {str(e)}"
+                            )
+            else:
+                logger.info(
+                    "Keeping partial ratings and will continue to pull down the missing ratings"
                 )
-                if len(games_xml_list) == 0:
-                    raise RuntimeError(
-                        f"BGG API returned zero items for batch URL: {bg_info_url}"
-                    )
 
-                for game_xml in games_xml_list:
-                    game_id = int(game_xml["id"])
-                    if game_xml.find("comments") is not None:
-                        boardgame_data.loc[
-                            boardgame_data["id"] == game_id, "numratings"
-                        ] = int(game_xml.find("comments")["totalitems"])
-                    else:
-                        boardgame_data.loc[
-                            boardgame_data["id"] == game_id, "numratings"
-                        ] = 0
-                if batch_saves and (batch_num + 1) % 20 == 0:
-                    logger.info(f"Saving batch {batch_num} data")
-                    save_game_data_to_duckdb(boardgame_data, game_data_save_path)
+            df_ratings_tmp = boardgame_ratings.copy().set_index("id")
+            df_ratings_tmp.index.name = None
+            boardgame_master_dict = df_ratings_tmp.to_dict(orient="index")
+
+            if keep_partial_ratings and df_missing_ratings.shape[0] > 0:
+                for _, row in df_missing_ratings.iterrows():
+                    ratings_count_dict = {row["id"]: row["numratings"]}
+                    max_ratings_page = math.ceil(row["numratings"] / 100)
+                    start_page = int(row["ratings_pulled"] / 100) + 1
+                    boardgame_master_dict = iterate_through_ratings_pages(
+                        boardgame_master_dict=boardgame_master_dict,
+                        max_ratings_page=max_ratings_page,
+                        ratings_count_dict=ratings_count_dict,
+                        start_page=start_page,
+                        batch_saves=batch_saves,
+                        duckdb_conn=con,
+                    )
                     logger.info(
-                        f"Saved batch {batch_num} data to {game_data_save_path}"
+                        f"Successfully completed fetching ratings for {row['id']}"
+                    )
+                df_ratings = (
+                    pd.DataFrame()
+                    .from_dict(data=boardgame_master_dict, orient="index")
+                    .reset_index(names="id")
+                )
+                boardgame_ids = list(
+                    set(boardgame_ids).difference(set(df_ratings["id"].tolist()))
+                )
+
+            # Update numratings if requested
+            if update_numratings:
+                game_data_save_path = (
+                    game_data_dir / f"boardgame_data_{query_time}.duckdb"
+                )
+                logger.info("Updating number of ratings for games with missing ratings")
+                for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
+                    logger.info(
+                        f"Processing numratings batch {batch_num} of {math.ceil(len(boardgame_ids) / batch_size)}"
+                    )
+                    batch_ids = boardgame_ids[
+                        batch_num * batch_size : (batch_num + 1) * batch_size
+                    ]
+                    batch_ids = [str(x) for x in batch_ids]
+                    logger.debug(
+                        f"Processing boardgame IDs for numratings: {batch_ids}"
                     )
 
-                sleep(1)
+                    bg_info_url = f"https://boardgamegeek.com/xmlapi2/thing?type=boardgame&ratingcomments=1&id={','.join(batch_ids)}"
+                    bgg_response = _http_get_bgg_xml(bg_info_url)
+                    soup_xml = BeautifulSoup(bgg_response.content, "xml")
+                    games_xml_list = soup_xml.find_all(
+                        "item", attrs={"type": ["boardgame", "boardgameexpansion"]}
+                    )
+                    if len(games_xml_list) == 0:
+                        raise RuntimeError(
+                            f"BGG API returned zero items for batch URL: {bg_info_url}"
+                        )
 
-            # Save updated game data
-            save_game_data_to_duckdb(boardgame_data, game_data_save_path)
-            logger.info(f"Saved updated game data to {game_data_save_path}")
-            boardgame_data_ratings = boardgame_data.loc[
-                boardgame_data["numratings"] > 100
-            ].sort_values(by="numratings", ascending=False)
+                    for game_xml in games_xml_list:
+                        game_id = int(game_xml["id"])
+                        if game_xml.find("comments") is not None:
+                            boardgame_data.loc[
+                                boardgame_data["id"] == game_id, "numratings"
+                            ] = int(game_xml.find("comments")["totalitems"])
+                        else:
+                            boardgame_data.loc[
+                                boardgame_data["id"] == game_id, "numratings"
+                            ] = 0
+                    if batch_saves and (batch_num + 1) % 20 == 0:
+                        logger.info(f"Saving batch {batch_num} data")
+                        save_game_data_to_duckdb(boardgame_data, game_data_save_path)
+                        logger.info(
+                            f"Saved batch {batch_num} data to {game_data_save_path}"
+                        )
 
-    logger.info(f"Starting to fetch ratings for {len(boardgame_ids)} boardgames")
+                    sleep(1)
 
-    for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
-        logger.info(
-            f"Processing batch {batch_num + 1} of {math.ceil(len(boardgame_ids) / batch_size)}"
-        )
-        batch_ids = boardgame_ids[batch_num * batch_size : (batch_num + 1) * batch_size]
-        df_batch_games = boardgame_data_ratings.loc[
-            boardgame_data_ratings["id"].isin(batch_ids)
-        ]
-        ratings_count_dict = pd.Series(
-            df_batch_games["numratings"].values,
-            index=df_batch_games["id"],
-        ).to_dict()
-        max_ratings_page = math.ceil(max(ratings_count_dict.values()) / 100)
-        logger.info(
-            f"Processing {max_ratings_page} rating pages for batch {batch_num + 1}"
-        )
-        boardgame_master_dict = iterate_through_ratings_pages(
-            boardgame_master_dict=boardgame_master_dict,
-            max_ratings_page=max_ratings_page,
-            ratings_count_dict=ratings_count_dict,
-            batch_saves=batch_saves,
-            duckdb_conn=con,
-        )
+                # Save updated game data
+                save_game_data_to_duckdb(boardgame_data, game_data_save_path)
+                logger.info(f"Saved updated game data to {game_data_save_path}")
+                boardgame_data_ratings = boardgame_data.loc[
+                    boardgame_data["numratings"] > 100
+                ].sort_values(by="numratings", ascending=False)
 
-    if len(boardgame_ids) > 0:
-        logger.info(
-            "Successfully completed fetching all ratings to DuckDB state store."
-        )
-    else:
-        logger.warning("No ratings were fetched")
+        logger.info(f"Starting to fetch ratings for {len(boardgame_ids)} boardgames")
 
-    # Restore original logging level
-    logger.setLevel(current_level)
-    con.close()
+        for batch_num in range(math.ceil(len(boardgame_ids) / batch_size)):
+            logger.info(
+                f"Processing batch {batch_num + 1} of {math.ceil(len(boardgame_ids) / batch_size)}"
+            )
+            batch_ids = boardgame_ids[
+                batch_num * batch_size : (batch_num + 1) * batch_size
+            ]
+            df_batch_games = boardgame_data_ratings.loc[
+                boardgame_data_ratings["id"].isin(batch_ids)
+            ]
+            ratings_count_dict = pd.Series(
+                df_batch_games["numratings"].values,
+                index=df_batch_games["id"],
+            ).to_dict()
+            max_ratings_page = math.ceil(max(ratings_count_dict.values()) / 100)
+            logger.info(
+                f"Processing {max_ratings_page} rating pages for batch {batch_num + 1}"
+            )
+            boardgame_master_dict = iterate_through_ratings_pages(
+                boardgame_master_dict=boardgame_master_dict,
+                max_ratings_page=max_ratings_page,
+                ratings_count_dict=ratings_count_dict,
+                batch_saves=batch_saves,
+                duckdb_conn=con,
+            )
+
+        if len(boardgame_ids) > 0:
+            logger.info(
+                "Successfully completed fetching all ratings to DuckDB state store."
+            )
+        else:
+            logger.warning("No ratings were fetched")
+    finally:
+        # Restore original logging level and always release the DuckDB handle.
+        logger.setLevel(current_level)
+        con.close()
 
 
 def iterate_through_ratings_pages(
