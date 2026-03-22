@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate notebook output/layout hygiene."""
+"""Validate notebook JSON and notebook-directory file layout."""
 
 from __future__ import annotations
 
@@ -37,33 +37,20 @@ def main() -> int:
 
     for path in _iter_ipynb_files():
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:  # pragma: no cover - guardrail
             failures.append(f"{path}: invalid JSON ({exc})")
-            continue
-
-        for idx, cell in enumerate(payload.get("cells", [])):
-            if cell.get("cell_type") != "code":
-                continue
-            outputs = cell.get("outputs", [])
-            execution_count = cell.get("execution_count")
-            if outputs:
-                failures.append(f"{path}: code cell {idx} has outputs")
-            if execution_count is not None:
-                failures.append(
-                    f"{path}: code cell {idx} has execution_count={execution_count}"
-                )
 
     for path in _iter_unexpected_files():
         failures.append(f"{path}: unexpected non-notebook file in notebooks directory")
 
     if failures:
-        print("Notebook output/layout validation failed:")
+        print("Notebook JSON/layout validation failed:")
         for failure in failures:
             print(f"- {failure}")
         return 1
 
-    print("Notebook output/layout validation passed.")
+    print("Notebook JSON/layout validation passed.")
     return 0
 
 

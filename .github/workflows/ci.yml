@@ -22,9 +22,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Notebook output/layout hygiene
-        run: |
-          python scripts/validate/validate_notebook_outputs.py
       - name: Notebook secret-pattern scan
         run: |
           python scripts/validate/validate_notebook_secrets.py

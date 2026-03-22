@@ -106,7 +106,7 @@
     - validate returns row-level warnings for invalid IDs and unknown catalog IDs
     - import supports `ignore_invalid_rows` and `allow_unknown_ids` controls
   - Added admin UI route `/admin/library-imports` and linked it from `/admin`.
-  - Runtime library filter source now resolves from the active import set, with fallback to legacy `library_games` when no import is active.
+  - Runtime library filter source resolves from the active import set only.
 - [x] [P1] Define additional admin actions to include in V1 (and explicitly defer anything not needed for launch).
   - Include in V1:
     - Kiosk device enroll/unenroll via `/kiosk/setup`

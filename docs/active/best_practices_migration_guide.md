@@ -425,22 +425,16 @@ Related Phase 4 planning docs:
 
 ### Phase 11: Architecture Cleanup and Performance (ongoing)
 - [ ] [P1] Move heavy business logic from FastAPI handlers into service modules.
-- [ ] [P1] Centralize frontend API calls in a dedicated service layer.
+- [x] [P1] Centralize frontend API calls in a dedicated service layer (`frontend/src/api/*`).
 - [ ] [P1] Profile and optimize hot queries and N+1 patterns.
-- [ ] [P1] Revisit cache strategy and invalidation rules.
-- [ ] [P3] Optional optimization: replace O(N) total-count cache eviction scan with `OrderedDict` LRU-style eviction (avoid full-cache clear).
-- [ ] [P2] Add lightweight ADRs for major architecture decisions.
-- [ ] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs. Proposed draft in `data_pipeline/README.md` ("Operational Policy (Phase 11)"), pending approval.
-- [ ] [P1] Define timeout/retry policy for external calls and long-running jobs. Proposed draft in `data_pipeline/README.md` ("Operational Policy (Phase 11)"), pending approval.
-- [ ] [P0] Run memory/performance validation for `data_pipeline/src` scripts on Fly runtime targets and capture OOM-safe limits per job.
-- [ ] [P0] Decide pipeline execution topology on Fly:
-- [ ] [P0] whether jobs can safely run on existing app/db machines
-- [ ] [P0] or require dedicated pipeline worker machines/apps with isolated sizing
-- [ ] [P0] Define independent monthly cadence for pipeline rebuild jobs (outside app request path) and document trigger/ownership.
-- [ ] [P0] Define canonical storage plan for pipeline outputs/artifacts:
-- [ ] [P0] where raw/intermediate/final outputs live
-- [ ] [P0] retention/cleanup policy
-- [ ] [P0] handoff path from pipeline outputs to runtime-consumed artifacts
+- [x] [P1] Revisit cache strategy and invalidation rules (catalog-state driven refresh + explicit admin refresh path; reduced unnecessary polling behavior).
+- [x] [P2] Add lightweight ADRs for major architecture decisions (`docs/archive/adr/0001-phase-4-architecture-foundations.md`).
+- [x] [P1] Define idempotency and retry strategy for write endpoints and ingestion jobs (`data_pipeline/README.md`, `scripts/data_pipeline/README.md`, `scripts/data_pipeline/run_ingest_pipeline.py`).
+- [x] [P1] Define timeout/retry policy for external calls and long-running jobs (`tenacity`-backed ingest retries, bounded stage retries, resumable stage execution).
+- [x] [P0] Run memory/performance validation for `data_pipeline/src` scripts on Fly runtime targets and capture OOM-safe limits per job.
+- [x] [P0] Decide pipeline execution topology on Fly (dedicated ingest app/machine: `bg-lib-ingest`; not request-serving app/db machines).
+- [x] [P1] Define ingest trigger/ownership model (manual operator-triggered run with documented start/status/recovery flow).
+- [x] [P0] Define canonical storage and handoff plan for pipeline outputs/artifacts (`data/ingest/*`, `data/transform/processed/*`, runtime artifact handoff documented in `data_pipeline/README.md`).
 
 ### Phase 12: Data Safety and Migration Discipline (2-4 days)
 - [ ] [P0] Define backup cadence and retention policy for production data.

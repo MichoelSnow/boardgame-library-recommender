@@ -42,10 +42,10 @@ mkdir -p .tmp
 fly ssh console -a "${OLD_FLY_DB_APP_NAME_DEV}" -C "pg_dump \"postgresql://${POSTGRES_USER_OLD}:${POSTGRES_PASSWORD_DEV_OLD}@127.0.0.1:5432/${POSTGRES_DB_OLD}\" --data-only --no-owner --no-privileges" > .tmp/old-dev-data.sql
 ```
 
-Transform legacy names to current repo schema and remove Alembic row import:
+Remove legacy table data blocks and Alembic row import:
 
 ```bash
-perl -0777 -pe "s/COPY public\\.pax_games \\(/COPY public.library_games (/g; s/public\\.pax_games_id_seq/public.library_games_id_seq/g; s/^COPY public\\.alembic_version \\(version_num\\) FROM stdin;\\n.*?^\\\\\\.\\n//ms" .tmp/old-dev-data.sql > .tmp/old-dev-data.repo.sql
+perl -0777 -pe "s/^COPY public\\.pax_games \\(.*?^\\\\\\.\\n//msg; s/^COPY public\\.alembic_version \\(version_num\\) FROM stdin;\\n.*?^\\\\\\.\\n//msg" .tmp/old-dev-data.sql > .tmp/old-dev-data.repo.sql
 ```
 
 Import into new dev DB:
@@ -58,9 +58,9 @@ cat .tmp/old-dev-data.repo.sql | fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C
 Verify key row counts:
 
 ```bash
-fly ssh console -a "${OLD_FLY_DB_APP_NAME_DEV}" -C "psql \"postgresql://${POSTGRES_USER_OLD}:${POSTGRES_PASSWORD_DEV_OLD}@127.0.0.1:5432/${POSTGRES_DB_OLD}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM pax_games) AS pax_games;\""
-fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "psql \"postgresql://postgres:${POSTGRES_PASSWORD_DEV}@127.0.0.1:5432/${POSTGRES_DB}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM library_games) AS library_games;\""
-fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "psql \"postgresql://postgres:${POSTGRES_PASSWORD_PROD}@127.0.0.1:5432/${POSTGRES_DB}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM library_games) AS library_games;\""
+fly ssh console -a "${OLD_FLY_DB_APP_NAME_DEV}" -C "psql \"postgresql://${POSTGRES_USER_OLD}:${POSTGRES_PASSWORD_DEV_OLD}@127.0.0.1:5432/${POSTGRES_DB_OLD}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users;\""
+fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "psql \"postgresql://postgres:${POSTGRES_PASSWORD_DEV}@127.0.0.1:5432/${POSTGRES_DB}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM library_imports) AS library_imports, (SELECT COUNT(*) FROM library_import_items) AS library_import_items;\""
+fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "psql \"postgresql://postgres:${POSTGRES_PASSWORD_PROD}@127.0.0.1:5432/${POSTGRES_DB}\" -c \"SELECT (SELECT COUNT(*) FROM games) AS games, (SELECT COUNT(*) FROM users) AS users, (SELECT COUNT(*) FROM library_imports) AS library_imports, (SELECT COUNT(*) FROM library_import_items) AS library_import_items;\""
 ```
 
 ## 3. Runtime Artifact Migration (Old Dev App -> New Dev App)

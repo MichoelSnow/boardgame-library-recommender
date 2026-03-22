@@ -1,5 +1,7 @@
 import argparse
 import logging
+import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -16,6 +18,27 @@ except ModuleNotFoundError:
 
 
 LOGGER = logging.getLogger(__name__)
+REPO_ROOT = CURRENT_DIR.parent.parent
+
+
+def load_repo_env_if_present() -> None:
+    """Load repo-root .env values into process env without overriding existing vars."""
+    env_path = REPO_ROOT / ".env"
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
 
 
 def configure_logging() -> None:
@@ -45,6 +68,25 @@ def build_restore_command(
     return build_ssh_console_command(environment, remote_command)
 
 
+def build_restore_from_remote_file_command(
+    environment: str, postgres_user: str, restore_db: str, remote_input: str
+) -> list[str]:
+    quoted_user = shlex.quote(postgres_user)
+    quoted_db = shlex.quote(restore_db)
+    quoted_remote_input = shlex.quote(remote_input)
+    remote_command = "sh -lc " + shlex.quote(
+        f"test -s {quoted_remote_input} && "
+        f"psql -U {quoted_user} -d {quoted_db} -v ON_ERROR_STOP=1 -f {quoted_remote_input}"
+    )
+    return build_ssh_console_command(environment, remote_command)
+
+
+def build_delete_remote_file_command(environment: str, remote_input: str) -> list[str]:
+    quoted_remote_input = shlex.quote(remote_input)
+    remote_command = "sh -lc " + shlex.quote(f"rm -f {quoted_remote_input}")
+    return build_ssh_console_command(environment, remote_command)
+
+
 def build_verify_command(
     environment: str, postgres_user: str, restore_db: str
 ) -> list[str]:
@@ -61,6 +103,20 @@ def run_restore(input_path: Path, restore_command: list[str]) -> None:
         subprocess.run(restore_command, check=True, stdin=input_file)
 
 
+def run_restore_from_remote_input(
+    environment: str, postgres_user: str, restore_db: str, remote_input: str
+) -> None:
+    subprocess.run(
+        build_restore_from_remote_file_command(
+            environment=environment,
+            postgres_user=postgres_user,
+            restore_db=restore_db,
+            remote_input=remote_input,
+        ),
+        check=True,
+    )
+
+
 def verify_restore(verify_command: list[str]) -> None:
     result = subprocess.run(
         verify_command,
@@ -75,6 +131,7 @@ def verify_restore(verify_command: list[str]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    default_user = os.getenv("POSTGRES_USER", "postgres")
     parser = argparse.ArgumentParser(
         description="Restore a Fly Postgres SQL dump into a disposable test database."
     )
@@ -86,31 +143,45 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--input",
-        required=True,
         help="Path to the local SQL dump file created by fly_postgres_backup.py.",
     )
     parser.add_argument(
+        "--remote-input",
+        help=(
+            "Path to SQL dump file that already exists on the remote Fly DB machine. "
+            "Mutually exclusive with --input."
+        ),
+    )
+    parser.add_argument(
         "--postgres-user",
-        default="bg_lib_app",
-        help="Database user for restore operations (default: bg_lib_app).",
+        default=default_user,
+        help=f"Database user for restore operations (default: {default_user}).",
     )
     parser.add_argument(
         "--restore-db",
         default="bg_lib_recommender_restore_test",
         help="Disposable database name to recreate and restore into.",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--delete-remote-after-restore",
+        action="store_true",
+        help=(
+            "Delete --remote-input file after a successful restore. "
+            "Only valid with --remote-input."
+        ),
+    )
+    args = parser.parse_args()
+    if bool(args.input) == bool(args.remote_input):
+        parser.error("Provide exactly one of --input or --remote-input.")
+    if args.delete_remote_after_restore and not args.remote_input:
+        parser.error("--delete-remote-after-restore requires --remote-input.")
+    return args
 
 
 def main() -> int:
+    load_repo_env_if_present()
     configure_logging()
     args = parse_args()
-
-    input_path = Path(args.input)
-    if not input_path.exists():
-        raise FileNotFoundError(f"Restore input file does not exist: {input_path}")
-    if input_path.stat().st_size == 0:
-        raise RuntimeError(f"Restore input file is empty: {input_path}")
 
     LOGGER.info("Recreating disposable restore database: %s", args.restore_db)
     subprocess.run(
@@ -122,11 +193,34 @@ def main() -> int:
         check=True,
     )
 
-    LOGGER.info("Restoring %s into %s", input_path, args.restore_db)
-    run_restore(
-        input_path, build_restore_command(args.env, args.postgres_user, args.restore_db)
-    )
+    if args.input:
+        input_path = Path(args.input)
+        if not input_path.exists():
+            raise FileNotFoundError(f"Restore input file does not exist: {input_path}")
+        if input_path.stat().st_size == 0:
+            raise RuntimeError(f"Restore input file is empty: {input_path}")
+        LOGGER.info("Restoring local file %s into %s", input_path, args.restore_db)
+        run_restore(
+            input_path,
+            build_restore_command(args.env, args.postgres_user, args.restore_db),
+        )
+    else:
+        LOGGER.info(
+            "Restoring remote file %s into %s", args.remote_input, args.restore_db
+        )
+        run_restore_from_remote_input(
+            environment=args.env,
+            postgres_user=args.postgres_user,
+            restore_db=args.restore_db,
+            remote_input=args.remote_input,
+        )
+
     verify_restore(build_verify_command(args.env, args.postgres_user, args.restore_db))
+    if args.remote_input and args.delete_remote_after_restore:
+        LOGGER.info("Deleting remote backup file: %s", args.remote_input)
+        subprocess.run(
+            build_delete_remote_file_command(args.env, args.remote_input), check=True
+        )
     LOGGER.info("Restore completed successfully.")
     return 0
 

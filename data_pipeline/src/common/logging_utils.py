@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 
@@ -7,8 +8,12 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 
 def get_logs_dir() -> Path:
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    return LOGS_DIR
+    # Prefer explicit override for environments that need persistent mounted logs
+    # (e.g., Fly ingest worker writing to /app/data).
+    override = os.getenv("DATA_PIPELINE_LOG_DIR", "").strip()
+    logs_dir = Path(override) if override else LOGS_DIR
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    return logs_dir
 
 
 def build_log_handlers(filename: str) -> list[logging.Handler]:

@@ -92,10 +92,10 @@ poetry run python scripts/validate/run_rehearsal_evidence.py --env dev --skip-me
 
 ## Notebook Hygiene Checks
 
-## `validate_notebook_outputs.py`
-- Verifies notebooks have no outputs/execution counts and no unexpected non-notebook artifacts.
+## `validate_notebook_layout.py`
+- Optional: verifies notebook files are valid JSON and flags unexpected non-notebook files in `data_pipeline/notebooks`.
 ```bash
-python scripts/validate/validate_notebook_outputs.py
+python scripts/validate/validate_notebook_layout.py
 ```
 
 ## `validate_notebook_secrets.py`

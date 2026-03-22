@@ -38,7 +38,7 @@ poetry run python scripts/db/bootstrap_fly_postgres_baseline.py \
 
 ## `transform_canonical_schema.py`
 - What it does:
-  - Rewrites legacy canonical schema naming (`pax_games`) to current repo naming (`library_games`).
+  - Removes legacy `pax_games` schema objects from canonical SQL.
 - When to use:
   - Before baseline bootstrap when source schema comes from old prod dump.
 - How to use:

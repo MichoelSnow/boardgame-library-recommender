@@ -523,93 +523,6 @@ def get_recommendations(
     )
 
 
-# Library Games CRUD operations
-def get_library_games(
-    db: Session,
-    skip: int = 0,
-    limit: int = 100,
-    convention_name: Optional[str] = None,
-    convention_year: Optional[int] = None,
-    has_bgg_id: Optional[bool] = None,
-):
-    """Get Library games with optional filtering."""
-    query = db.query(models.LibraryGame)
-
-    if convention_name:
-        query = query.filter(models.LibraryGame.convention_name == convention_name)
-
-    if convention_year:
-        query = query.filter(models.LibraryGame.convention_year == convention_year)
-
-    if has_bgg_id is not None:
-        if has_bgg_id:
-            query = query.filter(models.LibraryGame.bgg_id.isnot(None))
-        else:
-            query = query.filter(models.LibraryGame.bgg_id.is_(None))
-
-    # Get total count before pagination
-    total = query.count()
-
-    # Apply pagination
-    library_games = query.offset(skip).limit(limit).all()
-
-    return library_games, total
-
-
-def get_library_game(db: Session, library_game_id: int):
-    """Get a specific Library game by ID."""
-    return (
-        db.query(models.LibraryGame)
-        .filter(models.LibraryGame.id == library_game_id)
-        .first()
-    )
-
-
-def get_library_game_by_bgg_id(db: Session, bgg_id: int):
-    """Get Library game by BGG ID."""
-    return (
-        db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id == bgg_id).first()
-    )
-
-
-def create_library_game(db: Session, library_game: schemas.LibraryGameCreate):
-    """Create a new Library game."""
-    db_library_game = models.LibraryGame(**library_game.model_dump())
-    db.add(db_library_game)
-    db.commit()
-    db.refresh(db_library_game)
-    return db_library_game
-
-
-def get_library_games_by_convention(
-    db: Session, convention_name: str, convention_year: Optional[int] = None
-):
-    """Get Library games for a specific convention."""
-    query = db.query(models.LibraryGame).filter(
-        models.LibraryGame.convention_name == convention_name
-    )
-
-    if convention_year:
-        query = query.filter(models.LibraryGame.convention_year == convention_year)
-
-    return query.all()
-
-
-def get_library_games_with_board_game_links(
-    db: Session, skip: int = 0, limit: int = 100
-):
-    """Get Library games that have links to BoardGame records."""
-    query = db.query(models.LibraryGame).filter(models.LibraryGame.bgg_id.isnot(None))
-
-    # Get total count before pagination
-    total = query.count()
-
-    # Apply pagination
-    library_games = query.offset(skip).limit(limit).all()
-
-    return library_games, total
-
-
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
@@ -771,39 +684,31 @@ def build_runtime_library_only_filter(
     """
     Build a library-only filter expression for BoardGame queries.
 
-    Prefers the active library import items table; falls back to the
-    legacy library_games table when no active import exists.
+    Uses only the active library import items table.
     """
     if active_import is None:
         active_import = get_active_library_import(db)
-    if active_import is not None:
-        return exists().where(
-            and_(
-                models.LibraryImportItem.library_import_id == active_import.id,
-                models.LibraryImportItem.bgg_id == models.BoardGame.id,
-            )
+    if active_import is None:
+        return models.BoardGame.id == -1
+    return exists().where(
+        and_(
+            models.LibraryImportItem.library_import_id == active_import.id,
+            models.LibraryImportItem.bgg_id == models.BoardGame.id,
         )
-    return exists().where(models.LibraryGame.bgg_id == models.BoardGame.id)
+    )
 
 
 def get_library_ids_for_runtime(db: Session) -> list[int]:
-    """Return active library IDs from imports, with legacy-table fallback."""
+    """Return active library IDs from imports only."""
     active_import = get_active_library_import(db)
-    if active_import is not None:
-        rows = (
-            db.query(models.LibraryImportItem.bgg_id)
-            .filter(models.LibraryImportItem.library_import_id == active_import.id)
-            .all()
-        )
-        return [row[0] for row in rows if row[0] is not None]
-
-    legacy_rows = (
-        db.query(models.LibraryGame.bgg_id)
-        .filter(models.LibraryGame.bgg_id.isnot(None))
-        .distinct()
+    if active_import is None:
+        return []
+    rows = (
+        db.query(models.LibraryImportItem.bgg_id)
+        .filter(models.LibraryImportItem.library_import_id == active_import.id)
         .all()
     )
-    return [row[0] for row in legacy_rows if row[0] is not None]
+    return [row[0] for row in rows if row[0] is not None]
 
 
 def get_games_count(db: Session) -> int:

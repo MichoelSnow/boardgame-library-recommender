@@ -1236,7 +1236,6 @@ async def get_recommendations(
         disliked_games: Comma-separated list of game IDs to use as anti-recommendations
         anti_weight: Weight to apply to anti-recommendations (higher values = stronger anti-recommendations)
         library_only: If true, only recommend games from the active library import
-            (falling back to legacy library_games if no active import exists)
     """
     try:
         # Parse disliked games if provided
@@ -1322,13 +1321,6 @@ async def list_mechanics(
     except Exception as e:
         logger.error(f"Error fetching mechanics: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching mechanics")
-
-
-@app.get("/api/library_games/with_board_game_links")
-def read_library_games_with_board_game_links(
-    skip: int = 0, limit: int = 100, db: Session = Depends(get_db)
-):
-    return crud.get_library_games_with_board_game_links(db=db, skip=skip, limit=limit)
 
 
 @app.get("/api/mechanics/by_frequency", response_model=List[schemas.MechanicFrequency])

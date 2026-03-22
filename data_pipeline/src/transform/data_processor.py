@@ -12,6 +12,9 @@ import logging
 import time
 import csv
 import argparse
+import json
+
+import duckdb
 
 try:
     from ..common.logging_utils import build_log_handlers
@@ -67,6 +70,7 @@ def save_basic_info(
         "numcomments",
         "numweights",
         "numratings",
+        "avg_box_volume",
     ]
 
     float_cols = [
@@ -89,6 +93,8 @@ def save_basic_info(
 
     # Covert columns to int
     for col in int_cols:
+        if col not in df_merged.columns:
+            df_merged[col] = pd.NA
         df_merged[col] = df_merged[col].fillna(value=pd.NA).astype(pd.Int64Dtype())
 
     # Convert columns to float
@@ -107,6 +113,50 @@ def save_basic_info(
     logger.info(
         f"Successfully saved basic info for {len(df_merged)} games to {output_file_data}"
     )
+
+
+def add_avg_box_volume(df_merged: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute avg_box_volume from English versions and attach to merged game rows.
+
+    avg_box_volume = round(avg(length * width * depth)) across English versions.
+    """
+    result = df_merged.copy()
+    if "versions" not in result.columns:
+        result["avg_box_volume"] = pd.NA
+        return result
+
+    volume_rows: list[dict[str, float | int]] = []
+    for game_id, versions in zip(result["id"], result["versions"], strict=False):
+        if not isinstance(versions, list):
+            continue
+        for version in versions:
+            if not isinstance(version, dict):
+                continue
+            language = str(version.get("language", "")).strip().lower()
+            if language != "english":
+                continue
+            length = pd.to_numeric(version.get("length"), errors="coerce")
+            width = pd.to_numeric(version.get("width"), errors="coerce")
+            depth = pd.to_numeric(version.get("depth"), errors="coerce")
+            if pd.isna(length) or pd.isna(width) or pd.isna(depth):
+                continue
+            volume_rows.append(
+                {"id": int(game_id), "volume": float(length * width * depth)}
+            )
+
+    if not volume_rows:
+        result["avg_box_volume"] = pd.NA
+        return result
+
+    df_volumes = pd.DataFrame(volume_rows)
+    df_avg = df_volumes.groupby("id", as_index=False)["volume"].mean()
+    df_avg["avg_box_volume"] = (
+        (df_avg["volume"] + 0.5).astype(float).astype(int).astype("Int64")
+    )
+    result = result.merge(df_avg[["id", "avg_box_volume"]], on="id", how="left")
+    result["avg_box_volume"] = result["avg_box_volume"].astype("Int64")
+    return result
 
 
 def save_dict_id_cols(
@@ -184,6 +234,13 @@ def save_suggested_num_players(
             for k, v in d.items()
         ]
     )
+    # Keep only per-player entries where votes are dict payloads.
+    # The source dict also contains `total_votes` as an int, which cannot be
+    # json-normalized directly.
+    df_exploded = df_exploded.loc[
+        (df_exploded[col] != "total_votes")
+        & (df_exploded["votes"].apply(lambda v: isinstance(v, dict)))
+    ]
     df_exploded = pd.concat(
         [df_exploded.drop(columns="votes"), pd.json_normalize(df_exploded["votes"])],
         axis=1,
@@ -328,7 +385,7 @@ def combine_crawler_data(
 
     Args:
         ranks_file (str): Path to the board game rankings CSV file
-        data_file (str): Path to the board game data parquet file
+        data_file (str): Path to the board game data DuckDB file
         output_file_base (str): Base path to save the combined data
         timestamp (int): Unix timestamp for the output file
         exclude_ids (List[int]): List of game IDs to exclude from the data
@@ -340,7 +397,7 @@ def combine_crawler_data(
         df_ranks = pd.read_csv(
             ranks_file, sep="|", escapechar="\\", quoting=csv.QUOTE_NONE
         )
-        df_data = pd.read_parquet(data_file)
+        df_data = load_game_data_from_duckdb(data_file)
         logger.info(
             f"Successfully loaded {len(df_ranks)} rankings and {len(df_data)} detailed records"
         )
@@ -349,10 +406,11 @@ def combine_crawler_data(
         raise
 
     # Drop columns from ranks that we don't want to merge
-    df_ranks = df_ranks.drop(columns=["queried_at_utc"])
+    df_ranks = df_ranks.drop(columns=["queried_at_utc"], errors="ignore")
 
     # Merge rankings data with game data
     df_merged = pd.merge(df_data, df_ranks, on="id", how="inner")
+    df_merged = add_avg_box_volume(df_merged)
 
     # Filter out excluded games
     if exclude_ids:
@@ -372,6 +430,43 @@ def combine_crawler_data(
 
     # Save the language dependence
     save_language_dependence(df_merged, output_file_base, timestamp)
+
+
+def load_game_data_from_duckdb(data_file: str) -> pd.DataFrame:
+    """
+    Load game records from a DuckDB store produced by get_game_data.py.
+
+    Expected shape:
+    - Table with columns `id` and `payload_json` (typically `boardgame_data`)
+    """
+    conn = duckdb.connect(data_file, read_only=True)
+    try:
+        table_names = [row[0] for row in conn.execute("SHOW TABLES").fetchall()]
+        source_table = None
+        for table_name in table_names:
+            columns = {
+                row[0].lower()
+                for row in conn.execute(f"DESCRIBE {table_name}").fetchall()
+            }
+            if {"id", "payload_json"}.issubset(columns):
+                source_table = table_name
+                break
+
+        if source_table is None:
+            raise ValueError(
+                f"No table with columns id + payload_json found in DuckDB file: {data_file}"
+            )
+
+        payload_rows = conn.execute(
+            f"SELECT payload_json FROM {source_table} ORDER BY id"
+        ).fetchall()
+        if not payload_rows:
+            return pd.DataFrame()
+
+        records = [json.loads(row[0]) for row in payload_rows]
+        return pd.DataFrame(records)
+    finally:
+        conn.close()
 
 
 def main():
@@ -397,18 +492,21 @@ def main():
     if not ranks_files:
         raise FileNotFoundError(f"No board game ranks files found in {ranks_dir}")
     latest_ranks = max(ranks_files, key=lambda x: x.stat().st_mtime)
+    logger.info("Using rankings file: %s", latest_ranks)
 
     # Find the most recent data file
-    data_files = list(game_data_dir.glob("boardgame_data_*.parquet"))
+    data_files = list(game_data_dir.glob("boardgame_data_*.duckdb"))
     if not data_files:
         raise FileNotFoundError(f"No board game data files found in {game_data_dir}")
     latest_data = max(data_files, key=lambda x: x.stat().st_mtime)
+    logger.info("Using game data file: %s", latest_data)
 
     # Set output file path with Unix timestamp
     timestamp = int(time.time())
     output_dir = processed_root_dir / str(timestamp)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file_base = output_dir / "processed_games"
+    logger.info("Writing processed outputs to: %s", output_dir)
 
     # Read the ranks file to check for expansions if needed
     if args.exclude_expansions:

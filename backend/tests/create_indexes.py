@@ -161,12 +161,6 @@ def create_indexes():
             "CREATE INDEX IF NOT EXISTS idx_suggested_players_recommendation_level ON suggested_players(recommendation_level)"
         )
 
-        # Library Games - only bgg_id index
-        logger.info("Creating indexes for Library games table...")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_library_games_bgg_id ON library_games(bgg_id)"
-        )
-
         # Commit changes
         conn.commit()
         logger.info("Essential indexes created successfully!")

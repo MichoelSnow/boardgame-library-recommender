@@ -24,208 +24,498 @@
 - `tests/`
   - pipeline-focused tests
 
-## Data Collection and Processing
+## Quick Start
+| Scenario | Steps |
+| --- | --- |
+| First remote ingest run | Create app/volume -> set `.env` -> `fly_ingest_set_secrets.sh` -> `fly_ingest_deploy.sh` -> `fly_ingest_start.sh` |
+| Resume remote ingest after failure | `fly_ingest_status.sh` -> check logs -> `fly_ingest_start.sh` |
+| Download remote artifacts after run | Enable maintenance mode -> start machine -> `fly_ingest_list_artifacts.sh` -> `fly_ingest_download_artifact.sh` -> disable maintenance mode -> stop machine |
+| Local processing + import | Process (`data_processor`) -> build embeddings (`create_embeddings`) -> run Alembic -> import data/library |
 
-The pipeline uses a staged ingest flow from BoardGameGeek. Run commands from repo root with `poetry run python ...`.
+## Data Collection
 
-### 1) Collect Board Game Rankings
+Use these commands from repo root.
 
+### Local collection (run on your machine)
+
+1. Collect rankings:
 ```bash
 poetry run python -m data_pipeline.src.ingest.get_ranks
 ```
 
-Behavior:
-- Downloads ranks from a user-provided signed BGG ZIP URL.
-- Downloads rankings for board games.
-- Writes rank snapshot(s) under `data/ingest/ranks/` (timestamped files).
-
 Required input:
-- `--ranks-zip-url "<signed-url>"` or `BGG_RANKS_ZIP_URL` in environment.
+- `--ranks-zip-url "<signed-url>"` or `BGG_RANKS_ZIP_URL`.
 - To obtain the signed URL:
   1. log in to BoardGameGeek
   2. open `https://boardgamegeek.com/data_dumps/bg_ranks`
-  3. copy the current boardgame ranks ZIP link from that page
+  3. copy the current boardgame ranks ZIP link
 
-Example:
-
-```bash
-poetry run python -m data_pipeline.src.ingest.get_ranks --ranks-zip-url "<signed-url>"
-```
-
-### 2) Collect Detailed Game Data
-
+2. Collect game metadata:
 ```bash
 poetry run python -m data_pipeline.src.ingest.get_game_data
-```
-
-Behavior:
-- Processes game IDs in BGG API-sized batches (`20` IDs/request).
-- Fetches metadata, stats, poll info, links, and version data.
-- Writes `boardgame_data_<timestamp>.duckdb` under `data/ingest/game_data/`.
-- Resume mode (`--continue-from-last`) reuses the latest DuckDB store and skips completed game IDs.
-
-Resume mode:
-
-```bash
 poetry run python -m data_pipeline.src.ingest.get_game_data --continue-from-last
 ```
 
-### 3) Collect User Ratings
-
+3. Collect ratings:
 ```bash
 poetry run python -m data_pipeline.src.ingest.get_ratings
-```
-
-Behavior:
-- Crawls ratings pages for games with sufficient ratings.
-- Persists raw ratings incrementally to DuckDB during crawling.
-- Exports a Parquet snapshot for downstream processing when complete.
-
-Artifacts:
-- DuckDB store: `data/ingest/ratings_state/ratings.duckdb`
-- Snapshot: `data/ingest/ratings/boardgame_ratings_<timestamp>.parquet`
-
-Resume mode:
-
-```bash
 poetry run python -m data_pipeline.src.ingest.get_ratings --continue-from-last
 ```
 
-### 3a) DuckDB Ratings Backend
+Token requirements:
+- `BGG_TOKEN` is required for `get_game_data` and `get_ratings`.
+- Auth format: `Authorization: Bearer <token>`.
+- Scripts check process env first, then repo-root `.env`.
 
-The ratings crawler uses DuckDB as a persistent crawl-time store.
+Outputs:
+- Rankings: `data/ingest/ranks/boardgame_ranks_*.csv`
+- Game data: `data/ingest/game_data/boardgame_data_*.duckdb`
+- Ratings: `data/ingest/ratings/boardgame_ratings_*.duckdb`
 
-- Location: `data/ingest/ratings_state/ratings.duckdb`
+Ratings DuckDB details:
 - Table: `boardgame_ratings(game_id BIGINT, rating_round DOUBLE, username TEXT)`
 - Index: `idx_boardgame_ratings` on `(game_id, rating_round, username)`
+- Inserts are de-duplicated and resume-safe.
 
-Notes:
-- Inserts are de-duplicated during crawl.
-- Final Parquet snapshot preserves downstream pipeline compatibility.
-- Resume mode prefers the DuckDB-backed state when present.
+### Remote collection on Fly (`bg-lib-ingest`)
 
-### 4) Process and Normalize Data
+Use dedicated ingest app/machine, not request-serving app machines.
 
+Key files:
+- Fly config: `fly.ingest.toml`
+- Image build: `Dockerfile.ingest`
+- Orchestrator: `scripts/data_pipeline/run_ingest_pipeline.py`
+- Deploy/start/status helpers:
+  - `scripts/deploy/fly_ingest_deploy.sh`
+  - `scripts/deploy/fly_ingest_start.sh`
+  - `scripts/deploy/fly_ingest_status.sh`
+  - `scripts/deploy/fly_ingest_set_secrets.sh`
+
+Required `.env` values for remote ingest:
+```bash
+FLY_APP_NAME_INGEST=bg-lib-ingest
+BGG_TOKEN=<your_bgg_token>
+BGG_RANKS_ZIP_URL=<signed_bgg_ranks_zip_url>
+INGEST_NOTIFY_EMAIL_TO=<your_email>
+INGEST_NOTIFY_EMAIL_FROM=<verified_sender>
+BREVO_SMTP_LOGIN=<brevo_smtp_login_or_username>
+BREVO_SMTP_KEY=<brevo_smtp_key>
+# optional overrides:
+# INGEST_NOTIFY_SMTP_HOST=smtp-relay.brevo.com
+# INGEST_NOTIFY_SMTP_PORT=587
+# INGEST_NOTIFY_SMTP_STARTTLS=true
+```
+
+One-time bootstrap:
+```bash
+fly apps create "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+fly volumes create bg_lib_ingest_data \
+  --app "${FLY_APP_NAME_INGEST:-bg-lib-ingest}" \
+  --region iad \
+  --size 4 \
+  --yes
+```
+
+Regular remote run flow:
+1. Deploy image:
+```bash
+scripts/deploy/fly_ingest_deploy.sh
+```
+2. Sync secrets from `.env`:
+```bash
+scripts/deploy/fly_ingest_set_secrets.sh
+```
+3. Start ingest:
+```bash
+scripts/deploy/fly_ingest_start.sh
+```
+4. Check status:
+```bash
+scripts/deploy/fly_ingest_status.sh
+```
+5. Optional logs:
+```bash
+fly logs -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+fly ssh console -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}" -C "cat /app/data/ingest/run_state.json"
+```
+
+Remote run behavior:
+- Stage order: `get_ranks -> get_game_data -> get_ratings`
+- `get_game_data` and `get_ratings` run with `--continue-from-last`
+- On repeated stage failure:
+  - alert is sent (if configured)
+  - stage attempts are reset to `0`
+  - run exits cleanly (future runs are not blocked)
+- On completion, completion alert is sent (if configured)
+- Machine exits when pipeline exits (restart policy `no`)
+- Orchestrator/stage logs are written under `/app/data/logs/ingest/*`
+
+Maintenance mode (manual SSH/debug mode):
+1. Enable:
+```bash
+fly secrets set INGEST_MAINTENANCE_MODE=true -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+2. Start machine:
+```bash
+scripts/deploy/fly_ingest_start.sh
+```
+3. SSH and run manual commands:
+```bash
+fly ssh console -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+4. Stop machine when finished:
+```bash
+fly machine list -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+fly machine stop <MACHINE_ID> -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+5. Disable maintenance mode before normal runs:
+```bash
+fly secrets set INGEST_MAINTENANCE_MODE=false -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+# or remove the override entirely:
+fly secrets unset INGEST_MAINTENANCE_MODE -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+
+### Export ingest artifacts from Fly to local
+
+This handoff is part of collection and must happen before local processing.
+
+If the pipeline has already finished (machine stopped), you must use maintenance mode to keep the machine up long enough to list/download files.
+
+Enable maintenance mode and start machine:
+```bash
+fly secrets set INGEST_MAINTENANCE_MODE=true -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+scripts/deploy/fly_ingest_start.sh
+```
+
+List remote files:
+```bash
+scripts/deploy/fly_ingest_list_artifacts.sh
+```
+
+Download (resumable + checksum verified):
+```bash
+# ranks -> data/ingest/ranks
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv
+
+# game_data -> data/ingest/game_data
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/game_data/boardgame_data_<timestamp>.duckdb \
+  --chunk-mb 256
+
+# ratings -> data/ingest/ratings
+scripts/deploy/fly_ingest_download_artifact.sh \
+  --remote-path /app/data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb \
+  --chunk-mb 256
+```
+
+Disable maintenance mode when done:
+```bash
+fly secrets set INGEST_MAINTENANCE_MODE=false -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+# or remove the override entirely:
+fly secrets unset INGEST_MAINTENANCE_MODE -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+
+Stop machine when done:
+```bash
+fly machine stop "$(fly machine list -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}" --json | jq -r '.[0].id')" -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+
+```bash
+fly machine list -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+fly machine stop <MACHINE_ID> -a "${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
+```
+
+
+
+Download notes:
+- Default output dir is inferred from remote path
+- Download resumes from existing chunk cache
+- Final file is promoted only after SHA-256 match
+- `.parts` cache is removed on success (use `--keep-parts` to retain)
+
+## Data Processing
+
+### Process and normalize relational outputs
 ```bash
 poetry run python -m data_pipeline.src.transform.data_processor
 ```
 
 Behavior:
-- Merges ranking and detailed game data.
-- Normalizes relationships (mechanics, categories, designers, artists, publishers, families, expansions, integrations, implementations, compilations, versions, language dependence, suggested players).
-- Writes timestamped CSV outputs in `data/transform/processed/<timestamp>/` using `processed_games_*` naming.
+- Merges ranking + detailed game data
+- Normalizes relationship tables
+- Writes timestamped outputs under `data/transform/processed/<timestamp>/`
 
-### 5) Generate Collaborative Filtering Artifacts
-
+### Generate collaborative filtering artifacts
 ```bash
 poetry run python -m data_pipeline.src.features.create_embeddings
 ```
 
 Behavior:
-- Builds sparse recommendation artifacts from ratings data.
-- Writes embedding + mapping outputs used by the backend recommendation engine.
+- Builds sparse recommendation artifacts from ratings data
+- Writes embedding/mapping outputs used by backend recommender runtime
 
-## Importing Data to Backend
+## Data Import/Export
 
-Before importing locally, ensure schema is current:
+### Local import (SQLite or Postgres)
 
+1. Run Alembic migrations:
 ```bash
-poetry run alembic upgrade head
+# from repo root
+poetry run alembic -c backend/alembic.ini upgrade head
 ```
 
-Import latest processed datasets:
-
+2. Import processed game data:
 ```bash
 poetry run python backend/app/import_data.py
 ```
 
-Behavior:
-- Finds latest processed `processed_games_*` timestamp set.
-- Imports games plus normalized relation tables.
-- Processes in batches and logs progress to `logs/import_data.log`.
-
-Optional reset import:
-
+3. Optional reset import:
 ```bash
 poetry run python backend/app/import_data.py --delete-existing
 ```
 
-### Library Convention Data Import
-
+4. Library convention import:
 ```bash
-poetry run python backend/app/import_library_data.py
+poetry run python backend/app/import_library_data.py --csv data/library/bg_lib_games_<timestamp>.csv
+poetry run python backend/app/import_library_data.py --csv data/library/bg_lib_games_<timestamp>.csv --delete-existing
 ```
 
-Behavior:
-- Loads latest `library_games_*.csv` from `data/library/`.
-- Imports Library rows and links to `BoardGame` records via BGG ID where available.
-- Enables Library-specific filtering paths in the API/UI.
-- Logs progress to `logs/import_library_data.log`.
+Notes:
+- Local DB target is controlled by your local `DATABASE_URL` (SQLite fallback or Postgres).
+- `import_data.py` imports latest `processed_games_*` timestamp set.
+- `import_library_data.py` imports legacy `data/library/bg_lib_games_*.csv` into
+  `library_imports` + `library_import_items` (not `library_games`).
 
-Optional reset import:
+### Remote import (Fly app, Postgres only; both `dev` and `prod`)
 
+Run inside the target app container so app + DB configuration match deploy environment.
+
+Recommended execution order for remote import:
+1. Stage processed data + embeddings on remote machine (section below).
+2. Backup the target remote database.
+3. Run clean reset import (`--delete-existing`).
+4. (Optional) import library convention data.
+
+#### Stage processed data + embeddings on remote app machine (required before import)
+
+Set target app (`dev` or `prod`) and identify latest local artifacts:
 ```bash
-poetry run python backend/app/import_library_data.py --delete-existing
+# choose target app
+TARGET_APP="${FLY_APP_NAME_DEV}"    # or "${FLY_APP_NAME_PROD}"
+
+# latest processed timestamp directory
+PROCESSED_TS="$(find data/transform/processed -mindepth 1 -maxdepth 1 -type d -printf "%f\n" | rg '^[0-9]+$' | sort -n | tail -1)"
+
+# latest embeddings timestamp (must have both files)
+EMBED_TS="$(find backend/database -maxdepth 1 -type f -name 'game_embeddings_*.npz' -printf "%f\n" | sed -E 's/^game_embeddings_([0-9]+)\.npz$/\1/' | sort -n | tail -1)"
+
+echo "TARGET_APP=${TARGET_APP}"
+echo "PROCESSED_TS=${PROCESSED_TS}"
+echo "EMBED_TS=${EMBED_TS}"
 ```
 
-## Operational Policy (Phase 11, Discussion Draft)
+Generate local checksum manifests:
+```bash
+mkdir -p .tmp/transfer_manifests
 
-Status:
-- This section is a proposal set for review, not final policy.
-- Nothing here is binding until explicitly approved and reflected in the migration checklist as complete.
+(
+  cd "data/transform/processed/${PROCESSED_TS}" && \
+  sha256sum processed_games_*_"${PROCESSED_TS}".csv | sort
+) > ".tmp/transfer_manifests/processed_${PROCESSED_TS}.sha256"
 
-### Proposed Idempotency and Retry Strategy
-- Write endpoints (application API), proposed:
-  - Do not assume write requests are safe to blindly replay.
-  - Default policy is no automatic client-side retries for write operations unless endpoint-level idempotency keys are explicitly introduced.
-- Ingestion and import jobs, proposed:
-  - Ingestion stages write timestamped outputs and are safe to rerun.
-  - Import jobs are operationally idempotent via rerun + latest-timestamp selection, with optional `--delete-existing` for full reset flows.
-  - Retries should target transient network/transport failures only, not schema/data-contract failures.
+(
+  cd backend/database && \
+  sha256sum \
+    "game_embeddings_${EMBED_TS}.npz" \
+    "reverse_mappings_${EMBED_TS}.json" | sort
+) > ".tmp/transfer_manifests/embeddings_${EMBED_TS}.sha256"
+```
 
-### Proposed Timeout and Retry Policy
-- External calls (BGG/API/network), proposed:
-  - Use explicit timeouts and bounded retries with exponential backoff.
-  - Keep retry counts low (for example 3-5 attempts) to avoid runaway jobs.
-  - Fail fast on deterministic errors (4xx, parse/schema contract failures, invalid credentials).
-- Long-running jobs, proposed:
-  - Run as resumable stages (`--continue-from-last` where supported).
-  - Persist partial state/artifacts per stage so recovery is restart-from-stage, not ad hoc in-memory recovery.
+Copy processed CSV set to remote app:
+```bash
+tar -C data/transform/processed -czf - "${PROCESSED_TS}" | \
+fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'mkdir -p /data/transform/processed && tar -xzf - -C /data/transform/processed'"
+```
 
-### Proposed Fly Execution Topology
-- Heavy pipeline jobs run outside the serving app machines.
-- Proposed policy:
-  - Do not run full ingest/transform/features jobs on production app machines.
-  - Preferred execution path is local/CI/manual-ops pipeline runs, then import/sync runtime-consumed artifacts.
-  - Revisit dedicated worker app only if monthly runtime or data size makes current approach unreliable.
+Copy embeddings + reverse mappings to remote `/data`:
+```bash
+cat "backend/database/game_embeddings_${EMBED_TS}.npz" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/game_embeddings_${EMBED_TS}.npz'"
 
-### Proposed Monthly Rebuild Cadence and Ownership
-- Cadence, proposed:
-  - Run one full pipeline rebuild per month, outside request-serving paths.
-- Trigger, proposed:
-  - Manual operator trigger (repository owner) using documented pipeline commands.
-- Owner, proposed:
-  - Repository maintainer (single-owner model).
-- Minimum monthly acceptance checks, proposed:
-  - pipeline stages complete successfully
-  - `import_data.py` succeeds
-  - recommendation artifacts are present and pass `scripts/validate/validate_recommendation_artifacts.py`
+cat "backend/database/reverse_mappings_${EMBED_TS}.json" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/reverse_mappings_${EMBED_TS}.json'"
+```
 
-### Proposed Artifact Storage, Retention, and Handoff
-- Canonical locations, proposed:
-  - Raw/intermediate ingest outputs: `data/ingest/`
-  - Processed relational outputs for import: `data/transform/processed/`
-  - Runtime recommendation artifacts: `${DATABASE_DIR}` (default `backend/database/`, Fly runtime typically `/data`)
-- Retention/cleanup, proposed:
-  - Keep latest successful monthly set as canonical.
-  - Remove stale intermediate snapshots older than 30 days unless required for active investigation.
-  - Do not commit generated pipeline/runtime artifacts to source control.
-- Runtime handoff path, proposed:
-  1. generate pipeline outputs
-  2. run import (`backend/app/import_data.py`, optional `import_library_data.py`)
-  3. validate runtime artifacts/health (`scripts/validate/validate_recommendation_artifacts.py`, API health endpoints)
+Verify remote checksums match local manifests:
+```bash
+fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cd /data/transform/processed/${PROCESSED_TS} && sha256sum processed_games_*_${PROCESSED_TS}.csv | sort'" \
+  > ".tmp/transfer_manifests/remote_processed_${PROCESSED_TS}.sha256"
 
-## Image Seeding to Fly Volumes (Primary)
+diff -u \
+  ".tmp/transfer_manifests/processed_${PROCESSED_TS}.sha256" \
+  ".tmp/transfer_manifests/remote_processed_${PROCESSED_TS}.sha256"
+
+fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cd /data && sha256sum game_embeddings_${EMBED_TS}.npz reverse_mappings_${EMBED_TS}.json | sort'" \
+  > ".tmp/transfer_manifests/remote_embeddings_${EMBED_TS}.sha256"
+
+diff -u \
+  ".tmp/transfer_manifests/embeddings_${EMBED_TS}.sha256" \
+  ".tmp/transfer_manifests/remote_embeddings_${EMBED_TS}.sha256"
+```
+
+If `diff` returns no output, transfer verification passed.
+
+#### Backup remote DB before reset/import
+
+From repo root (local machine):
+```bash
+# dev backup
+poetry run python scripts/db/fly_postgres_backup.py \
+  --env dev \
+  --output ".tmp/dev-before-import-$(date -u +%Y%m%dT%H%M%SZ).sql"
+
+# prod backup
+poetry run python scripts/db/fly_postgres_backup.py \
+  --env prod \
+  --output ".tmp/prod-before-import-$(date -u +%Y%m%dT%H%M%SZ).sql"
+```
+
+Notes:
+- `scripts/db/fly_postgres_backup.py` auto-loads repo-root `.env` for `POSTGRES_USER` and `POSTGRES_DB` defaults.
+- CLI flags still override defaults when needed:
+```bash
+poetry run python scripts/db/fly_postgres_backup.py \
+  --env dev \
+  --postgres-user postgres \
+  --postgres-db boardgame_recommender \
+  --output ".tmp/dev-before-import-$(date -u +%Y%m%dT%H%M%SZ).sql"
+```
+
+Optional faster mode (write backup on remote DB machine instead of streaming locally):
+```bash
+poetry run python scripts/db/fly_postgres_backup.py \
+  --env dev \
+  --remote-output "/var/lib/postgresql/backups/dev-before-import-$(date -u +%Y%m%dT%H%M%SZ).sql"
+```
+
+Check remote backup file size:
+```bash
+# dev
+fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C \
+  "sh -lc 'LATEST=\$(ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1); [ -n \"\$LATEST\" ] || { echo \"No dev backup files found\"; exit 1; }; ls -lh \"\$LATEST\"; du -h \"\$LATEST\" | cut -f1 | sed \"s/^/size_human=/\"'"
+
+# prod
+fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C \
+  "sh -lc 'LATEST=\$(ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1); [ -n \"\$LATEST\" ] || { echo \"No prod backup files found\"; exit 1; }; ls -lh \"\$LATEST\"; du -h \"\$LATEST\" | cut -f1 | sed \"s/^/size_human=/\"'"
+```
+
+Restore validation from remote backup file (into disposable restore DB on remote machine):
+```bash
+# dev
+REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
+poetry run python scripts/db/fly_postgres_restore.py \
+  --env dev \
+  --remote-input "${REMOTE_BACKUP_PATH}" \
+  --restore-db bg_lib_recommender_restore_test
+
+# prod
+REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
+poetry run python scripts/db/fly_postgres_restore.py \
+  --env prod \
+  --remote-input "${REMOTE_BACKUP_PATH}" \
+  --restore-db bg_lib_recommender_restore_test
+```
+
+Delete remote backup file after successful migration:
+```bash
+# dev
+REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
+fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C \
+  "sh -lc 'rm -f \"${REMOTE_BACKUP_PATH}\"'"
+
+# prod
+REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
+fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C \
+  "sh -lc 'rm -f \"${REMOTE_BACKUP_PATH}\"'"
+```
+
+Or combine restore+delete in one command:
+```bash
+REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
+poetry run python scripts/db/fly_postgres_restore.py \
+  --env dev \
+  --remote-input "${REMOTE_BACKUP_PATH}" \
+  --restore-db bg_lib_recommender_restore_test \
+  --delete-remote-after-restore
+```
+
+#### Clean reset + import (remote app)
+
+Recommended (detached remote job; resilient to SSH disconnects):
+```bash
+scripts/deploy/fly_import_data_job.sh dev start
+scripts/deploy/fly_import_data_job.sh dev status
+scripts/deploy/fly_import_data_job.sh dev tail
+scripts/deploy/fly_import_data_job.sh dev log
+```
+
+```bash
+scripts/deploy/fly_import_data_job.sh prod start
+scripts/deploy/fly_import_data_job.sh prod status
+scripts/deploy/fly_import_data_job.sh prod tail
+scripts/deploy/fly_import_data_job.sh prod log
+```
+
+`log` downloads the latest remote import log to local:
+- `logs/import_data/<app_name>_import_data_latest_<timestamp>.log`
+
+Postgres import behavior note:
+- `data_pipeline/src/transform/data_processor.py` computes `avg_box_volume` during transform from English version dimensions.
+- `app/import_data.py` imports `avg_box_volume` directly from `processed_games_data_*`.
+
+Optional controls:
+```bash
+scripts/deploy/fly_import_data_job.sh dev stop
+scripts/deploy/fly_import_data_job.sh prod stop
+```
+
+Notes:
+- `status` is read-only and does not modify machine settings.
+- `stop` restores machine `autostop=stop` for normal app behavior.
+
+Fallback foreground SSH command:
+```bash
+# dev
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C \
+  'sh -lc "cd /app/backend && poetry run alembic -c alembic.ini upgrade head && poetry run python app/import_data.py --delete-existing"'
+```
+
+```bash
+# prod
+fly ssh console -a "${FLY_APP_NAME_PROD}" -C \
+  'sh -lc "cd /app/backend && poetry run alembic -c alembic.ini upgrade head && poetry run python app/import_data.py --delete-existing"'
+```
+
+Library convention data import in remote app (into `library_imports` + `library_import_items`):
+```bash
+# dev
+fly ssh console -a "${FLY_APP_NAME_DEV}" -C \
+  'sh -lc "cd /app/backend && poetry run python app/import_library_data.py --csv /data/library/bg_lib_games_<timestamp>.csv"'
+
+# prod
+fly ssh console -a "${FLY_APP_NAME_PROD}" -C \
+  'sh -lc "cd /app/backend && poetry run python app/import_library_data.py --csv /data/library/bg_lib_games_<timestamp>.csv"'
+```
+
+## Errata
+
+### Image seeding to Fly volumes
 
 Active runtime for `dev` and `prod` is Fly-local images:
 - `IMAGE_BACKEND=fly_local`
@@ -257,10 +547,9 @@ Import integration commands:
 
 ```bash
 poetry run python backend/app/import_data.py --sync-images --sync-images-max-rank 10000
-poetry run python backend/app/import_library_data.py --sync-images
 ```
 
-## Notebook Policy
+### Notebook policy
 - Notebooks are allowed only under `data_pipeline/notebooks/`.
 - No secrets/credentials/tokens in notebook source or outputs.
 - Productionized logic must move to `data_pipeline/src/`.

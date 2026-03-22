@@ -46,6 +46,14 @@ scripts/deploy/fly_stack.sh prod down
 scripts/deploy/fly_stack.sh prod status
 ```
 
+### 2a) Deploy/Run Dedicated Ingest Worker
+```bash
+scripts/deploy/fly_ingest_deploy.sh
+scripts/deploy/fly_ingest_set_secrets.sh
+scripts/deploy/fly_ingest_start.sh
+scripts/deploy/fly_ingest_status.sh
+```
+
 ### 3) Validate Dev Deploy
 ```bash
 poetry run python scripts/validate/validate_dev_deploy.py
@@ -67,9 +75,15 @@ poetry run python scripts/validate/validate_prod_alert_path.py --env prod --skip
 ```bash
 poetry run python scripts/db/fly_postgres_backup.py --env dev
 poetry run python scripts/db/fly_postgres_backup.py --env prod --output /tmp/bg-lib-prod-backup.sql
+# optional: write backup on remote DB machine
+poetry run python scripts/db/fly_postgres_backup.py --env dev --remote-output /var/lib/postgresql/backups/dev.sql
 
 poetry run python scripts/db/fly_postgres_restore.py --env dev --input /tmp/bg-lib-dev-backup.sql
 poetry run python scripts/db/fly_postgres_restore.py --env prod --input /tmp/bg-lib-prod-backup.sql --restore-db bg_lib_recommender_restore_test
+# optional: restore from backup file already on remote DB machine
+poetry run python scripts/db/fly_postgres_restore.py --env dev --remote-input /var/lib/postgresql/backups/dev.sql --restore-db bg_lib_recommender_restore_test
+# optional: delete remote backup after successful restore
+poetry run python scripts/db/fly_postgres_restore.py --env dev --remote-input /var/lib/postgresql/backups/dev.sql --restore-db bg_lib_recommender_restore_test --delete-remote-after-restore
 poetry run python scripts/db/transform_canonical_schema.py --input .tmp/canonical_prod_schema.sql --output .tmp/canonical_repo_schema.sql
 poetry run python scripts/db/bootstrap_fly_postgres_baseline.py --env dev --schema-file .tmp/canonical_repo_schema.sql --reset-db
 ```
@@ -82,7 +96,6 @@ poetry run python scripts/validate/validate_auth_flow.py --env dev
 poetry run python scripts/validate/validate_recommendation_artifacts.py --env dev
 poetry run python scripts/validate/validate_recommendation_endpoint.py --env dev --game-id 224517
 poetry run python scripts/validate/validate_performance_gate.py --env dev
-python scripts/validate/validate_notebook_outputs.py
 python scripts/validate/validate_notebook_secrets.py
 ```
 
@@ -101,6 +114,8 @@ poetry run python scripts/users/create_smoke_test_user.py --env prod
 ### 10) Run Perf and Load Tests
 ```bash
 poetry run python scripts/perf/benchmark_recommendation_size.py --env dev --game-ids "<csv>" --sizes "1,5,10,20,35,50" --iterations 20 --limit 5 --library-only true
+poetry run python scripts/perf/profile_hot_endpoints.py --iterations 10
+poetry run python scripts/perf/profile_hot_endpoints.py --environment dev --iterations 10
 
 k6 run \
   -e BASE_URL="https://${FLY_APP_NAME_DEV}.fly.dev" \
