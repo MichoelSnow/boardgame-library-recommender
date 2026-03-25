@@ -6,6 +6,7 @@ This repo organizes docs by lifecycle and audience.
   - First-time setup and deployment guides.
   - Use this first when bringing up a new local or Fly environment.
   - Includes `migration.md` for environment-to-environment transfer workflows.
+  - Includes `local_offline_kiosk_guide.md` for Windows local-host fallback during internet outages.
 - `core/`
   - Evergreen human-readable docs that should remain stable over time.
   - Operational and engineering references you expect to keep long-term.
