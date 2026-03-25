@@ -431,13 +431,18 @@ def _get_non_negative_float_setting(
     minimum: float = 0.0,
     maximum: float = 1.0,
 ) -> float:
-    setting = crud.get_app_setting(db, key)
+    try:
+        setting = crud.get_app_setting(db, key)
+    except AttributeError:
+        return fallback
     if setting is None or setting.value is None:
         return fallback
     try:
         parsed = float(setting.value)
     except (TypeError, ValueError):
-        logger.warning("Invalid float app setting for key=%s value=%s", key, setting.value)
+        logger.warning(
+            "Invalid float app setting for key=%s value=%s", key, setting.value
+        )
         return fallback
     if parsed < minimum or parsed > maximum:
         logger.warning(

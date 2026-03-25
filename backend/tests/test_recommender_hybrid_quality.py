@@ -48,8 +48,5 @@ def test_quality_score_increases_with_num_ratings_at_same_bayes() -> None:
 
 
 def test_normalized_hybrid_weights_default_sum_to_one() -> None:
-    weights = recommender._normalized_hybrid_weights(
-        recommender.HYBRID_SCORING_CONFIG
-    )
+    weights = recommender._normalized_hybrid_weights(recommender.HYBRID_SCORING_CONFIG)
     assert abs(sum(weights) - 1.0) < 1e-9
-
