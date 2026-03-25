@@ -132,10 +132,14 @@ export const useGameDetailsQuery = ({ gameId, enabled }) =>
     staleTime: 10 * 60 * 1000,
   });
 
-export const useGameRecommendationsQuery = ({ gameId, enabled }) =>
+export const useGameRecommendationsQuery = ({
+  gameId,
+  enabled,
+  recommenderMode = 'hybrid',
+}) =>
   useQuery({
-    queryKey: ['game_recommendations', gameId],
-    queryFn: () => fetchRecommendationsForGame(gameId),
+    queryKey: ['game_recommendations', gameId, recommenderMode],
+    queryFn: () => fetchRecommendationsForGame(gameId, recommenderMode),
     enabled: Boolean(gameId) && enabled,
     staleTime: 5 * 60 * 1000,
   });

@@ -12,7 +12,12 @@ def reset_model_manager():
     manager._model_path = None
     manager._game_mapping = {}
     manager._reverse_game_mapping = {}
+    manager._content_embeddings = None
+    manager._content_model_path = None
+    manager._content_game_mapping = {}
+    manager._content_reverse_game_mapping = {}
     manager._last_load_error = None
+    manager._last_content_load_error = None
     return manager
 
 
@@ -33,6 +38,9 @@ def test_get_recommendations_returns_empty_when_embeddings_missing(
     assert status["available"] is False
     assert status["state"] == "degraded"
     assert status["detail"] == "No embeddings files found"
+    assert status["collaborative_available"] is False
+    assert status["content_available"] is False
+    assert status["hybrid_available"] is False
 
 
 def test_load_model_uses_newest_matched_artifact_pair(monkeypatch, tmp_path):
@@ -66,3 +74,6 @@ def test_load_model_uses_newest_matched_artifact_pair(monkeypatch, tmp_path):
     status = manager.get_status()
     assert status["available"] is True
     assert status["state"] == "available"
+    assert status["collaborative_available"] is True
+    assert status["content_available"] is False
+    assert status["hybrid_available"] is False

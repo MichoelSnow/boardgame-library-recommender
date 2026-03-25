@@ -5,17 +5,26 @@ import { normalizeHexColor } from '../utils/colorContrast';
 
 const AdminThemePage = () => {
   const {
+    collaborativeWeight,
     contrastRatioOnWhite,
+    contentWeight,
     isPrimaryColorLimited,
     libraryName,
     minAaContrastRatio,
     primaryColor,
     presetPrimaryColors,
+    qualityWeight,
+    setRecommenderWeights,
     setLibraryName,
     setPrimaryColor,
   } = useThemeSettings();
   const [customColor, setCustomColor] = useState(primaryColor);
   const [nameInput, setNameInput] = useState(libraryName);
+  const [collaborativeWeightInput, setCollaborativeWeightInput] = useState(
+    collaborativeWeight.toFixed(2)
+  );
+  const [contentWeightInput, setContentWeightInput] = useState(contentWeight.toFixed(2));
+  const [qualityWeightInput, setQualityWeightInput] = useState(qualityWeight.toFixed(2));
   const [themeError, setThemeError] = useState('');
   const normalizedCustomColor = useMemo(
     () => normalizeHexColor(customColor),
@@ -26,13 +35,25 @@ const AdminThemePage = () => {
     setNameInput(libraryName);
   }, [libraryName]);
 
+  useEffect(() => {
+    setCollaborativeWeightInput(collaborativeWeight.toFixed(2));
+  }, [collaborativeWeight]);
+
+  useEffect(() => {
+    setContentWeightInput(contentWeight.toFixed(2));
+  }, [contentWeight]);
+
+  useEffect(() => {
+    setQualityWeightInput(qualityWeight.toFixed(2));
+  }, [qualityWeight]);
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: 4, px: 2 }}>
       <Card>
         <CardContent>
           <Stack spacing={2}>
             <Typography variant="h4" component="h1">
-              Theme Color & Library Name
+              Theme, Library, and Recommender Settings
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Current primary color: {primaryColor}
@@ -40,6 +61,10 @@ const AdminThemePage = () => {
             <Typography variant="body2" color="text.secondary">
               Current library/convention name:{' '}
               {libraryName ? libraryName : '(not set)'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Current recommender weights: CF={collaborativeWeight.toFixed(2)}, Content=
+              {contentWeight.toFixed(2)}, Quality={qualityWeight.toFixed(2)}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Contrast on white: {contrastRatioOnWhite.toFixed(2)}:1 (AA target:{' '}
@@ -131,6 +156,70 @@ const AdminThemePage = () => {
                 }}
               >
                 Save Name
+              </Button>
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <TextField
+                label="Collaborative weight"
+                value={collaborativeWeightInput}
+                onChange={(event) => setCollaborativeWeightInput(event.target.value)}
+                size="small"
+                sx={{ minWidth: 170 }}
+              />
+              <TextField
+                label="Content weight"
+                value={contentWeightInput}
+                onChange={(event) => setContentWeightInput(event.target.value)}
+                size="small"
+                sx={{ minWidth: 150 }}
+              />
+              <TextField
+                label="Quality weight"
+                value={qualityWeightInput}
+                onChange={(event) => setQualityWeightInput(event.target.value)}
+                size="small"
+                sx={{ minWidth: 150 }}
+              />
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  const nextCollaborativeWeight = Number.parseFloat(
+                    collaborativeWeightInput
+                  );
+                  const nextContentWeight = Number.parseFloat(contentWeightInput);
+                  const nextQualityWeight = Number.parseFloat(qualityWeightInput);
+                  if (
+                    !Number.isFinite(nextCollaborativeWeight) ||
+                    !Number.isFinite(nextContentWeight) ||
+                    !Number.isFinite(nextQualityWeight)
+                  ) {
+                    setThemeError('Recommender weights must be valid numbers.');
+                    return;
+                  }
+                  if (
+                    nextCollaborativeWeight < 0 ||
+                    nextCollaborativeWeight > 1 ||
+                    nextContentWeight < 0 ||
+                    nextContentWeight > 1 ||
+                    nextQualityWeight < 0 ||
+                    nextQualityWeight > 1
+                  ) {
+                    setThemeError('Recommender weights must be between 0.00 and 1.00.');
+                    return;
+                  }
+                  const ok = await setRecommenderWeights({
+                    nextCollaborativeWeight,
+                    nextContentWeight,
+                    nextQualityWeight,
+                  });
+                  if (!ok) {
+                    setThemeError('Failed to save recommender weights.');
+                    return;
+                  }
+                  setThemeError('');
+                }}
+              >
+                Save Weights
               </Button>
             </Stack>
             {themeError && (

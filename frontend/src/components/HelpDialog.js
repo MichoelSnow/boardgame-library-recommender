@@ -198,6 +198,10 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
                 Click the "Recommend Games" button to get your initial recommendations based on 
                 your liked and disliked games.
               </Typography>
+              <Typography paragraph>
+                Recommendations use the hybrid recommender by default. Admins can tune
+                hybrid weights in Admin Panel settings for all users.
+              </Typography>
               
               <Typography variant="subtitle2" gutterBottom>Step 3: Refresh Your Recommendations (Simple!)</Typography>
               <Alert severity="info" sx={{ mb: 2 }}>

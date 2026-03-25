@@ -150,6 +150,9 @@ MAX_LIBRARY_IMPORT_CSV_BYTES = 2 * 1024 * 1024
 RATE_LIMIT_WINDOW_SECONDS = 60
 THEME_PRIMARY_COLOR_SETTING_KEY = "theme_primary_color"
 LIBRARY_NAME_SETTING_KEY = "library_name"
+RECOMMENDER_COLLABORATIVE_WEIGHT_SETTING_KEY = "recommender_collaborative_weight"
+RECOMMENDER_CONTENT_WEIGHT_SETTING_KEY = "recommender_content_weight"
+RECOMMENDER_QUALITY_WEIGHT_SETTING_KEY = "recommender_quality_weight"
 DEFAULT_THEME_PRIMARY_COLOR = "#D9272D"
 CATALOG_REFRESH_TRIGGERED_AT_SETTING_KEY = "catalog_refresh_triggered_at"
 
@@ -408,7 +411,85 @@ def get_recommendation_status_headers() -> dict[str, str]:
             "true" if model_status["available"] else "false"
         ),
         "X-Recommendations-State": model_status["state"],
+        "X-Recommendations-Collaborative-Available": (
+            "true" if model_status.get("collaborative_available") else "false"
+        ),
+        "X-Recommendations-Content-Available": (
+            "true" if model_status.get("content_available") else "false"
+        ),
+        "X-Recommendations-Hybrid-Available": (
+            "true" if model_status.get("hybrid_available") else "false"
+        ),
     }
+
+
+def _get_non_negative_float_setting(
+    db: Session,
+    *,
+    key: str,
+    fallback: float,
+    minimum: float = 0.0,
+    maximum: float = 1.0,
+) -> float:
+    setting = crud.get_app_setting(db, key)
+    if setting is None or setting.value is None:
+        return fallback
+    try:
+        parsed = float(setting.value)
+    except (TypeError, ValueError):
+        logger.warning("Invalid float app setting for key=%s value=%s", key, setting.value)
+        return fallback
+    if parsed < minimum or parsed > maximum:
+        logger.warning(
+            "Out-of-range app setting for key=%s value=%s expected_range=[%s,%s]",
+            key,
+            setting.value,
+            minimum,
+            maximum,
+        )
+        return fallback
+    return parsed
+
+
+def _get_global_recommender_weights(db: Session) -> tuple[float, float, float]:
+    defaults = recommender.HYBRID_SCORING_CONFIG
+    collaborative_weight = _get_non_negative_float_setting(
+        db,
+        key=RECOMMENDER_COLLABORATIVE_WEIGHT_SETTING_KEY,
+        fallback=defaults.collaborative_weight,
+    )
+    content_weight = _get_non_negative_float_setting(
+        db,
+        key=RECOMMENDER_CONTENT_WEIGHT_SETTING_KEY,
+        fallback=defaults.content_weight,
+    )
+    quality_weight = _get_non_negative_float_setting(
+        db,
+        key=RECOMMENDER_QUALITY_WEIGHT_SETTING_KEY,
+        fallback=defaults.quality_weight,
+    )
+    return (collaborative_weight, content_weight, quality_weight)
+
+
+def _resolve_recommender_weight_overrides(
+    *,
+    db: Session,
+    collaborative_weight: float | None,
+    content_weight: float | None,
+    quality_weight: float | None,
+) -> tuple[float, float, float]:
+    (
+        global_collaborative_weight,
+        global_content_weight,
+        global_quality_weight,
+    ) = _get_global_recommender_weights(db)
+    return (
+        collaborative_weight
+        if collaborative_weight is not None
+        else global_collaborative_weight,
+        content_weight if content_weight is not None else global_content_weight,
+        quality_weight if quality_weight is not None else global_quality_weight,
+    )
 
 
 def apply_recommendation_status_to_http_exception(
@@ -1210,6 +1291,15 @@ async def get_game(game_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Error fetching game")
 
 
+@app.get("/api/recommendations/status")
+@app.get("/api/recommendations/status/")
+async def get_recommendation_status(response: Response):
+    """Return whether recommendation artifacts are currently available."""
+    model_status = recommender.ModelManager.get_instance().get_status()
+    apply_recommendation_status_headers(response)
+    return model_status
+
+
 @app.get(
     "/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut]
 )
@@ -1225,6 +1315,10 @@ async def get_recommendations(
     disliked_games: Optional[str] = None,
     anti_weight: float = Query(1.0, gt=0),
     library_only: Optional[bool] = False,
+    recommender_mode: Literal["collaborative", "hybrid"] = Query("hybrid"),
+    collaborative_weight: float | None = Query(default=None),
+    content_weight: float | None = Query(default=None),
+    quality_weight: float | None = Query(default=None),
 ):
     """
     Get game recommendations based on a game ID.
@@ -1249,6 +1343,17 @@ async def get_recommendations(
                     detail="Invalid disliked_games format. Expected comma-separated list of game IDs.",
                 )
 
+        (
+            resolved_collaborative_weight,
+            resolved_content_weight,
+            resolved_quality_weight,
+        ) = _resolve_recommender_weight_overrides(
+            db=db,
+            collaborative_weight=collaborative_weight,
+            content_weight=content_weight,
+            quality_weight=quality_weight,
+        )
+
         recommendations = crud.get_recommendations(
             db=db,
             limit=limit,
@@ -1256,6 +1361,10 @@ async def get_recommendations(
             disliked_games=disliked_games_list,
             anti_weight=anti_weight,
             library_only=library_only,
+            recommender_mode=recommender_mode,
+            collaborative_weight=resolved_collaborative_weight,
+            content_weight=resolved_content_weight,
+            quality_weight=resolved_quality_weight,
         )
         apply_recommendation_status_headers(response)
         return recommendations
@@ -1268,15 +1377,6 @@ async def get_recommendations(
         raise apply_recommendation_status_to_http_exception(
             HTTPException(status_code=500, detail="Error getting recommendations")
         )
-
-
-@app.get("/api/recommendations/status")
-@app.get("/api/recommendations/status/")
-async def get_recommendation_status(response: Response):
-    """Return whether recommendation artifacts are currently available."""
-    model_status = recommender.ModelManager.get_instance().get_status()
-    apply_recommendation_status_headers(response)
-    return model_status
 
 
 @app.get("/api/filter-options/", response_model=schemas.FilterOptions)
@@ -1353,24 +1453,48 @@ async def get_library_game_ids(response: Response, db: Session = Depends(get_db)
 
 @app.on_event("startup")
 async def startup_event():
-    """Load the recommender model on startup."""
+    """Load recommender artifacts on startup."""
     global _db_keepalive_task, _db_keepalive_stop_event
-    logger.info("Loading recommender model...")
+    logger.info("Loading recommender artifacts...")
+    model_manager = recommender.ModelManager.get_instance()
     try:
-        recommender.ModelManager.get_instance().load_model()
+        model_manager.load_model()
     except FileNotFoundError as exc:
         logger.error(
-            "Recommendation model unavailable at startup: %s. "
+            "Collaborative recommendation embeddings unavailable at startup: %s. "
             "The app will stay up, but recommendations will return empty results.",
             exc,
         )
     except Exception as exc:
         logger.error(
-            "Recommendation model failed to load at startup: %s. "
+            "Collaborative recommendation embeddings failed to load at startup: %s. "
             "The app will stay up, but recommendations may be unavailable.",
             exc,
             exc_info=True,
         )
+    try:
+        model_manager.load_content_model()
+    except FileNotFoundError as exc:
+        logger.warning(
+            "Hybrid content embeddings unavailable at startup: %s. "
+            "Hybrid mode will fall back to collaborative+quality scoring.",
+            exc,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Hybrid content embeddings failed to load at startup: %s. "
+            "Hybrid mode will fall back to collaborative+quality scoring.",
+            exc,
+            exc_info=True,
+        )
+
+    startup_status = model_manager.get_status()
+    logger.info(
+        "Recommender artifact readiness: collaborative_available=%s content_available=%s hybrid_available=%s",
+        startup_status.get("collaborative_available"),
+        startup_status.get("content_available"),
+        startup_status.get("hybrid_available"),
+    )
     if should_enable_db_keepalive(SQLALCHEMY_DATABASE_URL):
         interval_seconds = resolve_keepalive_interval_seconds()
         _db_keepalive_stop_event = asyncio.Event()
@@ -1403,6 +1527,10 @@ class RecommendationRequest(schemas.BaseModel):
     limit: int = schemas.Field(24, ge=1, le=50)
     anti_weight: float = schemas.Field(1.0, gt=0)
     library_only: bool = False
+    recommender_mode: Literal["collaborative", "hybrid"] = "hybrid"
+    collaborative_weight: float | None = None
+    content_weight: float | None = None
+    quality_weight: float | None = None
 
 
 @app.post("/api/recommendations", response_model=List[schemas.RecommendationGameOut])
@@ -1414,6 +1542,17 @@ async def get_multi_game_recommendations(
     No authentication required beyond being able to access the site.
     """
     try:
+        (
+            resolved_collaborative_weight,
+            resolved_content_weight,
+            resolved_quality_weight,
+        ) = _resolve_recommender_weight_overrides(
+            db=db,
+            collaborative_weight=request.collaborative_weight,
+            content_weight=request.content_weight,
+            quality_weight=request.quality_weight,
+        )
+
         recommendations = crud.get_recommendations(
             db=db,
             limit=request.limit,
@@ -1421,6 +1560,10 @@ async def get_multi_game_recommendations(
             disliked_games=request.disliked_games,
             anti_weight=request.anti_weight,
             library_only=request.library_only,
+            recommender_mode=request.recommender_mode,
+            collaborative_weight=resolved_collaborative_weight,
+            content_weight=resolved_content_weight,
+            quality_weight=resolved_quality_weight,
         )
         apply_recommendation_status_headers(response)
         return recommendations
@@ -1831,9 +1974,15 @@ def get_theme_settings(db: Session = Depends(get_db)):
     library_name_setting = crud.get_app_setting(db, LIBRARY_NAME_SETTING_KEY)
     if library_name_setting and library_name_setting.value:
         library_name = library_name_setting.value
+    collaborative_weight, content_weight, quality_weight = (
+        _get_global_recommender_weights(db)
+    )
     return schemas.ThemeSettingsResponse(
         primary_color=primary_color,
         library_name=library_name,
+        collaborative_weight=collaborative_weight,
+        content_weight=content_weight,
+        quality_weight=quality_weight,
     )
 
 
@@ -1879,9 +2028,42 @@ def update_theme_settings(
             else None
         )
 
+    (
+        collaborative_weight,
+        content_weight,
+        quality_weight,
+    ) = _get_global_recommender_weights(db)
+
+    if request.collaborative_weight is not None:
+        collaborative_weight_setting = crud.upsert_app_setting(
+            db,
+            key=RECOMMENDER_COLLABORATIVE_WEIGHT_SETTING_KEY,
+            value=str(float(request.collaborative_weight)),
+        )
+        collaborative_weight = float(collaborative_weight_setting.value)
+
+    if request.content_weight is not None:
+        content_weight_setting = crud.upsert_app_setting(
+            db,
+            key=RECOMMENDER_CONTENT_WEIGHT_SETTING_KEY,
+            value=str(float(request.content_weight)),
+        )
+        content_weight = float(content_weight_setting.value)
+
+    if request.quality_weight is not None:
+        quality_weight_setting = crud.upsert_app_setting(
+            db,
+            key=RECOMMENDER_QUALITY_WEIGHT_SETTING_KEY,
+            value=str(float(request.quality_weight)),
+        )
+        quality_weight = float(quality_weight_setting.value)
+
     return schemas.ThemeSettingsResponse(
         primary_color=primary_color,
         library_name=library_name,
+        collaborative_weight=collaborative_weight,
+        content_weight=content_weight,
+        quality_weight=quality_weight,
     )
 
 

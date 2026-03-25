@@ -104,6 +104,7 @@ const GameDetails = ({
   } = useGameRecommendationsQuery({
     gameId: game?.id,
     enabled: open,
+    recommenderMode: 'hybrid',
   });
 
   const recommendations = recommendationResponse?.data || [];
@@ -517,9 +518,18 @@ const GameDetails = ({
             </Grid>
             <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 2 }} />
-              <Typography variant="subtitle1" gutterBottom>
-                Similar Games
-              </Typography>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  flexWrap: 'wrap',
+                  mb: 1,
+                }}
+              >
+                <Typography variant="subtitle1">Similar Games</Typography>
+              </Box>
               {renderRecommendations()}
             </Grid>
           </Grid>

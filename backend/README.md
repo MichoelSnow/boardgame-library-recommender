@@ -119,13 +119,36 @@ tail -f logs/get_ratings.log
 - `GET /api/games/{game_id}`
 - `GET /api/recommendations/{game_id}`
 - `POST /api/recommendations`
+  - Optional dev-time hybrid overrides:
+    - `collaborative_weight`
+    - `content_weight`
+    - `quality_weight`
 - `GET /api/recommendations/status`
+  - Includes readiness fields for both artifact sets:
+    - `collaborative_available`
+    - `content_available`
+    - `hybrid_available`
+  - Response headers also expose these states:
+    - `X-Recommendations-Collaborative-Available`
+    - `X-Recommendations-Content-Available`
+    - `X-Recommendations-Hybrid-Available`
 - `GET /api/filter-options/`
 - `GET /api/mechanics/`
 - `GET /api/categories/`
 - `GET /api/mechanics/by_frequency`
 - `GET /api/categories/by_frequency`
 - `GET /api/library_game_ids`
+
+### Global UI and Recommender Settings
+- `GET /api/theme`
+  - Returns global UI settings and hybrid recommender defaults:
+    - `primary_color`
+    - `library_name`
+    - `collaborative_weight`
+    - `content_weight`
+    - `quality_weight`
+- `PUT /api/admin/theme` (admin required)
+  - Updates global UI settings and hybrid recommender defaults for all users.
 
 ### Auth and Users
 - `POST /api/token`

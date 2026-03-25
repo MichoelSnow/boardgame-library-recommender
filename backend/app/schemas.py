@@ -374,6 +374,24 @@ class ThemeSettingsResponse(BaseModel):
         max_length=80,
         description="Optional global library/convention name shown in UI copy.",
     )
+    collaborative_weight: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Global hybrid collaborative component weight.",
+    )
+    content_weight: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Global hybrid content component weight.",
+    )
+    quality_weight: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Global hybrid quality component weight.",
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -391,6 +409,24 @@ class ThemeSettingsUpdateRequest(BaseModel):
             "Optional global library/convention name shown in UI copy. "
             "Send an empty string to clear."
         ),
+    )
+    collaborative_weight: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional global hybrid collaborative component weight.",
+    )
+    content_weight: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional global hybrid content component weight.",
+    )
+    quality_weight: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Optional global hybrid quality component weight.",
     )
 
     model_config = ConfigDict(from_attributes=True)

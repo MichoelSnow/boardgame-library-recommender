@@ -143,18 +143,73 @@ async def test_recommendations_by_id_rejects_bad_disliked_games(api_client):
 
 @pytest.mark.anyio
 async def test_recommendations_by_id_returns_list(monkeypatch, api_client):
+    captured: dict = {}
+
+    def _fake_get_recommendations(**kwargs):
+        captured.update(kwargs)
+        return [{"id": 2, "name": "Rec", "recommendation_score": 0.9}]
+
     monkeypatch.setattr(
         main.crud,
         "get_recommendations",
-        lambda **kwargs: [{"id": 2, "name": "Rec", "recommendation_score": 0.9}],
+        _fake_get_recommendations,
     )
 
-    response = await api_client.get("/api/recommendations/1", params={"limit": 5})
+    response = await api_client.get(
+        "/api/recommendations/1",
+        params={
+            "limit": 5,
+            "recommender_mode": "hybrid",
+            "collaborative_weight": 0.44,
+            "content_weight": 0.41,
+            "quality_weight": 0.15,
+        },
+    )
 
     assert response.status_code == 200
     payload = response.json()
     assert len(payload) == 1
     assert payload[0]["id"] == 2
+    assert captured["recommender_mode"] == "hybrid"
+    assert captured["collaborative_weight"] == 0.44
+    assert captured["content_weight"] == 0.41
+    assert captured["quality_weight"] == 0.15
+    assert "X-Recommendations-Collaborative-Available" in response.headers
+    assert "X-Recommendations-Content-Available" in response.headers
+    assert "X-Recommendations-Hybrid-Available" in response.headers
+
+
+@pytest.mark.anyio
+async def test_recommendations_by_id_uses_global_weight_defaults(
+    monkeypatch, api_client
+):
+    captured: dict = {}
+
+    def _mock_get_setting(_db, key):
+        values = {
+            "recommender_collaborative_weight": "0.41",
+            "recommender_content_weight": "0.44",
+            "recommender_quality_weight": "0.15",
+        }
+        value = values.get(key)
+        if value is None:
+            return None
+        return SimpleNamespace(key=key, value=value)
+
+    def _fake_get_recommendations(**kwargs):
+        captured.update(kwargs)
+        return [{"id": 2, "name": "Rec", "recommendation_score": 0.9}]
+
+    monkeypatch.setattr(main.crud, "get_app_setting", _mock_get_setting)
+    monkeypatch.setattr(main.crud, "get_recommendations", _fake_get_recommendations)
+
+    response = await api_client.get("/api/recommendations/1", params={"limit": 5})
+
+    assert response.status_code == 200
+    assert captured["recommender_mode"] == "hybrid"
+    assert captured["collaborative_weight"] == 0.41
+    assert captured["content_weight"] == 0.44
+    assert captured["quality_weight"] == 0.15
 
 
 @pytest.mark.anyio
@@ -173,6 +228,58 @@ async def test_multi_recommendations_empty_result(monkeypatch, api_client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+@pytest.mark.anyio
+async def test_multi_recommendations_passes_hybrid_weight_overrides(
+    monkeypatch, api_client
+):
+    captured: dict = {}
+
+    def _fake_get_recommendations(**kwargs):
+        captured.update(kwargs)
+        return []
+
+    monkeypatch.setattr(main.crud, "get_recommendations", _fake_get_recommendations)
+
+    response = await api_client.post(
+        "/api/recommendations",
+        json={
+            "liked_games": [1],
+            "disliked_games": [],
+            "limit": 5,
+            "library_only": False,
+            "recommender_mode": "hybrid",
+            "collaborative_weight": 0.45,
+            "content_weight": 0.4,
+            "quality_weight": 0.15,
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["recommender_mode"] == "hybrid"
+    assert captured["collaborative_weight"] == 0.45
+    assert captured["content_weight"] == 0.4
+    assert captured["quality_weight"] == 0.15
+
+
+@pytest.mark.anyio
+async def test_recommendations_status_exposes_collab_and_content_state(api_client):
+    response = await api_client.get("/api/recommendations/status")
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert "available" in payload
+    assert "state" in payload
+    assert "collaborative_available" in payload
+    assert "content_available" in payload
+    assert "hybrid_available" in payload
+
+    assert "X-Recommendations-Available" in response.headers
+    assert "X-Recommendations-State" in response.headers
+    assert "X-Recommendations-Collaborative-Available" in response.headers
+    assert "X-Recommendations-Content-Available" in response.headers
+    assert "X-Recommendations-Hybrid-Available" in response.headers
 
 
 @pytest.mark.anyio
@@ -207,6 +314,9 @@ async def test_theme_settings_get_uses_default_when_unset(monkeypatch, api_clien
     assert response.status_code == 200
     assert response.json()["primary_color"] == "#D9272D"
     assert response.json()["library_name"] is None
+    assert response.json()["collaborative_weight"] == 0.5
+    assert response.json()["content_weight"] == 0.5
+    assert response.json()["quality_weight"] == 0.0
 
 
 @pytest.mark.anyio
@@ -251,6 +361,9 @@ async def test_theme_settings_update_allows_admin(monkeypatch, api_client):
     assert response.status_code == 200
     assert response.json()["primary_color"] == "#007DBB"
     assert response.json()["library_name"] is None
+    assert response.json()["collaborative_weight"] == 0.5
+    assert response.json()["content_weight"] == 0.5
+    assert response.json()["quality_weight"] == 0.0
     assert captured["key"] == "theme_primary_color"
     assert captured["value"] == "#007DBB"
     main.app.dependency_overrides.clear()
@@ -297,6 +410,47 @@ async def test_theme_settings_update_library_name_set_and_clear(
     assert clear_response.status_code == 200
     assert clear_response.json()["library_name"] is None
     assert clear_response.json()["primary_color"] == "#D9272D"
+    assert clear_response.json()["collaborative_weight"] == 0.5
+    assert clear_response.json()["content_weight"] == 0.5
+    assert clear_response.json()["quality_weight"] == 0.0
+    main.app.dependency_overrides.clear()
+
+
+@pytest.mark.anyio
+async def test_theme_settings_update_recommender_weights(monkeypatch, api_client):
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_admin_user
+    )
+    store = {}
+
+    def _mock_get(db, key):
+        value = store.get(key)
+        if value is None:
+            return None
+        return SimpleNamespace(key=key, value=value)
+
+    def _mock_upsert(db, key, value):
+        store[key] = value
+        return SimpleNamespace(key=key, value=value)
+
+    monkeypatch.setattr(main.crud, "get_app_setting", _mock_get)
+    monkeypatch.setattr(main.crud, "upsert_app_setting", _mock_upsert)
+
+    response = await api_client.put(
+        "/api/admin/theme",
+        json={
+            "collaborative_weight": 0.42,
+            "content_weight": 0.48,
+            "quality_weight": 0.1,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["collaborative_weight"] == 0.42
+    assert response.json()["content_weight"] == 0.48
+    assert response.json()["quality_weight"] == 0.1
+    assert store["recommender_collaborative_weight"] == "0.42"
+    assert store["recommender_content_weight"] == "0.48"
+    assert store["recommender_quality_weight"] == "0.1"
     main.app.dependency_overrides.clear()
 
 

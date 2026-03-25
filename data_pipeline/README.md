@@ -13,6 +13,7 @@
   - `data_processor.py`
 - `src/features/`
   - `create_embeddings.py`
+  - `create_content_embeddings.py`
   - `recommender.py`
 - `src/assets/`
   - `sync_fly_images.py`
@@ -30,7 +31,7 @@
 | First remote ingest run | Create app/volume -> set `.env` -> `fly_ingest_set_secrets.sh` -> `fly_ingest_deploy.sh` -> `fly_ingest_start.sh` |
 | Resume remote ingest after failure | `fly_ingest_status.sh` -> check logs -> `fly_ingest_start.sh` |
 | Download remote artifacts after run | Enable maintenance mode -> start machine -> `fly_ingest_list_artifacts.sh` -> `fly_ingest_download_artifact.sh` -> disable maintenance mode -> stop machine |
-| Local processing + import | Process (`data_processor`) -> build embeddings (`create_embeddings`) -> run Alembic -> import data/library |
+| Local processing + import | Process (`data_processor`) -> build collaborative embeddings (`create_embeddings`) -> build content embeddings (`create_content_embeddings`) -> run Alembic -> import data/library |
 
 ## Data Collection
 
@@ -255,6 +256,23 @@ Behavior:
 - Builds sparse recommendation artifacts from ratings data
 - Writes embedding/mapping outputs used by backend recommender runtime
 
+### Generate content-based artifacts
+```bash
+poetry run python -m data_pipeline.src.features.create_content_embeddings
+```
+
+Behavior:
+- Builds content feature embeddings from processed game properties.
+- Factors include:
+  - strong: mechanics, categories, families, designers, artists
+  - medium: suggested players, average-weight bucket, playtime bucket
+  - light: publisher
+- Writes timestamped content artifacts under `backend/database/`:
+  - `content_embeddings_<timestamp>.npz`
+  - `content_reverse_mappings_<timestamp>.json`
+  - `content_feature_mappings_<timestamp>.json`
+  - `content_embeddings_metadata_<timestamp>.json`
+
 ## Data Import/Export
 
 ### Local import (SQLite or Postgres)
@@ -310,9 +328,13 @@ PROCESSED_TS="$(find data/transform/processed -mindepth 1 -maxdepth 1 -type d -p
 # latest embeddings timestamp (must have both files)
 EMBED_TS="$(find backend/database -maxdepth 1 -type f -name 'game_embeddings_*.npz' -printf "%f\n" | sed -E 's/^game_embeddings_([0-9]+)\.npz$/\1/' | sort -n | tail -1)"
 
+# latest content embeddings timestamp (must have both files)
+CONTENT_EMBED_TS="$(find backend/database -maxdepth 1 -type f -name 'content_embeddings_*.npz' -printf "%f\n" | sed -E 's/^content_embeddings_([0-9]+)\.npz$/\1/' | sort -n | tail -1)"
+
 echo "TARGET_APP=${TARGET_APP}"
 echo "PROCESSED_TS=${PROCESSED_TS}"
 echo "EMBED_TS=${EMBED_TS}"
+echo "CONTENT_EMBED_TS=${CONTENT_EMBED_TS}"
 ```
 
 Generate local checksum manifests:
@@ -330,6 +352,15 @@ mkdir -p .tmp/transfer_manifests
     "game_embeddings_${EMBED_TS}.npz" \
     "reverse_mappings_${EMBED_TS}.json" | sort
 ) > ".tmp/transfer_manifests/embeddings_${EMBED_TS}.sha256"
+
+(
+  cd backend/database && \
+  sha256sum \
+    "content_embeddings_${CONTENT_EMBED_TS}.npz" \
+    "content_reverse_mappings_${CONTENT_EMBED_TS}.json" \
+    "content_feature_mappings_${CONTENT_EMBED_TS}.json" \
+    "content_embeddings_metadata_${CONTENT_EMBED_TS}.json" | sort
+) > ".tmp/transfer_manifests/content_embeddings_${CONTENT_EMBED_TS}.sha256"
 ```
 
 Copy processed CSV set to remote app:
@@ -350,6 +381,25 @@ cat "backend/database/reverse_mappings_${EMBED_TS}.json" | \
   "sh -lc 'cat > /data/reverse_mappings_${EMBED_TS}.json'"
 ```
 
+Copy content embeddings + mappings to remote `/data`:
+```bash
+cat "backend/database/content_embeddings_${CONTENT_EMBED_TS}.npz" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/content_embeddings_${CONTENT_EMBED_TS}.npz'"
+
+cat "backend/database/content_reverse_mappings_${CONTENT_EMBED_TS}.json" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/content_reverse_mappings_${CONTENT_EMBED_TS}.json'"
+
+cat "backend/database/content_feature_mappings_${CONTENT_EMBED_TS}.json" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/content_feature_mappings_${CONTENT_EMBED_TS}.json'"
+
+cat "backend/database/content_embeddings_metadata_${CONTENT_EMBED_TS}.json" | \
+  fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cat > /data/content_embeddings_metadata_${CONTENT_EMBED_TS}.json'"
+```
+
 Verify remote checksums match local manifests:
 ```bash
 fly ssh console -a "${TARGET_APP}" -C \
@@ -367,9 +417,22 @@ fly ssh console -a "${TARGET_APP}" -C \
 diff -u \
   ".tmp/transfer_manifests/embeddings_${EMBED_TS}.sha256" \
   ".tmp/transfer_manifests/remote_embeddings_${EMBED_TS}.sha256"
+
+fly ssh console -a "${TARGET_APP}" -C \
+  "sh -lc 'cd /data && sha256sum content_embeddings_${CONTENT_EMBED_TS}.npz content_reverse_mappings_${CONTENT_EMBED_TS}.json content_feature_mappings_${CONTENT_EMBED_TS}.json content_embeddings_metadata_${CONTENT_EMBED_TS}.json | sort'" \
+  > ".tmp/transfer_manifests/remote_content_embeddings_${CONTENT_EMBED_TS}.sha256"
+
+diff -u \
+  ".tmp/transfer_manifests/content_embeddings_${CONTENT_EMBED_TS}.sha256" \
+  ".tmp/transfer_manifests/remote_content_embeddings_${CONTENT_EMBED_TS}.sha256"
 ```
 
 If `diff` returns no output, transfer verification passed.
+
+Runtime note:
+- Collaborative mode needs `game_embeddings_*` + `reverse_mappings_*`.
+- Hybrid mode content rerank needs `content_embeddings_*` + `content_reverse_mappings_*`.
+- `content_feature_mappings_*` and `content_embeddings_metadata_*` are not required at request time, but should be transferred for reproducibility/debugging.
 
 #### Backup remote DB before reset/import
 
@@ -399,60 +462,56 @@ poetry run python scripts/db/fly_postgres_backup.py \
 
 Optional faster mode (write backup on remote DB machine instead of streaming locally):
 ```bash
+# set this once for the current run
+BACKUP_ENV=dev
+
+if [ "${BACKUP_ENV}" = "dev" ]; then
+  DB_APP="${FLY_DB_APP_NAME_DEV}"
+  BACKUP_PREFIX="dev-before-import"
+else
+  DB_APP="${FLY_DB_APP_NAME_PROD}"
+  BACKUP_PREFIX="prod-before-import"
+fi
+
+BACKUP_REMOTE_PATH="/var/lib/postgresql/backups/${BACKUP_PREFIX}-$(date -u +%Y%m%dT%H%M%SZ).sql"
+
 poetry run python scripts/db/fly_postgres_backup.py \
-  --env dev \
-  --remote-output "/var/lib/postgresql/backups/dev-before-import-$(date -u +%Y%m%dT%H%M%SZ).sql"
+  --env "${BACKUP_ENV}" \
+  --remote-output "${BACKUP_REMOTE_PATH}"
 ```
 
-Check remote backup file size:
+Check remote backup file size (exact file path, no guessing):
 ```bash
-# dev
-fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C \
-  "sh -lc 'LATEST=\$(ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1); [ -n \"\$LATEST\" ] || { echo \"No dev backup files found\"; exit 1; }; ls -lh \"\$LATEST\"; du -h \"\$LATEST\" | cut -f1 | sed \"s/^/size_human=/\"'"
-
-# prod
-fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C \
-  "sh -lc 'LATEST=\$(ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1); [ -n \"\$LATEST\" ] || { echo \"No prod backup files found\"; exit 1; }; ls -lh \"\$LATEST\"; du -h \"\$LATEST\" | cut -f1 | sed \"s/^/size_human=/\"'"
+fly ssh console -a "${DB_APP}" -C \
+  "sh -lc 'test -s \"${BACKUP_REMOTE_PATH}\" && ls -lh \"${BACKUP_REMOTE_PATH}\" && du -h \"${BACKUP_REMOTE_PATH}\" | cut -f1 | sed \"s/^/size_human=/\"'"
 ```
 
-Restore validation from remote backup file (into disposable restore DB on remote machine):
+Restore validation from that same remote backup file (into disposable restore DB on remote machine):
 ```bash
-# dev
-REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
 poetry run python scripts/db/fly_postgres_restore.py \
-  --env dev \
-  --remote-input "${REMOTE_BACKUP_PATH}" \
-  --restore-db bg_lib_recommender_restore_test
-
-# prod
-REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
-poetry run python scripts/db/fly_postgres_restore.py \
-  --env prod \
-  --remote-input "${REMOTE_BACKUP_PATH}" \
+  --env "${BACKUP_ENV}" \
+  --remote-input "${BACKUP_REMOTE_PATH}" \
   --restore-db bg_lib_recommender_restore_test
 ```
 
 Delete remote backup file after successful migration:
 ```bash
-# dev
-REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
-fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C \
-  "sh -lc 'rm -f \"${REMOTE_BACKUP_PATH}\"'"
-
-# prod
-REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/prod-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
-fly ssh console -a "${FLY_DB_APP_NAME_PROD}" -C \
-  "sh -lc 'rm -f \"${REMOTE_BACKUP_PATH}\"'"
+fly ssh console -a "${DB_APP}" -C \
+  "sh -lc 'rm -f \"${BACKUP_REMOTE_PATH}\"'"
 ```
 
 Or combine restore+delete in one command:
 ```bash
-REMOTE_BACKUP_PATH="$(fly ssh console -a "${FLY_DB_APP_NAME_DEV}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/dev-before-import-*.sql 2>/dev/null | head -n1'" | tail -n1)"
 poetry run python scripts/db/fly_postgres_restore.py \
-  --env dev \
-  --remote-input "${REMOTE_BACKUP_PATH}" \
+  --env "${BACKUP_ENV}" \
+  --remote-input "${BACKUP_REMOTE_PATH}" \
   --restore-db bg_lib_recommender_restore_test \
   --delete-remote-after-restore
+```
+
+If you lose `BACKUP_REMOTE_PATH`, recover the latest remote file for the current env:
+```bash
+BACKUP_REMOTE_PATH="$(fly ssh console -a "${DB_APP}" -C "sh -lc 'ls -1t /var/lib/postgresql/backups/${BACKUP_PREFIX}-*.sql 2>/dev/null | head -n1'" | tail -n1)"
 ```
 
 #### Clean reset + import (remote app)
@@ -486,8 +545,10 @@ scripts/deploy/fly_import_data_job.sh prod stop
 ```
 
 Notes:
-- `status` is read-only and does not modify machine settings.
-- `stop` restores machine `autostop=stop` for normal app behavior.
+- `start` captures the prior autostop mode, sets `autostop=off`, and starts a local watcher that auto-restores the prior mode after import completion.
+- `status` is read-only and does not modify machine settings; it prints machine service policy (`autostop`/`autostart`) and local watcher status.
+- `stop` is an explicit fallback that force-restores machine `autostop=stop`.
+- Keep the local terminal host running while the detached import is active so the watcher can complete the auto-restore.
 
 Fallback foreground SSH command:
 ```bash

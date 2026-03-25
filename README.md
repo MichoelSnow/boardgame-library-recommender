@@ -57,6 +57,7 @@ This covers:
 #### Recommendation Engine (`backend/app/recommender.py`)
 - `ModelManager` singleton with lazy-loading lifecycle for embedding artifacts
 - Collaborative filtering recommendations with cosine-style similarity over sparse embeddings
+- Hybrid mode reranking with centralized scoring config (collaborative + content + confidence-adjusted quality)
 - Support for disliked games (anti-recommendation signals)
 - Degraded-mode behavior and health signaling when model artifacts are unavailable
 - Library-aware filtering support
