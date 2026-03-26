@@ -23,53 +23,39 @@ jobs:
         shell: bash
         env:
           IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         run: |
           set -euo pipefail
           echo "pr_agent_preflight is_fork=${IS_FORK}"
-          if [[ -n "${GEMINI_API_KEY:-}" ]]; then
-            echo "pr_agent_preflight gemini_secret_present=true"
+          if [[ -n "${CLAUDE_API_KEY:-}" ]]; then
+            echo "pr_agent_preflight claude_secret_present=true"
           else
-            echo "pr_agent_preflight gemini_secret_present=false"
+            echo "pr_agent_preflight claude_secret_present=false"
           fi
 
-          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+          if [[ -z "${CLAUDE_API_KEY:-}" ]]; then
             if [[ "${IS_FORK}" == "true" ]]; then
-              echo "error: GEMINI_API_KEY is unavailable for this fork PR."
+              echo "error: CLAUDE_API_KEY is unavailable for this fork PR."
               echo "error: Enable 'Send secrets to workflows from pull requests' for forks or use a hardened pull_request_target workflow."
             else
-              echo "error: GEMINI_API_KEY is missing or empty in repository/org secrets."
+              echo "error: CLAUDE_API_KEY is missing or empty in repository/org secrets."
             fi
             exit 1
           fi
 
-      - name: Normalize and validate Gemini key
+      - name: Normalize Claude key
         shell: bash
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
         run: |
           set -euo pipefail
-          normalized="$(printf '%s' "${GEMINI_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          normalized="$(printf '%s' "${CLAUDE_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
           if [[ -z "${normalized}" ]]; then
-            echo "error: normalized GEMINI_API_KEY is empty after trimming."
+            echo "error: normalized CLAUDE_API_KEY is empty after trimming."
             exit 1
           fi
-          echo "GEMINI_API_KEY_SANITIZED=${normalized}" >> "${GITHUB_ENV}"
-          echo "pr_agent_preflight gemini_key_length=${#normalized}"
-
-          http_code="$(
-            curl -sS \
-              -o /tmp/gemini_models_response.json \
-              -w "%{http_code}" \
-              "https://generativelanguage.googleapis.com/v1beta/models?key=${normalized}"
-          )"
-
-          if [[ "${http_code}" != "200" ]]; then
-            echo "error: Gemini API key validation failed (HTTP ${http_code})."
-            echo "error: Ensure the key is valid for Google AI Studio Generative Language API and has no API/app restrictions blocking this runner."
-            echo "response_snippet=$(head -c 300 /tmp/gemini_models_response.json | tr '\n' ' ')"
-            exit 1
-          fi
+          echo "CLAUDE_API_KEY_SANITIZED=${normalized}" >> "${GITHUB_ENV}"
+          echo "pr_agent_preflight claude_key_length=${#normalized}"
 
       - name: Resolve PR Agent settings mode
         shell: bash
@@ -104,21 +90,18 @@ jobs:
           echo "pr_agent_preflight settings_mode=${mode} use_repo_settings=${use_repo_settings} use_wiki_settings=${use_wiki_settings}"
 
       - name: Run PR agent
-        uses: qodo-ai/pr-agent@main
+        uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
-          GOOGLE_DEFAULT_API_BASE: "https://generativelanguage.googleapis.com/v1beta"
+          ANTHROPIC_API_KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
+          ANTHROPIC_KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
+          ANTHROPIC.KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
+          ANTHROPIC__KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
           config.use_global_settings_file: "false"
           config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
           config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
-          config.model: "gemini/gemini-3-flash-preview"
-          config.fallback_models: '["gemini/gemini-2.5-flash", "gemini/gemini-2.5-flash-lite"]'
+          config.model: "anthropic/claude-3-5-sonnet-latest"
+          config.fallback_models: '["anthropic/claude-3-5-haiku-latest"]'
           config.max_model_tokens: "40000"
           config.custom_model_max_tokens: "40000"
           config.max_description_tokens: "400"

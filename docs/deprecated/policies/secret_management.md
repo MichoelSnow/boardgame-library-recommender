@@ -21,7 +21,7 @@
 - `FLY_API_TOKEN`
   - Used by deploy workflows.
   - Rotate every 6 months.
-- `GEMINI_API_KEY`
+- `CLAUDE_API_KEY`
   - Used by PR-Agent workflow.
   - Rotate every 6 months (or if quota/account issues require regeneration).
 
@@ -67,10 +67,10 @@
 1. Go to: `GitHub repo -> Settings -> Secrets and variables -> Actions`.
 2. Update the relevant secret(s), e.g.:
    - `FLY_API_TOKEN`
-   - `GEMINI_API_KEY`
+   - `CLAUDE_API_KEY`
 3. Re-run the affected workflow to validate:
    - deploy workflow for `FLY_API_TOKEN`
-   - `PR Agent` workflow for `GEMINI_API_KEY`
+   - `PR Agent` workflow for `CLAUDE_API_KEY`
 
 ### 2) Rotate Fly secrets (do `dev` first, then `prod`)
 1. Generate a new value.
