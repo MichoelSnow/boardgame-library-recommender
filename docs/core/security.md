@@ -17,7 +17,7 @@
 - Emergency rotate immediately on suspected exposure.
 
 ### High-impact secret set
-- GitHub: `FLY_API_TOKEN`, `GEMINI_API_KEY`
+- GitHub: `FLY_API_TOKEN`, `CLAUDE_API_KEY`
 - Fly apps: `SECRET_KEY`, `DATABASE_URL`
 - Local: `.env` equivalents used for auth/deploy/ingest paths
 
@@ -35,10 +35,10 @@
 1. Go to: `GitHub repo -> Settings -> Secrets and variables -> Actions`.
 2. Update the relevant secret(s), e.g.:
    - `FLY_API_TOKEN`
-   - `GEMINI_API_KEY`
+   - `CLAUDE_API_KEY`
 3. Re-run the affected workflow to validate:
    - deploy workflow for `FLY_API_TOKEN`
-   - `PR Agent` workflow for `GEMINI_API_KEY`
+   - `PR Agent` workflow for `CLAUDE_API_KEY`
 
 ### 2) Rotate Fly secrets (do `dev` first, then `prod`)
 1. Generate a new value.

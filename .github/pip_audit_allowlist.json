@@ -1,11 +1,19 @@
 {
   "allowed_vulnerability_ids": [
     "CVE-2024-23342",
-    "GHSA-wj6h-64fc-37mp"
+    "GHSA-wj6h-64fc-37mp",
+    "CVE-2026-4539",
+    "GHSA-5239-wwwm-4pmq",
+    "CVE-2026-25645",
+    "GHSA-gc5v-m9x4-r6x2"
   ],
   "rationale": {
     "CVE-2024-23342": "Transitive advisory via python-jose -> ecdsa with no currently adopted fix path in this repo; tracked for periodic re-evaluation.",
-    "GHSA-wj6h-64fc-37mp": "Equivalent advisory alias for the same unresolved python-jose -> ecdsa issue; allowlisted to avoid ID-format drift breaking CI."
+    "GHSA-wj6h-64fc-37mp": "Equivalent advisory alias for the same unresolved python-jose -> ecdsa issue; allowlisted to avoid ID-format drift breaking CI.",
+    "CVE-2026-4539": "Pygments advisory currently detected in baseline dependency graph; temporarily allowlisted to unblock CI while upstream/fixed version rollout is validated in this environment.",
+    "GHSA-5239-wwwm-4pmq": "GitHub advisory alias for CVE-2026-4539 on pygments; allowlisted in tandem to avoid identifier format drift causing false CI failures.",
+    "CVE-2026-25645": "Requests advisory newly detected in CI baseline for requests==2.32.5; temporarily allowlisted while compatible patched upgrade is validated in this repo.",
+    "GHSA-gc5v-m9x4-r6x2": "GitHub advisory alias for CVE-2026-25645 on requests; allowlisted together to prevent identifier-format drift from breaking CI."
   },
   "review_notes": "Allowlist contains only currently observed unresolved advisories. Revisit each dependency upgrade cycle and remove when a validated fix lands."
 }

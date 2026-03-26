@@ -41,10 +41,14 @@ scripts/deploy/fly_stack.sh dev status
   - Runs `alembic upgrade head` + `app/import_data.py --delete-existing` as a detached remote job.
   - Persists logs under `/data/logs/import_data/` on the Fly app volume.
   - Streams the same output to Fly Machine Logs/Errors.
-  - Sets machine `autostop=off` before `start` to prevent Fly idle shutdown during import.
-  - Restores machine `autostop=stop` on `stop`.
+  - Captures prior machine autostop mode, then sets `autostop=off` before `start` to prevent Fly idle shutdown during import.
+  - Starts a local watcher that auto-restores autostop mode after the tracked import PID exits.
+  - `stop` still force-restores `autostop=stop` for manual cleanup/override.
   - `status` is read-only (reports PID/log without changing machine config).
+  - `status` also prints resolved machine id and service policy (`autostop`, `autostart`, `min_machines_running`).
+  - `status` also prints local watcher status.
   - Supports `start`, `status`, `tail`, `log`, and `stop` actions.
+  - Local watcher artifacts are written under `.tmp/import_data_watchers/`.
 - When to use:
   - Long-running imports where SSH session drops are a risk.
 - How to use:
@@ -58,6 +62,7 @@ scripts/deploy/fly_import_data_job.sh dev stop
 - Requirements:
   - `fly` CLI authenticated
   - `.env` with `FLY_APP_NAME_DEV` / `FLY_APP_NAME_PROD`
+  - Keep the local machine running while the import job is active so the watcher can restore autostop automatically.
 
 ## `fly_ingest_deploy.sh`
 - What it does:

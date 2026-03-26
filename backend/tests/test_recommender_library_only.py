@@ -11,7 +11,12 @@ def _reset_model_manager() -> recommender.ModelManager:
     manager._model_path = None
     manager._game_mapping = {}
     manager._reverse_game_mapping = {}
+    manager._content_embeddings = None
+    manager._content_model_path = None
+    manager._content_game_mapping = {}
+    manager._content_reverse_game_mapping = {}
     manager._last_load_error = None
+    manager._last_content_load_error = None
     return manager
 
 

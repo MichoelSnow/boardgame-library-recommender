@@ -19,7 +19,7 @@ const AdminPanelPage = () => {
                 Kiosk Mode
               </Button>
               <Button variant="contained" component={RouterLink} to="/admin/theme">
-                Theme Color & Library Name
+                Theme, Library & Recommender
               </Button>
               <Button variant="contained" component={RouterLink} to="/admin/users">
                 User Management

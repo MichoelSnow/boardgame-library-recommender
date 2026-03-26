@@ -507,6 +507,10 @@ def get_recommendations(
     disliked_games: Optional[List[int]] = None,
     anti_weight: float = 1.0,
     library_only: Optional[bool] = False,
+    recommender_mode: str = "hybrid",
+    collaborative_weight: float | None = None,
+    content_weight: float | None = None,
+    quality_weight: float | None = None,
 ) -> List[models.BoardGame]:
     """
     Get game recommendations based on liked and disliked games.
@@ -520,6 +524,10 @@ def get_recommendations(
         disliked_games=disliked_games,
         anti_weight=anti_weight,
         library_only=library_only,
+        recommender_mode=recommender_mode,
+        collaborative_weight=collaborative_weight,
+        content_weight=content_weight,
+        quality_weight=quality_weight,
     )
 
 

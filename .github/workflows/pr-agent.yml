@@ -2,7 +2,7 @@ name: PR Agent
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: read
@@ -13,14 +13,121 @@ jobs:
   pr_agent:
     if: github.event.pull_request.draft == false && !startsWith(github.event.pull_request.title, 'chore(release):')
     runs-on: ubuntu-latest
+    env:
+      # Controls config-source isolation without changing code.
+      # Supported values: none, repo, repo_wiki
+      # Set as a repository variable in GitHub Settings -> Secrets and variables -> Actions.
+      PR_AGENT_SETTINGS_MODE: ${{ vars.PR_AGENT_SETTINGS_MODE }}
     steps:
+      - name: PR Agent preflight
+        shell: bash
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          set -euo pipefail
+          echo "pr_agent_preflight is_fork=${IS_FORK}"
+          if [[ -n "${CLAUDE_API_KEY:-}" ]]; then
+            echo "pr_agent_preflight claude_secret_present=true"
+          else
+            echo "pr_agent_preflight claude_secret_present=false"
+          fi
+
+          if [[ -z "${CLAUDE_API_KEY:-}" ]]; then
+            if [[ "${IS_FORK}" == "true" ]]; then
+              echo "error: CLAUDE_API_KEY is unavailable for this fork PR."
+              echo "error: Enable 'Send secrets to workflows from pull requests' for forks or use a hardened pull_request_target workflow."
+            else
+              echo "error: CLAUDE_API_KEY is missing or empty in repository/org secrets."
+            fi
+            exit 1
+          fi
+
+      - name: Normalize Claude key
+        shell: bash
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          set -euo pipefail
+          normalized="$(printf '%s' "${CLAUDE_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          if [[ -z "${normalized}" ]]; then
+            echo "error: normalized CLAUDE_API_KEY is empty after trimming."
+            exit 1
+          fi
+          echo "CLAUDE_API_KEY_SANITIZED=${normalized}" >> "${GITHUB_ENV}"
+          echo "pr_agent_preflight claude_key_length=${#normalized}"
+
+      - name: Validate Anthropic key and model access
+        shell: bash
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          set -euo pipefail
+          normalized="$(printf '%s' "${CLAUDE_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          model_id="claude-sonnet-4-0"
+          payload="$(printf '{"model":"%s","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}' "${model_id}")"
+          http_code="$(
+            curl -sS \
+              -o /tmp/anthropic_validate_response.json \
+              -w "%{http_code}" \
+              "https://api.anthropic.com/v1/messages" \
+              -H "x-api-key: ${normalized}" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "${payload}"
+          )"
+          if [[ "${http_code}" != "200" ]]; then
+            echo "error: Anthropic key/model preflight failed (HTTP ${http_code})"
+            echo "error: Verify CLAUDE_API_KEY and model access for ${model_id}."
+            echo "response_snippet=$(head -c 400 /tmp/anthropic_validate_response.json | tr '\n' ' ')"
+            exit 1
+          fi
+
+      - name: Resolve PR Agent settings mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${PR_AGENT_SETTINGS_MODE:-}"
+          if [[ -z "${mode}" ]]; then
+            mode="none"
+          fi
+
+          case "${mode}" in
+            none)
+              use_repo_settings="false"
+              use_wiki_settings="false"
+              ;;
+            repo)
+              use_repo_settings="true"
+              use_wiki_settings="false"
+              ;;
+            repo_wiki)
+              use_repo_settings="true"
+              use_wiki_settings="true"
+              ;;
+            *)
+              echo "error: unsupported PR_AGENT_SETTINGS_MODE='${mode}'. expected: none, repo, repo_wiki"
+              exit 1
+              ;;
+          esac
+
+          echo "PR_AGENT_USE_REPO_SETTINGS=${use_repo_settings}" >> "${GITHUB_ENV}"
+          echo "PR_AGENT_USE_WIKI_SETTINGS=${use_wiki_settings}" >> "${GITHUB_ENV}"
+          echo "pr_agent_preflight settings_mode=${mode} use_repo_settings=${use_repo_settings} use_wiki_settings=${use_wiki_settings}"
+
       - name: Run PR agent
         uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          config.model: "gemini/gemini-3-flash-preview"
-          config.fallback_models: '["gemini/gemini-2.5-flash", "gemini/gemini-2.5-flash-lite"]'
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC.KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC__KEY: ${{ secrets.CLAUDE_API_KEY }}
+          config.use_global_settings_file: "false"
+          config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
+          config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
+          config.model: "anthropic/claude-sonnet-4-0"
+          config.fallback_models: '["anthropic/claude-3-7-sonnet-latest"]'
           config.max_model_tokens: "40000"
           config.custom_model_max_tokens: "40000"
           config.max_description_tokens: "400"
@@ -32,4 +139,4 @@ jobs:
           pr_code_suggestions.parallel_calls: "false"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
-          github_action_config.pr_actions: '["opened", "reopened"]'
+          github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review"]'

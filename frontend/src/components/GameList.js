@@ -295,6 +295,7 @@ const GameList = () => {
         dislikedGames: dislikedGames.map((g) => g.id),
         limit: 50, // Backend currently caps recommendation requests at 50
         libraryOnly: false,
+        recommenderMode: 'hybrid',
       });
       const recommendationsAvailable =
         allResponse.headers['x-recommendations-available'] !== 'false';

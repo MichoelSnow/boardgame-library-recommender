@@ -15,11 +15,25 @@ describe('AdminThemePage', () => {
     fetchThemeSettings.mockResolvedValue({
       primary_color: '#D9272D',
       library_name: null,
+      collaborative_weight: 0.5,
+      content_weight: 0.5,
+      quality_weight: 0.0,
     });
-    updateThemeSettings.mockImplementation(async ({ primaryColor, libraryName }) => ({
-      primary_color: primaryColor || '#D9272D',
-      library_name: libraryName?.trim() || null,
-    }));
+    updateThemeSettings.mockImplementation(
+      async ({
+        primaryColor,
+        libraryName,
+        collaborativeWeight,
+        contentWeight,
+        qualityWeight,
+      }) => ({
+        primary_color: primaryColor || '#D9272D',
+        library_name: libraryName?.trim() || null,
+        collaborative_weight: collaborativeWeight ?? 0.5,
+        content_weight: contentWeight ?? 0.5,
+        quality_weight: qualityWeight ?? 0.0,
+      })
+    );
   });
 
   const renderPage = () =>
@@ -80,5 +94,32 @@ describe('AdminThemePage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save Name' }));
     await screen.findByText('Current library/convention name: (not set)');
+  });
+
+  test('allows saving global recommender weights', async () => {
+    renderPage();
+    await screen.findByText(/Current recommender weights:/i);
+
+    fireEvent.change(screen.getByLabelText('Collaborative weight'), {
+      target: { value: '0.40' },
+    });
+    fireEvent.change(screen.getByLabelText('Content weight'), {
+      target: { value: '0.45' },
+    });
+    fireEvent.change(screen.getByLabelText('Quality weight'), {
+      target: { value: '0.15' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Weights' }));
+
+    await screen.findByText(
+      'Current recommender weights: CF=0.40, Content=0.45, Quality=0.15'
+    );
+    expect(updateThemeSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collaborativeWeight: 0.4,
+        contentWeight: 0.45,
+        qualityWeight: 0.15,
+      })
+    );
   });
 });
