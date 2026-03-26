@@ -2,7 +2,7 @@ name: PR Agent
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: read
@@ -13,6 +13,11 @@ jobs:
   pr_agent:
     if: github.event.pull_request.draft == false && !startsWith(github.event.pull_request.title, 'chore(release):')
     runs-on: ubuntu-latest
+    env:
+      # Controls config-source isolation without changing code.
+      # Supported values: none, repo, repo_wiki
+      # Set as a repository variable in GitHub Settings -> Secrets and variables -> Actions.
+      PR_AGENT_SETTINGS_MODE: ${{ vars.PR_AGENT_SETTINGS_MODE }}
     steps:
       - name: PR Agent preflight
         shell: bash
@@ -66,6 +71,38 @@ jobs:
             exit 1
           fi
 
+      - name: Resolve PR Agent settings mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          mode="${PR_AGENT_SETTINGS_MODE:-}"
+          if [[ -z "${mode}" ]]; then
+            mode="none"
+          fi
+
+          case "${mode}" in
+            none)
+              use_repo_settings="false"
+              use_wiki_settings="false"
+              ;;
+            repo)
+              use_repo_settings="true"
+              use_wiki_settings="false"
+              ;;
+            repo_wiki)
+              use_repo_settings="true"
+              use_wiki_settings="true"
+              ;;
+            *)
+              echo "error: unsupported PR_AGENT_SETTINGS_MODE='${mode}'. expected: none, repo, repo_wiki"
+              exit 1
+              ;;
+          esac
+
+          echo "PR_AGENT_USE_REPO_SETTINGS=${use_repo_settings}" >> "${GITHUB_ENV}"
+          echo "PR_AGENT_USE_WIKI_SETTINGS=${use_wiki_settings}" >> "${GITHUB_ENV}"
+          echo "pr_agent_preflight settings_mode=${mode} use_repo_settings=${use_repo_settings} use_wiki_settings=${use_wiki_settings}"
+
       - name: Run PR agent
         uses: qodo-ai/pr-agent@main
         env:
@@ -77,7 +114,8 @@ jobs:
           GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
           GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
           GOOGLE_DEFAULT_API_BASE: "https://generativelanguage.googleapis.com/v1beta"
-          google_ai_studio.gemini_api_key: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
+          config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
           config.model: "gemini/gemini-3-flash-preview"
           config.fallback_models: '["gemini/gemini-2.5-flash", "gemini/gemini-2.5-flash-lite"]'
           config.max_model_tokens: "40000"
@@ -91,4 +129,4 @@ jobs:
           pr_code_suggestions.parallel_calls: "false"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
-          github_action_config.pr_actions: '["opened", "reopened"]'
+          github_action_config.pr_actions: '["opened", "reopened", "synchronize", "ready_for_review"]'
