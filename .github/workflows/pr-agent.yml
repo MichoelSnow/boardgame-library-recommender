@@ -119,10 +119,10 @@ jobs:
         uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
-          ANTHROPIC_KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
-          ANTHROPIC.KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
-          ANTHROPIC__KEY: ${{ env.CLAUDE_API_KEY_SANITIZED }}
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC.KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ANTHROPIC__KEY: ${{ secrets.CLAUDE_API_KEY }}
           config.use_global_settings_file: "false"
           config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
           config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
