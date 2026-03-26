@@ -38,15 +38,45 @@ jobs:
             exit 1
           fi
 
+      - name: Normalize and validate Gemini key
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          normalized="$(printf '%s' "${GEMINI_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          if [[ -z "${normalized}" ]]; then
+            echo "error: normalized GEMINI_API_KEY is empty after trimming."
+            exit 1
+          fi
+          echo "GEMINI_API_KEY_SANITIZED=${normalized}" >> "${GITHUB_ENV}"
+          echo "pr_agent_preflight gemini_key_length=${#normalized}"
+
+          http_code="$(
+            curl -sS \
+              -o /tmp/gemini_models_response.json \
+              -w "%{http_code}" \
+              "https://generativelanguage.googleapis.com/v1beta/models?key=${normalized}"
+          )"
+
+          if [[ "${http_code}" != "200" ]]; then
+            echo "error: Gemini API key validation failed (HTTP ${http_code})."
+            echo "error: Ensure the key is valid for Google AI Studio Generative Language API and has no API/app restrictions blocking this runner."
+            echo "response_snippet=$(head -c 300 /tmp/gemini_models_response.json | tr '\n' ' ')"
+            exit 1
+          fi
+
       - name: Run PR agent
-        uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
+        uses: qodo-ai/pr-agent@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          GOOGLE_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          GOOGLE_GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
+          GOOGLE_DEFAULT_API_BASE: "https://generativelanguage.googleapis.com/v1beta"
           config.model: "gemini/gemini-3-flash-preview"
           config.fallback_models: '["gemini/gemini-2.5-flash", "gemini/gemini-2.5-flash-lite"]'
           config.max_model_tokens: "40000"
