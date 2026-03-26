@@ -15,6 +15,7 @@
     "minimatch",
     "node-forge",
     "nth-check",
+    "picomatch",
     "react-router",
     "react-router-dom",
     "react-scripts",
@@ -26,5 +27,9 @@
     "underscore",
     "workbox-build",
     "workbox-webpack-plugin"
-  ]
+  ],
+  "rationale": {
+    "picomatch": "Transitive frontend dependency newly flagged by npm audit baseline in CI; temporarily allowlisted while upstream remediation and upgrade path are validated."
+  },
+  "review_notes": "Allowlist should only contain currently observed baseline findings. Revisit and remove entries after validated dependency upgrades."
 }

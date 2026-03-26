@@ -14,6 +14,30 @@ jobs:
     if: github.event.pull_request.draft == false && !startsWith(github.event.pull_request.title, 'chore(release):')
     runs-on: ubuntu-latest
     steps:
+      - name: PR Agent preflight
+        shell: bash
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          echo "pr_agent_preflight is_fork=${IS_FORK}"
+          if [[ -n "${GEMINI_API_KEY:-}" ]]; then
+            echo "pr_agent_preflight gemini_secret_present=true"
+          else
+            echo "pr_agent_preflight gemini_secret_present=false"
+          fi
+
+          if [[ -z "${GEMINI_API_KEY:-}" ]]; then
+            if [[ "${IS_FORK}" == "true" ]]; then
+              echo "error: GEMINI_API_KEY is unavailable for this fork PR."
+              echo "error: Enable 'Send secrets to workflows from pull requests' for forks or use a hardened pull_request_target workflow."
+            else
+              echo "error: GEMINI_API_KEY is missing or empty in repository/org secrets."
+            fi
+            exit 1
+          fi
+
       - name: Run PR agent
         uses: qodo-ai/pr-agent@d36ad319f7fb0049205017405a71275c41599587 # v0.31
         env:
