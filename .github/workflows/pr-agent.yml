@@ -110,10 +110,11 @@ jobs:
           GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
           GOOGLE_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
           GOOGLE_GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
-          GOOGLE_AI_STUDIO.GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
           GOOGLE_AI_STUDIO__GEMINI_API_KEY: ${{ env.GEMINI_API_KEY_SANITIZED }}
           GOOGLE_GENAI_USE_VERTEXAI: "FALSE"
           GOOGLE_DEFAULT_API_BASE: "https://generativelanguage.googleapis.com/v1beta"
+          google_ai_studio.gemini_api_key: ${{ env.GEMINI_API_KEY_SANITIZED }}
+          config.use_global_settings_file: "false"
           config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
           config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
           config.model: "gemini/gemini-3-flash-preview"
