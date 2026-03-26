@@ -57,6 +57,32 @@ jobs:
           echo "CLAUDE_API_KEY_SANITIZED=${normalized}" >> "${GITHUB_ENV}"
           echo "pr_agent_preflight claude_key_length=${#normalized}"
 
+      - name: Validate Anthropic key and model access
+        shell: bash
+        env:
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          set -euo pipefail
+          normalized="$(printf '%s' "${CLAUDE_API_KEY}" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          model_id="claude-sonnet-4-0"
+          payload="$(printf '{"model":"%s","max_tokens":8,"messages":[{"role":"user","content":"ping"}]}' "${model_id}")"
+          http_code="$(
+            curl -sS \
+              -o /tmp/anthropic_validate_response.json \
+              -w "%{http_code}" \
+              "https://api.anthropic.com/v1/messages" \
+              -H "x-api-key: ${normalized}" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "${payload}"
+          )"
+          if [[ "${http_code}" != "200" ]]; then
+            echo "error: Anthropic key/model preflight failed (HTTP ${http_code})"
+            echo "error: Verify CLAUDE_API_KEY and model access for ${model_id}."
+            echo "response_snippet=$(head -c 400 /tmp/anthropic_validate_response.json | tr '\n' ' ')"
+            exit 1
+          fi
+
       - name: Resolve PR Agent settings mode
         shell: bash
         run: |
@@ -100,8 +126,8 @@ jobs:
           config.use_global_settings_file: "false"
           config.use_repo_settings_file: ${{ env.PR_AGENT_USE_REPO_SETTINGS }}
           config.use_wiki_settings_file: ${{ env.PR_AGENT_USE_WIKI_SETTINGS }}
-          config.model: "anthropic/claude-3-5-sonnet-latest"
-          config.fallback_models: '["anthropic/claude-3-5-haiku-latest"]'
+          config.model: "anthropic/claude-sonnet-4-0"
+          config.fallback_models: '["anthropic/claude-3-7-sonnet-latest"]'
           config.max_model_tokens: "40000"
           config.custom_model_max_tokens: "40000"
           config.max_description_tokens: "400"
