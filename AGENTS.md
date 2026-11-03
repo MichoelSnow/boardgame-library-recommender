@@ -1,38 +1,36 @@
-## Code writing instructions
- - Do not use emojis in any code
- - Use tenacity for retries when querying APIs
- - replace print statements with logging
- - When trying to fix code through multiple iterations make sure to clean up the old iterations before trying something new
- - Remove dead code immediately after refactors
- - Prefer single-responsibility functions with clear names
- - Avoid copy-paste divergence across files
- - Handle edge cases explicitly (empty inputs, missing data, partial failures)
- - Update docs when behavior or data flows change
- - Prefer the lowest-maintenance solution that is still safe and acceptable for production use.
- - Avoid introducing recurring operational toil (manual rotations, frequent audits, brittle workflows) unless the user explicitly requests it or it is mandatory for core security/safety.
- - For security and reliability work, favor simple, durable controls with clear defaults and minimal ongoing upkeep.
+# AI Spec Framework
+
+This file is the always-on contract for work in this repository. Keep it small: it defines universal boundaries and decision defaults, not task procedures or project-specific facts.
+
+## Contract
+
+- Treat the current user instruction as the source of authorization. Questions, discussion, reviews, and diagnosis are non-mutating unless that same request explicitly authorizes changes; authorization from an earlier turn does not carry forward.
+- Authorization to edit source or files does not authorize execution: an explicit implementation request permits in-scope edits, while running code or other executable workflows requires separate explicit authorization. Read-only repository inspection needed to understand the work remains allowed.
+- Work only within the requested scope. Stop when the requested outcome is complete, and pause when a new action would materially expand scope.
+- Prefer the simplest complete solution appropriate to the actual project. Keep complexity, structure, and process proportional to the task.
+- Respect explicit user decisions and applicable project requirements over generic conventions or preferences.
+- Inspect relevant evidence before deciding. Ask when unresolved uncertainty could materially change scope, cost, risk, or outcome.
+- Preserve unrelated work, user data, secrets, and existing state. Do not overwrite or remove material outside the authorized scope.
+- Distinguish verified results from assumptions and limitations. State what was checked and what remains uncertain.
+
+## Where to look
+
+- Start with [`docs/README.md`](docs/README.md). It identifies the authoritative home for recurring project topics and documentation workflows.
+- Read relevant current project documentation:
+  - [`docs/core/`](docs/core/) for architecture, security, operational policy, runbooks, service targets, and current engineering guidance.
+  - [`docs/installation/`](docs/installation/) for setup, deployment, offline operation, and migration procedures.
+  - [`docs/ai/`](docs/ai/) for the repository map, domain glossary, AI-specific standards, and change conventions.
+  - [`docs/active/`](docs/active/) when the task concerns an active initiative or current readiness checklist.
+- Read accepted architectural decisions in [`docs/archive/adr/`](docs/archive/adr/) when they affect the work.
 
 
-## Testing expectations
- - Add or update tests whenever behavior changes, new features are introduced, or bugs are fixed
- - Prefer unit tests for core logic; add integration tests when multiple modules interact
- - Test edge cases and failure modes (empty inputs, invalid configs, missing data, etc.)
- - Keep tests deterministic; seed randomness and avoid network calls
- - Use pytest by default for Python; keep tests fast and isolated
- - Add lightweight smoke tests for new workflows or CLI paths
- - If tests are skipped, state why and provide a manual verification step
+## Authority
 
-## Command hygiene
- - Run shell commands with a 10-second timeout by default.
- - If a command exceeds 10 seconds, stop and ask the user to run it manually; do not change implementation solely to force the command under 10 seconds.
- - If a long-running command is interrupted or times out, check for partial artifacts (e.g., `node_modules` temp dirs) and either clean the affected paths or recommend a clean install before retrying.
- - Never hardcode secrets in commands. Always reference values from environment variables (loaded via `set -a; source .env; set +a`).
- - For `fly ssh console -C` commands that require nested quoting (especially embedded Python/SQL), do not use inline one-liners. Use a temporary script file and execute that script instead.
+1. Explicit current user instruction
+2. Applicable scoped binding requirements
+3. Accepted project context and decisions
+4. This always-on framework contract
+5. Task-specific skill procedure
+6. Non-binding reference material
 
-## MCPs
-  - Only use the Context7 MCP when I explicitly ask for it
-  - 
-
-## Collaboration preferences
- - Assume the user has already verified that the environment is ready and that prior tests and processes are in a good state.
- - Do not repeat reminders to wait for processes, rerun tests, or confirm readiness unless a new, specific risk makes the reminder necessary.
+Skills and references may not override authorization or safety boundaries.

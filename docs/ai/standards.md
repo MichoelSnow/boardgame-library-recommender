@@ -15,9 +15,11 @@ Operational standards for AI agents working in this repository.
 - Temporary initiative docs: `docs/active/`
 - AI support docs: `docs/ai/`
 - Historical docs: `docs/archive/`
-- Pending removal: `docs/deprecated/`
 
-Do not point live links to deprecated files.
+## Command Execution Safety
+- Stop after a command exceeds ten seconds and ask the user to run it manually.
+- Check and clean partial artifacts after an interrupted or timed-out command.
+- For nested fly ssh console -C commands, especially embedded Python or SQL, use a temporary script file instead of an inline one-liner.
 
 ## Release Notes Standard
 Use this format for production releases.

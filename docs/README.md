@@ -59,15 +59,38 @@ should link to these sections rather than duplicate their procedures.
   - Operational and engineering references you expect to keep long-term.
 - `active/`
   - In-progress human-readable docs for current initiatives.
-  - Move completed items to `archive/` when done.
+  - Move completed items to `docs/archive/` when done.
 - `ai/`
   - AI-oriented docs that improve agent accuracy/speed beyond reading code alone.
   - Keep concise and task-focused.
 - `archive/`
   - Historical records retained for context and traceability.
-- `deprecated/`
-  - Superseded docs scheduled for removal after the next release.
 
 Maintenance rule:
 - Prefer updating an existing canonical doc over creating a new file.
 - Docs intended for humans should be minimal and task oriented.
+
+
+## Session Start Prompt
+
+Use this at the start of a session when you want the agent to explicitly establish project context before working:
+
+```text
+Use this repository's framework as the operating context for this session.
+
+1. Load and follow AGENTS.md.
+2. Read docs/project_context.md if project characteristics are relevant to the current task.
+3. Identify and load any applicable scoped requirements under docs/requirements/.
+4. If I explicitly ask to resume from a handoff/session-state file, load and use that file. Do not read or update session-state files automatically.
+5. Use relevant shared skills for task-specific procedures.
+6. Treat docs/reference/ as non-binding guidance unless an applicable scoped requirement explicitly adopts it.
+
+Before implementation, briefly summarize:
+- framework/context loaded,
+- applicable scoped requirements,
+- relevant skills,
+- any material uncertainty,
+- immediate next action.
+
+Do not modify files until the current request explicitly authorizes implementation.
+```

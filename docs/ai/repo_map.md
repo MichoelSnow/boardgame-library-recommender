@@ -41,4 +41,3 @@
 ## Repo Structure Rules
 - Keep runtime code out of `docs/` and notebooks.
 - Keep scripts task-specific under `scripts/<domain>/`.
-- Keep archived/deprecated docs as non-canonical references only.

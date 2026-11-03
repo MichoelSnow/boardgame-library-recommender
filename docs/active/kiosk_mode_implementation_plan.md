@@ -1,7 +1,7 @@
 # Convention Mode Access Plan
 
 Status: Active design document  
-Exit criteria: move to `docs/deprecated/` once guest mode is implemented and validated in production
+Exit criteria: move to `docs/archive/` once guest mode is implemented and validated in production
 
 ## Purpose
 - Define how the app should behave during convention operation when read-only access is needed on controlled public devices.
