@@ -1,5 +1,5 @@
 # Build the frontend separately so the runtime image does not need Node.js.
-FROM node:20-bookworm-slim AS frontend-builder
+FROM node:24-bookworm-slim AS frontend-builder
 
 WORKDIR /app/frontend
 
