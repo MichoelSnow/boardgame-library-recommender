@@ -1,14 +1,16 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from dotenv import load_dotenv
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from typing import Optional
-from sqlalchemy.orm import Session
 import logging
 import os
+from datetime import datetime, timedelta
 from types import SimpleNamespace
+from typing import Optional
+
+import jwt
+from dotenv import load_dotenv
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jwt import InvalidTokenError
+from passlib.context import CryptContext
+from sqlalchemy.orm import Session
 
 from . import crud, schemas
 from .database import SessionLocal
@@ -91,7 +93,7 @@ async def get_current_user(
                 is_guest=True,
             )
         token_data = schemas.TokenData(username=username)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = crud.get_user_by_username(db, username=token_data.username)
@@ -116,8 +118,8 @@ def create_initial_admin(username: str, password: str):
 
 def create_user_cli(username: str, password: str, is_admin: bool = False):
     """Create a user via command line interface"""
-    from .database import SessionLocal
     from . import crud, schemas
+    from .database import SessionLocal
 
     if len(password) < 6:
         print("Error: Password must be at least 6 characters long.")
@@ -145,8 +147,8 @@ def create_user_cli(username: str, password: str, is_admin: bool = False):
 
 def reset_password_cli(username: str, new_password: str):
     """Reset password for existing user via command line interface"""
-    from .database import SessionLocal
     from . import crud
+    from .database import SessionLocal
 
     if len(new_password) < 6:
         print("Error: Password must be at least 6 characters long.")

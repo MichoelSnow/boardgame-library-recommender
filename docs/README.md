@@ -76,21 +76,35 @@ Maintenance rule:
 Use this at the start of a session when you want the agent to explicitly establish project context before working:
 
 ```text
-Use this repository's framework as the operating context for this session.
+Use this repository's AGENTS.md and documentation structure as the operating context for this session.
 
 1. Load and follow AGENTS.md.
-2. Read docs/project_context.md if project characteristics are relevant to the current task.
-3. Identify and load any applicable scoped requirements under docs/requirements/.
-4. If I explicitly ask to resume from a handoff/session-state file, load and use that file. Do not read or update session-state files automatically.
-5. Use relevant shared skills for task-specific procedures.
-6. Treat docs/reference/ as non-binding guidance unless an applicable scoped requirement explicitly adopts it.
+2. Read docs/README.md to identify the authoritative documentation for the task.
+3. Load only the relevant project documentation:
+   - docs/core/ for current architecture, policies, operations, and security.
+   - docs/installation/ for setup, deployment, or migration work.
+   - docs/active/ for current initiatives and unfinished work.
+   - docs/archive/adr/ when accepted architectural decisions affect the task.
+   - docs/ai/ for repository maps and AI-specific working guidance.
+4. Use relevant shared skills (found at ${CODEX_HOME:-$HOME/.codex}/skills/<skill>) when their procedures apply. Use that path exactly.
+5. If I explicitly ask to resume from a handoff or session-state file, load and use it. Do not read or update such files automatically.
 
 Before implementation, briefly summarize:
-- framework/context loaded,
-- applicable scoped requirements,
+- relevant repository context and documents loaded,
+- applicable project requirements or decisions,
 - relevant skills,
 - any material uncertainty,
 - immediate next action.
 
-Do not modify files until the current request explicitly authorizes implementation.
+## Authorization gate
+
+Default mode is strictly read-only.
+
+Do not modify files, dependencies, configuration, databases, generated artifacts, or external state unless the current user message explicitly authorizes that specific change. Do not infer authorization from words such as “address,” “handle,” “resolve,” “take care of,” or “look into.”
+
+Do not run tests, scripts, builds, installs, migrations, deployments, or other executable workflows unless the current user message explicitly authorizes running them. Reading files and performing read-only inspection is allowed when relevant.
+
+If the request could mean either diagnosis/recommendations or implementation, treat it as diagnosis only and stop before changes. Ask for explicit authorization before implementing.
+
+Authorization from prior turns, goals, urgency, or implied intent does not carry forward. Explicit authorization must be present in the current user message.
 ```

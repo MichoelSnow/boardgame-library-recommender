@@ -1,7 +1,8 @@
 import os
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 
 KIOSK_COOKIE_NAME = "convention_kiosk"
 KIOSK_TOKEN_TYPE = "convention_kiosk_device"
@@ -50,7 +51,7 @@ def is_valid_kiosk_cookie_token(
 
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
-    except JWTError:
+    except InvalidTokenError:
         return False
 
     return payload.get("type") == KIOSK_TOKEN_TYPE
