@@ -61,7 +61,7 @@ already-processed data.
 ```bash
 scripts/ingest/fly_ingest.sh deploy
 scripts/ingest/fly_ingest.sh secrets sync
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 scripts/ingest/fly_ingest.sh maintenance stop
 scripts/ingest/fly_ingest.sh run ranks
 scripts/ingest/fly_ingest.sh run game-data

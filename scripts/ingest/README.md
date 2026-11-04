@@ -11,14 +11,17 @@ Maintenance is only for SSH inspection or manual work. It must not overlap an
 ingest run.
 
 ```bash
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 scripts/ingest/fly_ingest.sh maintenance status
 scripts/ingest/fly_ingest.sh machine shell
 scripts/ingest/fly_ingest.sh maintenance stop
 ```
 
-`maintenance stop` stops the machine before disabling maintenance mode. Run
-commands refuse to start while maintenance mode is active.
+Maintenance mode requires a finite lease and defaults to four hours. The
+maximum lease is twelve hours. When the lease expires, the maintenance process
+exits and `restart.policy = "never"` stops the machine. `maintenance stop`
+stops the machine before disabling maintenance mode. Run commands refuse to
+start while maintenance mode is active.
 
 ## Runs
 
@@ -56,7 +59,7 @@ or print log contents to standard output.
 ## Artifact export
 
 ```bash
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 scripts/ingest/fly_ingest.sh artifacts list
 scripts/ingest/fly_ingest.sh artifacts download \
   --remote-path /app/data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb \

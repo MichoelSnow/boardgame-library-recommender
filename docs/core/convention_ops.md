@@ -78,6 +78,8 @@ Alert channel and delivery:
 Implemented components:
 - `.github/workflows/prod-health-alerts.yml`
 - `scripts/alerts/run_prod_health_alerts.py`
+- `.github/workflows/fly-machine-alerts.yml`
+- `scripts/alerts/check_fly_machines.py`
 
 Behavior:
 - Scheduled every 20 minutes.
@@ -89,6 +91,14 @@ Behavior:
 - Noise control:
   - per-event cooldown window (default 3 hours) in `run_prod_health_alerts.py`
   - persisted state file (`.alert_state/prod_health_alert_state.json`) reused across scheduled runs via workflow cache.
+
+Fly Machine runtime monitoring:
+- Runs every six hours through GitHub Actions on the `ubuntu-slim` runner.
+- Lists apps and machines dynamically through the Fly Machines API, so new apps and machines are included without Git changes.
+- Alerts whenever a machine state is not `stopped` or `destroyed`.
+- Also fails when the Fly API cannot be queried, making a blind monitoring period visible.
+- Requires the existing `FLY_API_TOKEN` secret and a `FLY_ORG_SLUG` repository variable.
+- The schedule is UTC; GitHub Actions workflow-failure notifications remain the delivery channel.
 
 Alerting controls:
 - Enable schedule:
