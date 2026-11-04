@@ -44,7 +44,7 @@ completed rankings, and `get_ratings` requires completed game data.
 The preferred Fly operator interface is `scripts/ingest/fly_ingest.sh`. It separates machine lifecycle from ingestion jobs:
 
 ```bash
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 scripts/ingest/fly_ingest.sh maintenance stop
 scripts/ingest/fly_ingest.sh machine status
 scripts/ingest/fly_ingest.sh machine shell
@@ -64,7 +64,7 @@ scripts/ingest/fly_ingest.sh artifacts list
 
 All run commands start one detached Fly process; the local terminal does not need to remain open. Maintenance is separate and must be started explicitly.
 - Maintenance mode:
-  - Use `scripts/ingest/fly_ingest.sh maintenance start` to keep the machine running for SSH/manual commands without executing pipeline stages.
+  - Use `scripts/ingest/fly_ingest.sh maintenance start --for 4h` to keep the machine running for SSH/manual commands without executing pipeline stages. The lease expires automatically after four hours by default.
 - Example:
 ```bash
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py

@@ -12,11 +12,14 @@ fi
 APP_NAME="${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
 PIPELINE_COMMAND="poetry run python scripts/data_pipeline/run_ingest_pipeline.py"
 STATE_PATH="/app/data/ingest/run_state.json"
+DEFAULT_MAINTENANCE_DURATION="${INGEST_MAINTENANCE_DEFAULT_DURATION:-4h}"
+MAX_MAINTENANCE_DURATION_SECONDS="${INGEST_MAINTENANCE_MAX_DURATION_SECONDS:-43200}"
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/ingest/fly_ingest.sh maintenance start|stop|status
+  scripts/ingest/fly_ingest.sh maintenance start [--for <duration>]
+  scripts/ingest/fly_ingest.sh maintenance stop|status
   scripts/ingest/fly_ingest.sh machine status|shell
   scripts/ingest/fly_ingest.sh run ranks|game-data|ratings|fresh|resume
   scripts/ingest/fly_ingest.sh deploy
@@ -70,6 +73,46 @@ maintenance_value() {
     "sh -lc 'printf \"%s\\n\" \"\${INGEST_MAINTENANCE_MODE:-false}\"'"
 }
 
+maintenance_duration_seconds() {
+  local duration="${1:-}"
+  local amount multiplier
+  case "$duration" in
+    *m)
+      amount="${duration%m}"
+      multiplier=60
+      ;;
+    *h)
+      amount="${duration%h}"
+      multiplier=3600
+      ;;
+    *d)
+      amount="${duration%d}"
+      multiplier=86400
+      ;;
+    *)
+      echo "Error: maintenance duration must use m, h, or d (for example 30m or 4h)." >&2
+      exit 1
+      ;;
+  esac
+  [[ "$amount" =~ ^[1-9][0-9]*$ ]] || {
+    echo "Error: maintenance duration must be a positive value (for example 4h)." >&2
+    exit 1
+  }
+  local seconds=$((10#$amount * multiplier))
+  if [ "$seconds" -gt "$MAX_MAINTENANCE_DURATION_SECONDS" ]; then
+    echo "Error: maintenance duration cannot exceed ${MAX_MAINTENANCE_DURATION_SECONDS} seconds." >&2
+    exit 1
+  fi
+  echo "$seconds"
+}
+
+maintenance_until() {
+  local duration_seconds="$1"
+  local now_epoch
+  now_epoch="$(date -u +%s)"
+  date -u -d "@$((now_epoch + duration_seconds))" +%Y-%m-%dT%H:%M:%SZ
+}
+
 run_state_is_active() {
   [ "$(machine_state 2>/dev/null || true)" = "started" ] || return 1
   [ "$(maintenance_value)" != "true" ] || return 1
@@ -102,7 +145,10 @@ wait_for_machine_settled() {
 }
 
 maintenance_start() {
-  local id state maintenance
+  local duration="${1:-$DEFAULT_MAINTENANCE_DURATION}"
+  local duration_seconds until id state maintenance
+  duration_seconds="$(maintenance_duration_seconds "$duration")"
+  until="$(maintenance_until "$duration_seconds")"
   id="$(machine_id)"
   [ -n "$id" ] || {
     echo "Error: no machine exists for $APP_NAME." >&2
@@ -123,17 +169,21 @@ maintenance_start() {
     exit 1
   fi
   set_machine_command "$id" "$PIPELINE_COMMAND"
-  fly secrets set INGEST_MAINTENANCE_MODE=true -a "$APP_NAME" >/dev/null
+  fly secrets set \
+    INGEST_MAINTENANCE_MODE=true \
+    INGEST_MAINTENANCE_UNTIL_UTC="$until" \
+    -a "$APP_NAME" >/dev/null
   wait_for_machine_settled "$id"
   fly machine start "$id" -a "$APP_NAME"
-  echo "Maintenance mode started on machine $id."
+  echo "Maintenance mode started on machine $id until $until."
 }
 
 maintenance_stop() {
   local id state
   id="$(machine_id)"
   [ -n "$id" ] || {
-    fly secrets unset INGEST_MAINTENANCE_MODE -a "$APP_NAME" >/dev/null || true
+    fly secrets unset INGEST_MAINTENANCE_MODE INGEST_MAINTENANCE_UNTIL_UTC \
+      -a "$APP_NAME" >/dev/null || true
     echo "Maintenance mode is disabled; no machine exists."
     return 0
   }
@@ -145,7 +195,8 @@ maintenance_stop() {
   if [ "$state" = "started" ]; then
     fly machine stop "$id" -a "$APP_NAME"
   fi
-  fly secrets unset INGEST_MAINTENANCE_MODE -a "$APP_NAME" >/dev/null || true
+  fly secrets unset INGEST_MAINTENANCE_MODE INGEST_MAINTENANCE_UNTIL_UTC \
+    -a "$APP_NAME" >/dev/null || true
   echo "Maintenance mode stopped; machine is stopped."
 }
 
@@ -175,6 +226,11 @@ machine_shell() {
 require_run_ready() {
   local state maintenance
   state="$(machine_state 2>/dev/null || true)"
+  if [ "$state" != "started" ] && maintenance_secret_set; then
+    echo "Clearing the expired or stopped maintenance lease before starting a run."
+    fly secrets unset INGEST_MAINTENANCE_MODE INGEST_MAINTENANCE_UNTIL_UTC \
+      -a "$APP_NAME" >/dev/null || true
+  fi
   maintenance="$(maintenance_value)"
   if [ "$maintenance" = "true" ]; then
     echo "Error: maintenance mode is active; run maintenance stop first." >&2
@@ -196,7 +252,8 @@ start_run() {
     exit 1
   }
   if maintenance_secret_set; then
-    fly secrets unset INGEST_MAINTENANCE_MODE -a "$APP_NAME" >/dev/null
+    fly secrets unset INGEST_MAINTENANCE_MODE INGEST_MAINTENANCE_UNTIL_UTC \
+      -a "$APP_NAME" >/dev/null
     wait_for_machine_settled "$id"
   fi
   set_machine_command "$id" "$command"
@@ -257,7 +314,17 @@ main() {
   case "${1:-}" in
     maintenance)
       case "${2:-}" in
-        start) maintenance_start ;;
+        start)
+          shift 2
+          case "${1:-}" in
+            "") maintenance_start ;;
+            --for)
+              [ -n "${2:-}" ] && [ -z "${3:-}" ] || { usage; exit 1; }
+              maintenance_start "$2"
+              ;;
+            *) usage; exit 1 ;;
+          esac
+          ;;
         stop) maintenance_stop ;;
         status) maintenance_status ;;
         *) usage; exit 1 ;;

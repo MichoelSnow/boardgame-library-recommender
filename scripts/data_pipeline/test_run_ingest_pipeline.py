@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import UTC, datetime
 
 import pytest
 
@@ -130,6 +131,28 @@ def test_reset_state_starts_a_new_run():
     state = {"status": "running"}
 
     assert run_ingest_pipeline._should_start_new_run(state, reset_state=True)
+
+
+def test_maintenance_deadline_parses_utc_timestamp(monkeypatch):
+    monkeypatch.setenv("INGEST_MAINTENANCE_UNTIL_UTC", "2026-11-03T18:00:00Z")
+
+    assert run_ingest_pipeline._maintenance_deadline() == datetime(
+        2026, 11, 3, 18, tzinfo=UTC
+    )
+
+
+def test_maintenance_deadline_requires_a_timezone(monkeypatch):
+    monkeypatch.setenv("INGEST_MAINTENANCE_UNTIL_UTC", "2026-11-03T18:00:00")
+
+    with pytest.raises(ValueError, match="must include a timezone"):
+        run_ingest_pipeline._maintenance_deadline()
+
+
+def test_maintenance_mode_refuses_to_run_without_a_lease(monkeypatch):
+    monkeypatch.setenv("INGEST_MAINTENANCE_MODE", "true")
+    monkeypatch.delenv("INGEST_MAINTENANCE_UNTIL_UTC", raising=False)
+
+    assert run_ingest_pipeline._enter_maintenance_mode() == 1
 
 
 def test_cleanup_superseded_ingest_artifacts_keeps_latest_files(tmp_path):

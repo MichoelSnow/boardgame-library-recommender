@@ -38,27 +38,16 @@ LOCAL_WATCHER_DIR=".tmp/import_data_watchers"
 LOCAL_WATCHER_PID_FILE="${LOCAL_WATCHER_DIR}/${APP_NAME}.pid"
 
 get_machine_id() {
-  local machine_id
-  machine_id="$(fly machine list -a "${APP_NAME}" --json 2>/dev/null | jq -r 'map(select(.state == "started"))[0].id // .[0].id // empty' || true)"
-  if [ -n "${machine_id}" ]; then
-    echo "${machine_id}"
-    return 0
-  fi
-  machine_id="$(fly machine list -a "${APP_NAME}" 2>/dev/null | awk 'NR>3 && $1 ~ /^[0-9a-f]+$/ {print $1; exit}' || true)"
-  if [ -n "${machine_id}" ]; then
-    echo "${machine_id}"
-    return 0
-  fi
-  return 1
+  fly machine list -a "${APP_NAME}" --json 2>/dev/null |
+    jq -r 'map(select(.state == "started"))[0].id // .[0].id // empty'
 }
 
 set_machine_autostop() {
-  local mode="$1"
-  local machine_id
-  machine_id="$(get_machine_id || true)"
+  local machine_id="$1"
+  local mode="$2"
   if [ -z "${machine_id}" ]; then
-    echo "Warning: unable to resolve machine id for ${APP_NAME}; skipping autostop=${mode} update."
-    return 0
+    echo "Error: machine id is required to set autostop=${mode} on ${APP_NAME}." >&2
+    return 1
   fi
   fly machine update "${machine_id}" -a "${APP_NAME}" --autostop="${mode}" --yes >/dev/null
   echo "Set autostop=${mode} on machine ${machine_id}"
@@ -103,6 +92,33 @@ get_current_autostop_mode() {
   esac
 }
 
+ensure_machine_started() {
+  local machine_id="$1"
+  local machines_json
+  local machine_state
+
+  machines_json="$(fly machine list -a "${APP_NAME}" --json 2>/dev/null || true)"
+  machine_state="$(
+    jq -r --arg id "${machine_id}" '.[] | select(.id == $id) | .state' \
+      <<<"${machines_json}" 2>/dev/null || true
+  )"
+  case "${machine_state}" in
+    started|starting)
+      ;;
+    stopped|created|suspended)
+      fly machine start "${machine_id}" -a "${APP_NAME}"
+      ;;
+    *)
+      echo "Error: machine ${machine_id} has unexpected state '${machine_state:-unknown}'." >&2
+      return 1
+      ;;
+  esac
+
+  fly machine wait "${machine_id}" -a "${APP_NAME}" \
+    --state started \
+    --wait-timeout 5m
+}
+
 stop_local_autostop_restore_watcher() {
   local watcher_pid
 
@@ -142,24 +158,22 @@ APP_NAME="$1"
 MACHINE_ID="$2"
 RESTORE_MODE="$3"
 WATCHED_PID="$4"
-REMOTE_LOG_DIR="$5"
-PID_FILE="${REMOTE_LOG_DIR}/import_data.pid"
+
+restore_autostop() {
+  fly machine update "${MACHINE_ID}" -a "${APP_NAME}" --autostop="${RESTORE_MODE}" --yes >/dev/null
+  echo "restored_autostop=${RESTORE_MODE} machine=${MACHINE_ID} watched_pid=${WATCHED_PID}"
+}
+
+trap 'restore_autostop || echo "ERROR: unable to restore autostop=${RESTORE_MODE} machine=${MACHINE_ID}" >&2' EXIT
 
 for _ in $(seq 1 960); do
   probe="$(
     fly ssh console -q -a "${APP_NAME}" -C \
-      "sh -lc 'PID_FILE=\"${PID_FILE}\"; WATCHED_PID=\"${WATCHED_PID}\"; current=\"\"; [ -s \"\${PID_FILE}\" ] && current=\$(cat \"\${PID_FILE}\"); if [ -n \"\${current}\" ] && [ \"\${current}\" != \"\${WATCHED_PID}\" ]; then echo superseded current_pid=\${current}; exit 0; fi; if kill -0 \"\${WATCHED_PID}\" 2>/dev/null; then echo running=1 current_pid=\${current}; else echo running=0 current_pid=\${current}; fi'" \
+      "sh -lc 'if kill -0 \"${WATCHED_PID}\" 2>/dev/null; then echo running=1; else echo running=0; fi'" \
       2>/dev/null || true
   )"
 
-  if printf '%s\n' "${probe}" | grep -q '^superseded '; then
-    echo "watcher_exit reason=superseded watched_pid=${WATCHED_PID}"
-    exit 0
-  fi
-
-  if printf '%s\n' "${probe}" | grep -q '^running=0 '; then
-    fly machine update "${MACHINE_ID}" -a "${APP_NAME}" --autostop="${RESTORE_MODE}" --yes >/dev/null
-    echo "restored_autostop=${RESTORE_MODE} machine=${MACHINE_ID} watched_pid=${WATCHED_PID}"
+  if printf '%s\n' "${probe}" | grep -q '^running=0$'; then
     exit 0
   fi
 
@@ -171,7 +185,7 @@ exit 1
 EOF
 
   chmod +x "${watcher_script}"
-  nohup "${watcher_script}" "${APP_NAME}" "${machine_id}" "${restore_mode}" "${watched_pid}" "${REMOTE_LOG_DIR}" > "${watcher_log}" 2>&1 &
+  nohup "${watcher_script}" "${APP_NAME}" "${machine_id}" "${restore_mode}" "${watched_pid}" > "${watcher_log}" 2>&1 &
   watcher_pid="$!"
   echo "${watcher_pid}" > "${LOCAL_WATCHER_PID_FILE}"
   echo "started_autostop_restore_watcher pid=${watcher_pid} restore_mode=${restore_mode} watched_pid=${watched_pid} log=${watcher_log}"
@@ -230,27 +244,38 @@ print_machine_service_policy() {
 case "${ACTION}" in
   start)
     machine_id="$(get_machine_id || true)"
-    previous_autostop_mode="stop"
-    if [ -n "${machine_id}" ]; then
-      previous_autostop_mode="$(get_current_autostop_mode "${machine_id}")"
-      if [ "${previous_autostop_mode}" = "unknown" ]; then
-        previous_autostop_mode="stop"
-        echo "warning: unable to read prior autostop mode; defaulting restore mode to stop"
-      fi
-    else
-      echo "warning: unable to resolve machine id before start; autostop restore watcher disabled for this run"
+    if [ -z "${machine_id}" ]; then
+      echo "Error: unable to resolve a machine id for ${APP_NAME}; refusing to start import." >&2
+      exit 1
     fi
 
-    set_machine_autostop off
+    previous_autostop_mode="$(get_current_autostop_mode "${machine_id}")"
+    if [ "${previous_autostop_mode}" != "stop" ]; then
+      echo "Error: expected ${APP_NAME} machine ${machine_id} to have autostop=stop; found ${previous_autostop_mode}." >&2
+      echo "Correct the machine policy before starting an import." >&2
+      exit 1
+    fi
+
+    set_machine_autostop "${machine_id}" off
+    if ! ensure_machine_started "${machine_id}"; then
+      echo "Error: machine did not reach started state; restoring autostop=${previous_autostop_mode}." >&2
+      set_machine_autostop "${machine_id}" "${previous_autostop_mode}" || true
+      exit 1
+    fi
     TS="$(date -u +%Y%m%dT%H%M%SZ)"
-    start_output="$(fly ssh console -a "${APP_NAME}" -C "sh -lc 'mkdir -p \"${REMOTE_LOG_DIR}\"; PID_FILE=\"${REMOTE_LOG_DIR}/import_data.pid\"; LATEST_FILE=\"${REMOTE_LOG_DIR}/latest.log\"; LOG_FILE=\"${REMOTE_LOG_DIR}/import_data_${TS}.log\"; : > \"\${LOG_FILE}\"; rm -f \"\${PID_FILE}\"; cd /app/backend && nohup sh -lc \"set +e; poetry run alembic -c alembic.ini upgrade head && poetry run python app/import_data.py --delete-existing; rc=\\\$?; echo import_exit_code=\\\${rc}; rm -f \\\"\${PID_FILE}\\\"; exit \\\${rc}\" 2>&1 | tee -a \"\${LOG_FILE}\" /proc/1/fd/1 >/dev/null & echo \$! > \"\${PID_FILE}\" && ln -sf \"\${LOG_FILE}\" \"\${LATEST_FILE}\" && echo started pid=\$(cat \"\${PID_FILE}\") log=\${LOG_FILE}'")"
+    if ! start_output="$(fly ssh console -a "${APP_NAME}" -C "sh -lc 'mkdir -p \"${REMOTE_LOG_DIR}\"; PID_FILE=\"${REMOTE_LOG_DIR}/import_data.pid\"; LATEST_FILE=\"${REMOTE_LOG_DIR}/latest.log\"; LOG_FILE=\"${REMOTE_LOG_DIR}/import_data_${TS}.log\"; : > \"\${LOG_FILE}\"; rm -f \"\${PID_FILE}\"; cd /app/backend && nohup sh -lc \"set +e; poetry run alembic -c alembic.ini upgrade head && poetry run python app/import_data.py --delete-existing; rc=\\\$?; echo import_exit_code=\\\${rc}; rm -f \\\"\${PID_FILE}\\\"; exit \\\${rc}\" 2>&1 | tee -a \"\${LOG_FILE}\" /proc/1/fd/1 >/dev/null & echo \$! > \"\${PID_FILE}\" && ln -sf \"\${LOG_FILE}\" \"\${LATEST_FILE}\" && echo started pid=\$(cat \"\${PID_FILE}\") log=\${LOG_FILE}'")"; then
+      echo "Error: unable to start the remote import; restoring autostop=${previous_autostop_mode}." >&2
+      set_machine_autostop "${machine_id}" "${previous_autostop_mode}" || true
+      exit 1
+    fi
     echo "${start_output}"
     started_pid="$(printf '%s\n' "${start_output}" | sed -n 's/^started pid=\([0-9][0-9]*\).*/\1/p' | tail -n1)"
-    if [ -n "${machine_id}" ] && [ -n "${started_pid}" ]; then
-      start_local_autostop_restore_watcher "${machine_id}" "${previous_autostop_mode}" "${started_pid}"
-    else
-      echo "warning: unable to start autostop restore watcher (machine_id=${machine_id:-missing}, pid=${started_pid:-missing})"
+    if [ -z "${started_pid}" ]; then
+      echo "Error: remote import did not return a process id; restoring autostop=${previous_autostop_mode}." >&2
+      set_machine_autostop "${machine_id}" "${previous_autostop_mode}" || true
+      exit 1
     fi
+    start_local_autostop_restore_watcher "${machine_id}" "${previous_autostop_mode}" "${started_pid}"
     ;;
   status)
     status_output="$(fly ssh console -a "${APP_NAME}" -C "sh -lc 'PID_FILE=\"${REMOTE_LOG_DIR}/import_data.pid\"; LATEST_FILE=\"${REMOTE_LOG_DIR}/latest.log\"; if [ -s \"\${PID_FILE}\" ]; then pid=\$(cat \"\${PID_FILE}\"); if kill -0 \"\$pid\" 2>/dev/null; then echo running pid=\$pid; else echo not_running pid=\$pid; fi; else echo no_pid_file; fi; if [ -L \"\${LATEST_FILE}\" ] && [ -f \"\$(readlink -f \"\${LATEST_FILE}\")\" ]; then echo latest_log=\$(readlink -f \"\${LATEST_FILE}\"); else fallback=\$(ls -1t ${REMOTE_LOG_DIR}/import_data_*.log 2>/dev/null | head -n1 || true); [ -n \"\${fallback}\" ] && echo latest_log=\${fallback} || echo no_log_file; fi'")"
@@ -277,8 +302,15 @@ case "${ACTION}" in
     ;;
   stop)
     stop_local_autostop_restore_watcher
-    fly ssh console -a "${APP_NAME}" -C "sh -lc 'PID_FILE=\"${REMOTE_LOG_DIR}/import_data.pid\"; if [ -s \"\${PID_FILE}\" ]; then pid=\$(cat \"\${PID_FILE}\"); if kill -0 \"\$pid\" 2>/dev/null; then kill \"\$pid\" && echo stopped pid=\$pid; else echo not_running pid=\$pid; fi; else echo no_pid_file; fi'"
-    set_machine_autostop stop
+    machine_id="$(get_machine_id || true)"
+    if [ -z "${machine_id}" ]; then
+      echo "Error: unable to resolve a machine id for ${APP_NAME}; autostop was not changed." >&2
+      exit 1
+    fi
+    if ! fly ssh console -a "${APP_NAME}" -C "sh -lc 'PID_FILE=\"${REMOTE_LOG_DIR}/import_data.pid\"; if [ -s \"\${PID_FILE}\" ]; then pid=\$(cat \"\${PID_FILE}\"); if kill -0 \"\$pid\" 2>/dev/null; then kill \"\$pid\" && echo stopped pid=\$pid; else echo not_running pid=\$pid; fi; else echo no_pid_file; fi'"; then
+      echo "Warning: unable to contact the machine; restoring autostop anyway." >&2
+    fi
+    set_machine_autostop "${machine_id}" stop
     ;;
   *)
     echo "Invalid action: ${ACTION}. Use start, status, tail, log, or stop."

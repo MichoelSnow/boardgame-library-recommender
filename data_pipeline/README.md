@@ -208,7 +208,7 @@ normal ingest run.
 
 1. Start the machine without running the pipeline:
 ```bash
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 ```
 2. SSH and run manual commands:
 ```bash
@@ -233,7 +233,7 @@ If the pipeline has already finished (machine stopped), you must use maintenance
 
 Start the machine in maintenance mode:
 ```bash
-scripts/ingest/fly_ingest.sh maintenance start
+scripts/ingest/fly_ingest.sh maintenance start --for 4h
 ```
 
 List remote files:
@@ -630,10 +630,11 @@ scripts/deploy/fly_import_data_job.sh prod stop
 ```
 
 Notes:
-- `start` captures the prior autostop mode, sets `autostop=off`, and starts a local watcher that auto-restores the prior mode after import completion.
+- `start` requires a resolvable machine with `autostop=stop`, temporarily sets `autostop=off`, starts the machine if needed, and waits for it to reach `started` before opening SSH. A local watcher restores `autostop=stop` after import completion, interruption, or its four-hour safety timeout.
 - `status` is read-only and does not modify machine settings; it prints machine service policy (`autostop`/`autostart`) and local watcher status.
 - `stop` is an explicit fallback that force-restores machine `autostop=stop`.
-- Keep the local terminal host running while the detached import is active so the watcher can complete the auto-restore.
+- If the machine ID or existing autostop mode cannot be determined, `start` refuses to run rather than leaving an untracked override.
+- Keep the local terminal host running while the detached import is active so the watcher can restore autostop promptly; timeout restoration is a safety net.
 
 Fallback foreground SSH command:
 ```bash

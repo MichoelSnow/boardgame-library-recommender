@@ -374,13 +374,46 @@ def _maintenance_mode_enabled() -> bool:
     return os.getenv("INGEST_MAINTENANCE_MODE", "false").lower() == "true"
 
 
+def _maintenance_deadline() -> datetime | None:
+    raw_deadline = os.getenv("INGEST_MAINTENANCE_UNTIL_UTC", "").strip()
+    if not raw_deadline:
+        return None
+    try:
+        deadline = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            "INGEST_MAINTENANCE_UNTIL_UTC must be an ISO-8601 UTC timestamp"
+        ) from exc
+    if deadline.tzinfo is None:
+        raise ValueError("INGEST_MAINTENANCE_UNTIL_UTC must include a timezone")
+    return deadline.astimezone(UTC)
+
+
 def _enter_maintenance_mode() -> int:
+    try:
+        deadline = _maintenance_deadline()
+    except ValueError:
+        logger.exception("Invalid maintenance lease; refusing indefinite maintenance mode.")
+        return 1
+    if deadline is None:
+        logger.error(
+            "INGEST_MAINTENANCE_MODE=true but no maintenance lease was supplied; "
+            "refusing indefinite maintenance mode."
+        )
+        return 1
+
     logger.warning(
-        "INGEST_MAINTENANCE_MODE=true; keeping machine alive for manual commands."
+        "INGEST_MAINTENANCE_MODE=true; keeping machine alive for manual commands "
+        "until %s.",
+        deadline.isoformat(),
     )
     logger.warning("Pipeline stages will not run until maintenance mode is disabled.")
     while True:
-        time.sleep(60)
+        remaining_seconds = (deadline - datetime.now(UTC)).total_seconds()
+        if remaining_seconds <= 0:
+            logger.warning("Maintenance lease expired; stopping the ingestion machine.")
+            return 0
+        time.sleep(min(60, remaining_seconds))
 
 
 def _notify_and_reset_max_attempt_stage(
