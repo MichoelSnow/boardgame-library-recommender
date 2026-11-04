@@ -393,7 +393,9 @@ def _enter_maintenance_mode() -> int:
     try:
         deadline = _maintenance_deadline()
     except ValueError:
-        logger.exception("Invalid maintenance lease; refusing indefinite maintenance mode.")
+        logger.exception(
+            "Invalid maintenance lease; refusing indefinite maintenance mode."
+        )
         return 1
     if deadline is None:
         logger.error(
