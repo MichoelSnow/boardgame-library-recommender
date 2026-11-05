@@ -100,70 +100,8 @@ poetry run -- python scripts/data_pipeline/profile_ingest_stage.py \
   -- poetry run -- python -m data_pipeline.src.ingest.get_ranks
 ```
 
-## `match_title_corrections.py`
-- What it does:
-  - Matches `data/pax/title_corrections_raw.csv` rows to BGG IDs using title/publisher/year/id evidence.
-  - Prioritizes exact base-title matches (for non-expansion, non-promo rows) so sequel/variant titles do not outrank the canonical title based only on metadata signals.
-  - Applies manual overrides from CSV (not notebook parsing).
-  - Writes resolved output and a top-3 review queue.
-- Manual fixes input:
-  - default: `/mnt/c/Users/prote/Documents/ttlib_east26/new_work/data/manual_fixes.csv`
-  - columns supported:
-    - `title_id` or `min_titles_id` -> `bgg_id` or `new_bgg_id`
-    - optional `old_bgg_id`/`source_bgg_id`/`from_bgg_id`/`bgg_id_old` -> `bgg_id` or `new_bgg_id`
-- Example:
-```bash
-poetry run python scripts/data_pipeline/match_title_corrections.py
-```
+## PAX labeling
 
-## `match_titles_to_bgg.py`
-- What it does:
-  - Matches a simple CSV of `title` + `publisher_name` rows to a single best BGG game per row.
-  - Outputs:
-    - `title`
-    - `publisher_name`
-    - `bgg_id`
-    - `bgg_name`
-    - `bgg_publishers`
-    - `year_published`
-  - No review queue and no top-3 candidate output.
-- Input requirements:
-  - Must contain columns: `title`, `publisher_name`
-- Example:
-```bash
-poetry run python scripts/data_pipeline/match_titles_to_bgg.py \
-  --input data/pax/east_2026_new_game_202603270828.csv \
-  --output data/pax/east_2026_new_game_202603270828_matched.csv
-```
-
-## `build_clean_title_corrections.py`
-- What it does:
-  - Builds a cleaned library export from `title_corrections_with_new_bgg_id.csv`.
-  - Outputs only the finalized columns needed for downstream use.
-  - Applies manual-fix ground truth from `/mnt/c/Users/prote/Documents/ttlib_east26/new_work/data/manual_fixes.csv` (title_id -> bgg_id/new_bgg_id).
-  - Preserves original names for title_ids listed in `/mnt/c/Users/prote/Documents/ttlib_east26/new_work/data/keep_name.csv`.
-- Rules:
-  - Keep original `title` and `bgg_id` when `match_confidence` is `low`/`medium` and `status != 0`.
-  - Use `new_bgg_id` when `match_confidence` is `high` or `status == 0` (if `new_bgg_id` exists).
-  - Manual fixes override matcher output for `bgg_id` when `title_id` appears in manual fixes.
-  - For eligible rows, replace `title` with `new_bgg_name` only when similarity meets threshold.
-  - Default title replacement threshold is `70`.
-- Output columns:
-  - `title`
-  - `title_id`
-  - `game`
-  - `game_barcode`
-  - `bgg_id`
-  - `match` (title similarity score between original title and `new_bgg_name`)
-  - `has_updated_title`
-  - `title_original`
-  - `has_updated_bgg_id`
-  - `bgg_id_original`
-- Example:
-```bash
-poetry run python scripts/data_pipeline/build_clean_title_corrections.py \
-  --input data/pax/title_corrections_with_new_bgg_id.csv \
-  --output data/pax/title_corrections_cleaned.csv \
-  --title-match-threshold 70 \
-  --title-similarity-metric token_sort
-```
+PAX title/BGG reconciliation is a domain-specific workflow rather than a
+general pipeline stage. See [`scripts/pax_labeling/README.md`](../pax_labeling/README.md)
+for the workflow, input contracts, and commands.

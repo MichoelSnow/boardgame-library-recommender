@@ -11,6 +11,7 @@ navigation only; the linked documents are authoritative for their topics.
 | Refresh BoardGameGeek data | [Data pipeline guide](../data_pipeline/README.md) |
 | Operate the dedicated Fly ingest machine | [Fly ingest commands](../scripts/ingest/README.md) |
 | Process ingest artifacts or build recommendation files | [Data pipeline guide](../data_pipeline/README.md) |
+| Label or reconcile PAX game titles | [PAX labeling workflow](../scripts/pax_labeling/README.md) |
 | Import processed data into a local database | [Data pipeline guide](../data_pipeline/README.md#3a-import-into-a-local-database) |
 | Import processed data into deployed Fly Postgres | [Data pipeline guide](../data_pipeline/README.md#3b-import-into-deployed-fly-postgres) |
 | Deploy, validate, promote, or roll back the application | [Core runbook](core/runbook.md) |
@@ -43,6 +44,7 @@ should link to these sections rather than duplicate their procedures.
 | Data collection, processing, and import choices | `data_pipeline/README.md` | Link only |
 | Fly ingest machine operations | `scripts/ingest/README.md` | Link only |
 | Individual pipeline script behavior | `scripts/data_pipeline/README.md` | Link only |
+| PAX title/BGG labeling workflow | `scripts/pax_labeling/README.md` | Link only |
 | Application deployment, promotion, rollback, and validation | `docs/core/runbook.md` | Link only |
 | Short command lookup | `docs/core/command_reference.md` | Link only |
 | Architecture and long-lived policies | `docs/core/*.md` | Link only |
