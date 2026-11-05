@@ -97,7 +97,7 @@ Fly Machine runtime monitoring:
 - Lists apps and machines dynamically through the Fly Machines API, so new apps and machines are included without Git changes.
 - Alerts whenever a machine state is not `stopped` or `destroyed`.
 - Also fails when the Fly API cannot be queried, making a blind monitoring period visible.
-- Requires the existing `FLY_API_TOKEN` secret and a `FLY_ORG_SLUG` repository variable.
+- Requires the existing `FLY_MACHINE_ALERTS` secret and a `FLY_ORG_SLUG` repository variable.
 - The schedule is UTC; GitHub Actions workflow-failure notifications remain the delivery channel.
 
 Alerting controls:
