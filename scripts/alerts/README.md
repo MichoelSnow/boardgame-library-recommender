@@ -10,7 +10,7 @@
   - Scheduled every six hours by `.github/workflows/fly-machine-alerts.yml`.
   - Run manually from GitHub Actions after setting the required repository variable.
 - Required GitHub configuration:
-  - Existing `FLY_API_TOKEN` repository or organization secret.
+  - Existing `FLY_MACHINE_ALERTS` repository or organization secret.
   - `FLY_ORG_SLUG` repository variable, such as `personal` or the Fly organization slug.
 - How to use locally:
 ```bash
