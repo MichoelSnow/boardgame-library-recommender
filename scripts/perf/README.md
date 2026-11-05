@@ -1,5 +1,26 @@
 # Performance Scripts
 
+## `benchmark_create_embeddings_memory.py`
+
+- What it does:
+  - Measures memory behavior while creating recommendation embeddings from the
+    local DuckDB data.
+- When to use:
+  - Investigating embedding-generation memory usage or regressions.
+- How to use:
+```bash
+poetry run python scripts/perf/benchmark_create_embeddings_memory.py \
+  --ratings-db data/transform/ratings.duckdb \
+  --samples 0.5,1,2.5,5,10,20 \
+  --report logs/profiling/embeddings_memory.json
+```
+- Options:
+  - `--ratings-db` selects the DuckDB input.
+  - `--samples` controls sample sizes in thousands of rows.
+  - `--timeout-seconds` and `--max-memory-mb` bound each run.
+  - `--report` writes a JSON report; `--keep-samples` preserves temporary
+    sample files.
+
 ## `benchmark_recommendation_size.py`
 - What it does:
   - Benchmarks recommendation latency versus liked-game list size.
