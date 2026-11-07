@@ -102,8 +102,7 @@ def build_profile(args: argparse.Namespace) -> Profile:
     if target == "remote":
         if not remote_host:
             raise OperatorError(
-                "remote target requires --remote-host or "
-                "INGEST_REMOTE_DOCKER_HOST"
+                "remote target requires --remote-host or INGEST_REMOTE_DOCKER_HOST"
             )
         if not remote_host.startswith("ssh://"):
             remote_host = f"ssh://{remote_host}"
@@ -193,11 +192,7 @@ def _run(
     return subprocess.run(
         list(command),
         cwd=REPO_ROOT,
-        env=(
-            environment
-            if environment is not None
-            else docker_environment(profile)
-        ),
+        env=(environment if environment is not None else docker_environment(profile)),
         check=check,
         text=True,
         capture_output=capture,
@@ -206,7 +201,9 @@ def _run(
     )
 
 
-def _docker(profile: Profile, *arguments: str, **kwargs: object) -> subprocess.CompletedProcess[str]:
+def _docker(
+    profile: Profile, *arguments: str, **kwargs: object
+) -> subprocess.CompletedProcess[str]:
     return _run(["docker", *arguments], profile, **kwargs)
 
 
@@ -217,12 +214,16 @@ def require_docker(profile: Profile) -> None:
         raise OperatorError("Docker CLI is not installed or not on PATH") from exc
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or "").strip()
-        raise OperatorError(f"Docker is unavailable for target {profile.target}: {detail}") from exc
+        raise OperatorError(
+            f"Docker is unavailable for target {profile.target}: {detail}"
+        ) from exc
 
 
 def fly_command(arguments: Sequence[str]) -> int:
     script = REPO_ROOT / "scripts/ingest/fly_ingest.sh"
-    return subprocess.run([str(script), *arguments], cwd=REPO_ROOT, check=False).returncode
+    return subprocess.run(
+        [str(script), *arguments], cwd=REPO_ROOT, check=False
+    ).returncode
 
 
 def _docker_log_path(profile: Profile) -> Path:
@@ -654,7 +655,9 @@ def parse_args() -> argparse.Namespace:
 
     subparsers.add_parser("build")
     run_parser = subparsers.add_parser("run")
-    run_parser.add_argument("mode", choices=("ranks", "game-data", "ratings", "fresh", "resume"))
+    run_parser.add_argument(
+        "mode", choices=("ranks", "game-data", "ratings", "fresh", "resume")
+    )
     subparsers.add_parser("status")
     logs_parser = subparsers.add_parser("logs")
     logs_parser.add_argument("--follow", action="store_true")

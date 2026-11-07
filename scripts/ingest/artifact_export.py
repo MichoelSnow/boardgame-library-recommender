@@ -126,9 +126,7 @@ def export_verified_artifact(
 
     try:
         for chunk_index in range(chunk_count):
-            expected_size = _expected_chunk_size(
-                remote_size, chunk_index, chunk_bytes
-            )
+            expected_size = _expected_chunk_size(remote_size, chunk_index, chunk_bytes)
             part_file = parts_dir / f"part_{chunk_index:06d}.bin"
             if part_file.is_file() and part_file.stat().st_size == expected_size:
                 print(
@@ -187,8 +185,7 @@ def export_verified_artifact(
         print(f"Local SHA-256:  {local_sha}")
         if remote_sha != local_sha:
             raise ExportError(
-                "SHA-256 mismatch; keeping chunk directory for resume and "
-                "investigation"
+                "SHA-256 mismatch; keeping chunk directory for resume and investigation"
             )
 
         os.replace(temp_local, destination)

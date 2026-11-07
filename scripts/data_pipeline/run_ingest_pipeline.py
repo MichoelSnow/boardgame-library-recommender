@@ -482,8 +482,7 @@ def main() -> int:
     logger.info("Invocation: %s", " ".join([sys.executable, *sys.argv]))
     image_metadata = _image_metadata()
     logger.info(
-        "Runtime target=%s runtime_name=%s image_git_sha=%s "
-        "image_build_timestamp=%s",
+        "Runtime target=%s runtime_name=%s image_git_sha=%s image_build_timestamp=%s",
         _runtime_target(),
         _runtime_name(),
         image_metadata["git_sha"],

@@ -12,30 +12,34 @@ def test_remote_profile_requires_docker_host(monkeypatch):
     monkeypatch.delenv("INGEST_REMOTE_DOCKER_HOST", raising=False)
 
     with pytest.raises(ingest.OperatorError, match="remote target requires"):
-        ingest.build_profile(Namespace(
-            target="remote",
-            image=None,
-            container_name=None,
-            local_workspace=None,
-            remote_host=None,
-            remote_workspace=None,
-            remote_workspace_type=None,
-            env_file=None,
-        ))
+        ingest.build_profile(
+            Namespace(
+                target="remote",
+                image=None,
+                container_name=None,
+                local_workspace=None,
+                remote_host=None,
+                remote_workspace=None,
+                remote_workspace_type=None,
+                env_file=None,
+            )
+        )
 
 
 def test_remote_bind_mount_preserves_remote_source(monkeypatch):
     monkeypatch.delenv("INGEST_ENV_FILE", raising=False)
-    profile = ingest.build_profile(Namespace(
-        target="remote",
-        image=None,
-        container_name=None,
-        local_workspace=None,
-        remote_host="ssh://msnow@example.invalid",
-        remote_workspace="/srv/bg-lib-ingest",
-        remote_workspace_type="bind",
-        env_file=None,
-    ))
+    profile = ingest.build_profile(
+        Namespace(
+            target="remote",
+            image=None,
+            container_name=None,
+            local_workspace=None,
+            remote_host="ssh://msnow@example.invalid",
+            remote_workspace="/srv/bg-lib-ingest",
+            remote_workspace_type="bind",
+            env_file=None,
+        )
+    )
 
     assert ingest.mount_args(profile) == [
         "--mount",
@@ -46,16 +50,18 @@ def test_remote_bind_mount_preserves_remote_source(monkeypatch):
 
 def test_remote_run_command_uses_target_and_remote_mount(monkeypatch):
     monkeypatch.delenv("INGEST_ENV_FILE", raising=False)
-    profile = ingest.build_profile(Namespace(
-        target="remote",
-        image="example/ingest:test",
-        container_name="remote-ingest",
-        local_workspace=None,
-        remote_host="ssh://msnow@example.invalid",
-        remote_workspace="bg-lib-ingest-data",
-        remote_workspace_type="volume",
-        env_file=None,
-    ))
+    profile = ingest.build_profile(
+        Namespace(
+            target="remote",
+            image="example/ingest:test",
+            container_name="remote-ingest",
+            local_workspace=None,
+            remote_host="ssh://msnow@example.invalid",
+            remote_workspace="bg-lib-ingest-data",
+            remote_workspace_type="volume",
+            env_file=None,
+        )
+    )
 
     command = ingest._build_run_command(profile, "fresh", "run-123")
 
@@ -89,9 +95,7 @@ def test_docker_environment_parses_dotenv_quotes_without_exposing_values(tmp_pat
 
     parsed = ingest._parsed_env_values(profile)
     container_values = ingest._container_env_values(profile)
-    command = ingest._build_run_command(
-        profile, "fresh", "run-123", container_values
-    )
+    command = ingest._build_run_command(profile, "fresh", "run-123", container_values)
 
     assert parsed == {
         "BGG_TOKEN": "quoted-token",
