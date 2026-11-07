@@ -7,6 +7,7 @@ primary_region = "iad"
   dockerfile = "Dockerfile.ingest"
 
 [env]
+  INGEST_TARGET = "fly"
   INGEST_RUN_STATE_PATH = "/app/data/ingest/run_state.json"
   INGEST_LOG_DIR = "/app/data/logs/ingest"
   DATA_PIPELINE_LOG_DIR = "/app/data/logs/ingest/stages"
@@ -30,4 +31,4 @@ primary_region = "iad"
   policy = "never"
 
 [processes]
-  app = "poetry run python scripts/data_pipeline/run_ingest_pipeline.py"
+  app = "bash scripts/ingest/run_container.sh poetry run python scripts/data_pipeline/run_ingest_pipeline.py"

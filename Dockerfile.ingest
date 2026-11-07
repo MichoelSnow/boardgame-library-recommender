@@ -21,8 +21,10 @@ ENV PYTHONPATH=/app
 ENV APP_GIT_SHA=${GIT_SHA}
 ENV APP_BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 ENV INGEST_RUN_STATE_PATH=/app/data/ingest/run_state.json
+ENV INGEST_LOG_DIR=/app/data/logs/ingest
+ENV DATA_PIPELINE_LOG_DIR=/app/data/logs/ingest/stages
 ENV INGEST_MAX_STAGE_ATTEMPTS=3
 ENV INGEST_RETRY_DELAY_SECONDS=30
 ENV INGEST_LOG_LEVEL=INFO
 
-CMD ["poetry", "run", "python", "scripts/data_pipeline/run_ingest_pipeline.py"]
+CMD ["bash", "scripts/ingest/run_container.sh", "poetry", "run", "python", "scripts/data_pipeline/run_ingest_pipeline.py"]

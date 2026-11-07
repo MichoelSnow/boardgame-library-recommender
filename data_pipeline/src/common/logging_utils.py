@@ -18,7 +18,6 @@ def get_logs_dir() -> Path:
 
 def build_log_handlers(filename: str) -> list[logging.Handler]:
     log_path = get_logs_dir() / filename
-    return [
-        logging.FileHandler(str(log_path)),
-        logging.StreamHandler(),
-    ]
+    # Keep application logs in files so container stdout remains available for
+    # command results and operational status rather than duplicated log output.
+    return [logging.FileHandler(str(log_path))]

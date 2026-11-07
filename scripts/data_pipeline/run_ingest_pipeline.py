@@ -32,6 +32,34 @@ def _default_log_dir() -> Path:
     return Path("/app/data/logs/ingest")
 
 
+def _runtime_target() -> str:
+    target = os.getenv("INGEST_TARGET", "").strip()
+    return target or "unspecified"
+
+
+def _runtime_name() -> str:
+    runtime_name = os.getenv("INGEST_RUNTIME_NAME", "").strip()
+    if runtime_name:
+        return runtime_name
+
+    fly_app_name = os.getenv("FLY_APP_NAME", "").strip()
+    if fly_app_name:
+        return fly_app_name
+
+    # Preserve the existing Fly notification label when older invocations do
+    # not provide target metadata. New target launchers should set both
+    # INGEST_TARGET and, when useful, INGEST_RUNTIME_NAME explicitly.
+    return os.getenv("INGEST_TARGET", "").strip() or "bg-lib-ingest"
+
+
+def _image_metadata() -> dict[str, str]:
+    return {
+        "git_sha": os.getenv("APP_GIT_SHA", "unknown").strip() or "unknown",
+        "build_timestamp": os.getenv("APP_BUILD_TIMESTAMP", "unknown").strip()
+        or "unknown",
+    }
+
+
 @dataclass(frozen=True)
 class Stage:
     name: str
@@ -268,10 +296,14 @@ def _send_email_notification(subject: str, body: str) -> bool:
 
 
 def _notify(event: str, state: dict[str, Any], stage_name: str | None = None) -> None:
-    app_name = os.getenv("FLY_APP_NAME", "bg-lib-ingest")
-    subject = f"[{app_name}] ingest pipeline {event}"
+    runtime_name = _runtime_name()
+    image_metadata = _image_metadata()
+    subject = f"[{runtime_name}] ingest pipeline {event}"
     lines = [
-        f"App: {app_name}",
+        f"Runtime: {runtime_name}",
+        f"Target: {_runtime_target()}",
+        f"Image Git SHA: {image_metadata['git_sha']}",
+        f"Image build timestamp: {image_metadata['build_timestamp']}",
         f"Event: {event}",
         f"Timestamp (UTC): {_utc_now_iso()}",
         f"State status: {state.get('status', 'unknown')}",
@@ -360,12 +392,9 @@ def _setup_logging(log_dir: Path) -> Path:
     root_logger.setLevel(os.getenv("INGEST_LOG_LEVEL", "INFO"))
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
     file_handler = logging.FileHandler(run_log_path, encoding="utf-8")
     file_handler.setFormatter(formatter)
 
-    root_logger.addHandler(stream_handler)
     root_logger.addHandler(file_handler)
     return run_log_path
 
@@ -451,6 +480,14 @@ def main() -> int:
     run_log_path = _setup_logging(args.log_dir)
     logger.info("Writing ingest run log to %s", run_log_path)
     logger.info("Invocation: %s", " ".join([sys.executable, *sys.argv]))
+    image_metadata = _image_metadata()
+    logger.info(
+        "Runtime target=%s runtime_name=%s image_git_sha=%s image_build_timestamp=%s",
+        _runtime_target(),
+        _runtime_name(),
+        image_metadata["git_sha"],
+        image_metadata["build_timestamp"],
+    )
     if _maintenance_mode_enabled():
         return _enter_maintenance_mode()
     if args.max_stage_attempts < 1:

@@ -70,6 +70,33 @@ def test_get_boardgame_ranks_requires_direct_url() -> None:
         get_ranks.get_boardgame_ranks(ranks_zip_url="", save_file=False)
 
 
+def test_get_boardgame_ranks_strips_matching_url_quotes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queried_zip = _build_ranks_zip_bytes("id,name\n1,Quoted Link Game\n")
+
+    class _Resp:
+        content = queried_zip
+
+        def raise_for_status(self) -> None:
+            return None
+
+    calls: list[str] = []
+
+    def _mock_http_get(url: str):
+        calls.append(url)
+        return _Resp()
+
+    monkeypatch.setattr(get_ranks, "_http_get", _mock_http_get)
+    df = get_ranks.get_boardgame_ranks(
+        ranks_zip_url='  "https://example.com/direct.zip"  ',
+        save_file=False,
+    )
+
+    assert len(df) == 1
+    assert calls == ["https://example.com/direct.zip"]
+
+
 def test_get_boardgame_ranks_uses_direct_zip_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

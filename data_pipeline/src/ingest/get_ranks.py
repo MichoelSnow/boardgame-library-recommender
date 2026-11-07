@@ -53,6 +53,18 @@ logger = logging.getLogger(__name__)
 RANKS_CSV_FILENAME = "boardgames_ranks.csv"
 
 
+def _normalize_ranks_zip_url(ranks_zip_url: str) -> str:
+    """Normalize a URL from a shell or Docker env-file value."""
+    normalized = ranks_zip_url.strip()
+    if (
+        len(normalized) >= 2
+        and normalized[0] == normalized[-1]
+        and normalized[0] in {"'", '"'}
+    ):
+        normalized = normalized[1:-1].strip()
+    return normalized
+
+
 def _load_ranks_dataframe(zip_bytes: bytes, queried_at_utc: str) -> pd.DataFrame:
     try:
         with ZipFile(BytesIO(zip_bytes)) as archive:
@@ -112,12 +124,13 @@ def get_boardgame_ranks(
     ranks_zip_url: str,
     save_file: bool = False,
 ) -> pd.DataFrame:
-    if not ranks_zip_url.strip():
+    normalized_url = _normalize_ranks_zip_url(ranks_zip_url)
+    if not normalized_url:
         raise ValueError("ranks_zip_url is required")
 
     logger.info("Fetching boardgame ranks from direct signed URL")
     queried_at_utc = datetime.now().replace(microsecond=0).isoformat()
-    ranks_zip_response = _http_get(ranks_zip_url.strip())
+    ranks_zip_response = _http_get(normalized_url)
     df_bg_ranks = _load_ranks_dataframe(ranks_zip_response.content, queried_at_utc)
     logger.info("Successfully loaded %d boardgames", len(df_bg_ranks))
 
@@ -141,7 +154,9 @@ def main() -> None:
     args = parser.parse_args()
 
     load_dotenv(find_dotenv())
-    ranks_zip_url = (args.ranks_zip_url or os.getenv("BGG_RANKS_ZIP_URL") or "").strip()
+    ranks_zip_url = _normalize_ranks_zip_url(
+        args.ranks_zip_url or os.getenv("BGG_RANKS_ZIP_URL") or ""
+    )
     if not ranks_zip_url:
         raise ValueError(
             "Missing ranks ZIP URL. Provide --ranks-zip-url or set "
