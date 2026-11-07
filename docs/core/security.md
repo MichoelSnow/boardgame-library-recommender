@@ -110,6 +110,18 @@ If any hit logs sensitive values directly, replace with a sanitized message.
 - Pipeline intermediates: keep latest successful set; clean stale >30 days.
 - Do not store/log unneeded sensitive data.
 
+## Ingestion-Specific Controls
+- Keep local `.env` files out of images, commits, artifact exports, and logs; use
+  restrictive file permissions and inject values only at runtime.
+- For a remote Docker host, use authenticated SSH-backed Docker access. Do not
+  expose an unauthenticated Docker TCP API.
+- Treat ingestion workspaces and exported artifacts as operational data. Use
+  durable storage with appropriate host/provider access controls and encryption
+  where available.
+- `.parts` and `.tmp` files created during artifact export are transient. Remove
+  them after a successful transfer or when abandoning a failed run, and retain
+  only the latest successful ingestion set plus the logs needed for operations.
+
 ## Context-dependent Controls
 - CSRF protections required if cookie/session auth is introduced for sensitive writes.
 - File upload malware scanning required if uploads are introduced.

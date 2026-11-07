@@ -10,7 +10,7 @@ if [ -f .env ]; then
 fi
 
 APP_NAME="${FLY_APP_NAME_INGEST:-bg-lib-ingest}"
-PIPELINE_COMMAND="poetry run python scripts/data_pipeline/run_ingest_pipeline.py"
+PIPELINE_COMMAND="bash scripts/ingest/run_container.sh poetry run python scripts/data_pipeline/run_ingest_pipeline.py"
 STATE_PATH="/app/data/ingest/run_state.json"
 DEFAULT_MAINTENANCE_DURATION="${INGEST_MAINTENANCE_DEFAULT_DURATION:-4h}"
 MAX_MAINTENANCE_DURATION_SECONDS="${INGEST_MAINTENANCE_MAX_DURATION_SECONDS:-43200}"

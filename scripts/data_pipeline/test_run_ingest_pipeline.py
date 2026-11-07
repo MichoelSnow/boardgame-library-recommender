@@ -1,6 +1,8 @@
+import logging
 import json
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +15,52 @@ def test_build_initial_state_excludes_ratings_when_skipped():
     assert "get_ranks" in state["stages"]
     assert "get_game_data" in state["stages"]
     assert "get_ratings" not in state["stages"]
+
+
+def test_runtime_target_defaults_to_unspecified(monkeypatch):
+    monkeypatch.delenv("INGEST_TARGET", raising=False)
+
+    assert run_ingest_pipeline._runtime_target() == "unspecified"
+
+
+def test_runtime_metadata_uses_explicit_target_and_image_values(monkeypatch):
+    monkeypatch.setenv("INGEST_TARGET", "remote")
+    monkeypatch.setenv("INGEST_RUNTIME_NAME", "remote-ingest")
+    monkeypatch.setenv("APP_GIT_SHA", "abc123")
+    monkeypatch.setenv("APP_BUILD_TIMESTAMP", "2026-11-05T12:00:00Z")
+
+    assert run_ingest_pipeline._runtime_target() == "remote"
+    assert run_ingest_pipeline._runtime_name() == "remote-ingest"
+    assert run_ingest_pipeline._image_metadata() == {
+        "git_sha": "abc123",
+        "build_timestamp": "2026-11-05T12:00:00Z",
+    }
+
+
+def test_default_paths_respect_runtime_overrides(monkeypatch):
+    monkeypatch.setenv("INGEST_RUN_STATE_PATH", "/workspace/state.json")
+    monkeypatch.setenv("INGEST_LOG_DIR", "/workspace/logs")
+
+    assert run_ingest_pipeline._default_state_path() == Path("/workspace/state.json")
+    assert run_ingest_pipeline._default_log_dir() == Path("/workspace/logs")
+
+
+def test_setup_logging_uses_file_handler_only(tmp_path):
+    root_logger = logging.getLogger()
+    existing_handlers = root_logger.handlers[:]
+
+    run_log_path = run_ingest_pipeline._setup_logging(tmp_path)
+
+    try:
+        assert run_log_path.exists()
+        assert len(root_logger.handlers) == 1
+        assert type(root_logger.handlers[0]) is logging.FileHandler
+    finally:
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+            handler.close()
+        for handler in existing_handlers:
+            root_logger.addHandler(handler)
 
 
 def test_next_incomplete_stage_returns_first_pending():

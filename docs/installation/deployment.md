@@ -33,6 +33,32 @@ Expected:
 - `python --version` prints `Python 3.13.x`
 - `poetry --version` prints `Poetry (version 2.3.x)`
 
+## Ingestion runtime prerequisites
+
+Data collection can run on one of three targets; processing remains on the
+current workstation after explicit artifact export. The canonical workflow and
+commands are in the [data pipeline guide](../../data_pipeline/README.md), and
+the target-specific interface is in the [ingest command reference](../../scripts/ingest/README.md).
+
+- **Local Docker host**: Docker must be installed and usable by the current
+  user. Reserve durable local storage for the `/app/data` workspace and the
+  collected artifacts.
+- **Remote Docker host (SSH)**: the host must be SSH-accessible, the account
+  must be allowed to operate Docker, and the selected remote volume or bind
+  path must have durable storage. Remote bind paths are resolved on that host,
+  not on the workstation.
+- **Fly target**: the Fly app, mounted volume, and Fly-managed secrets must be
+  configured. Fly maintenance mode is only for inspection or artifact export;
+  normal collection uses the target-neutral run commands or the documented Fly
+  compatibility interface.
+
+All targets use the same ingestion image and persistent `/app/data` contract.
+Inject BGG credentials and other runtime secrets through the target's
+environment or secret store; never copy `.env` into the image or commit it.
+Export is explicit and checksum-verified. Remove stale partial-transfer caches
+after successful exports and retain only the latest successful ingest set in
+accordance with the repository security guidance.
+
 ## 2. Clone and Install
 
 ```bash

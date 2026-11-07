@@ -9,16 +9,14 @@ then run only the optional operations you need.
 
 | Goal | Use this path |
 | --- | --- |
-| Run the first remote ingest | Configure the Fly ingest app -> [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> `run fresh` |
-| Start a new remote ingest after a completed run | Obtain a current BGG ranks URL -> sync secrets -> [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> `run fresh` |
-| Resume a failed or interrupted remote ingest | Check status and logs -> [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> `run resume` |
-| Rerun only the ratings stage | [Fly ingest stage commands](../scripts/ingest/README.md#runs) -> `run ratings` |
-| Develop or test with data on your computer | [1.A: Collect locally](#1a-collect-locally) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.A: Import into a local database](#3a-import-into-a-local-database) |
-| Run a long refresh without keeping your computer connected | [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) |
-| Update the deployed application | [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.B: Import into deployed Fly Postgres](#3b-import-into-deployed-fly-postgres) |
-| Download completed remote artifacts | [1.B: Collect remotely on Fly](#1b-collect-remotely-on-fly-bg-lib-ingest) -> `Optional: Export artifacts to local processing` |
+| Run collection on the current workstation | [1.A: Collect on a local Docker host](#1a-collect-on-a-local-docker-host) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) |
+| Run collection on an SSH-accessible host | [1.B: Collect on a remote Docker host (SSH)](#1b-collect-on-a-remote-docker-host-ssh) -> [Export artifacts](#export-artifacts-to-local-processing) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) |
+| Run a long refresh on Fly | [1.C: Collect on Fly](#1c-collect-on-fly-bg-lib-ingest) -> [Export artifacts](#export-artifacts-to-local-processing) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) |
+| Resume a failed or interrupted collection | Check status and logs -> `run resume` for the selected target |
+| Rerun only the ratings stage | Use `run ratings` for the selected target |
+| Update the deployed application | Collect on the selected target -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.B: Import into deployed Fly Postgres](#3b-import-into-deployed-fly-postgres) |
 | Process and import a collected dataset locally | [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.A: Import into a local database](#3a-import-into-a-local-database) |
-| Rebuild only a particular ingest stage | Use the [Fly ingest stage commands](../scripts/ingest/README.md#runs) |
+| Rebuild only a particular ingest stage | Use `run ranks`, `run game-data`, or `run ratings` for the selected target |
 
 Local and remote collection are alternatives. Local and remote import are also
 alternatives. Library import, database reset, backups, image synchronization,
@@ -51,39 +49,69 @@ and embedding transfer are conditional operations described in their sections.
 
 ## Phase 1: Collect data
 
-Use these commands from repo root.
+Collection uses the same Docker image and provider-neutral command surface for
+all targets. Choose one execution target for a run; Phase 2 processing remains
+on the current workstation after any required export.
 
-### 1.A: Collect locally
+The target shorthands are:
 
-Use this path when the workload should run locally or when debugging a stage.
-Run the stages in order; the second and third commands can resume an interrupted
-stage with `--continue-from-last`.
+| Target | Execution location | Processing location |
+| --- | --- | --- |
+| `local` | Local Docker host | Current workstation |
+| `remote` | Remote Docker host (SSH) | Current workstation after export |
+| `fly` | Fly Machine | Current workstation after export |
+
+The common interface is:
+
+```bash
+scripts/ingest/ingest.sh --target <local|remote|fly> build
+scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|fresh|resume>
+scripts/ingest/ingest.sh --target <local|remote|fly> status
+scripts/ingest/ingest.sh --target <local|remote|fly> logs [--follow]
+scripts/ingest/ingest.sh --target <local|remote|fly> stop
+scripts/ingest/ingest.sh --target <local|remote|fly> list
+```
+
+Do not run every command shown. Select one target, collect the artifacts, and
+export them explicitly before local processing when collection ran remotely.
+
+#### Shared collection input
+
+Every collection target requires a fresh signed BoardGameGeek ranks URL. Set
+`BGG_RANKS_ZIP_URL` in the runtime environment or env file used by the selected
+target. The URL can also be supplied directly to the ranks collector with
+`--ranks-zip-url`.
+
+To obtain the signed URL:
+1. log in to BoardGameGeek;
+2. open `https://boardgamegeek.com/data_dumps/bg_ranks`;
+3. copy the current boardgame ranks ZIP link.
+
+The signed URL is not generated by this repository and may expire. A new URL is
+normally required for each new full ingest run.
+
+### 1.A: Collect on a local Docker host
+
+Use this path when the workload should run on the current workstation. Docker
+must be installed and the current user must be able to use the Docker daemon.
+The default persistent workspace is the repository `data/` directory; select a
+different bind path with `--local-workspace` or `INGEST_LOCAL_WORKSPACE`.
 
 #### Required steps
 
-1. Collect rankings:
+1. Build or select the ingestion image:
 ```bash
-poetry run python -m data_pipeline.src.ingest.get_ranks
+scripts/ingest/ingest.sh --target local build
 ```
 
-#### Reference: Required input
-- `--ranks-zip-url "<signed-url>"` or `BGG_RANKS_ZIP_URL`.
-- To obtain the signed URL:
-  1. log in to BoardGameGeek
-  2. open `https://boardgamegeek.com/data_dumps/bg_ranks`
-  3. copy the current boardgame ranks ZIP link
-
-2. Collect game metadata:
+2. Start a detached collection:
 ```bash
-poetry run python -m data_pipeline.src.ingest.get_game_data
-poetry run python -m data_pipeline.src.ingest.get_game_data --continue-from-last
+scripts/ingest/ingest.sh --target local run fresh
 ```
 
-3. Collect ratings:
-```bash
-poetry run python -m data_pipeline.src.ingest.get_ratings
-poetry run python -m data_pipeline.src.ingest.get_ratings --continue-from-last
-```
+Use `run ranks`, `run game-data`, `run ratings`, or `run resume` when only one
+stage or an incomplete run should be executed. Inspect progress with `status`
+and `logs`.
 
 #### Reference: Inputs and outputs
 
@@ -102,7 +130,67 @@ Ratings DuckDB details:
 - Index: `idx_boardgame_ratings` on `(game_id, rating_round, username)`
 - Inserts are de-duplicated and resume-safe.
 
-### 1.B: Collect remotely on Fly (`bg-lib-ingest`)
+### 1.B: Collect on a remote Docker host (SSH)
+
+Use this path when collection should run on another machine that is reachable
+over SSH. The remote host needs Docker, durable storage for the ingestion
+workspace, and an SSH account that can operate its Docker daemon. `remote` is
+not limited to a LAN; it also covers a VPN-reachable host or cloud VM.
+
+The default remote workspace is the named Docker volume
+`bg-lib-ingest-data`. Use `--remote-workspace-type bind` with an absolute
+remote-host path when a bind mount is preferred. A workstation path is never
+used as a remote bind path implicitly.
+
+Set the remote Docker endpoint in the shell before using the remote target:
+
+```bash
+export INGEST_REMOTE_DOCKER_HOST="ssh://user@example-host"
+```
+
+Verify that the SSH account can operate Docker on that host:
+
+```bash
+ssh user@example-host docker info
+```
+
+If SSH keys are already configured, load the key into an agent to simplify
+repeated commands. Replace the example path with your key path:
+
+```bash
+eval "$(ssh-agent -s)" && ssh-add ~/.ssh/id_thenovo_nuc
+```
+
+The shell variable applies to subsequent `scripts/ingest/ingest.sh` commands.
+For a one-off command, pass the same value explicitly with `--remote-host`.
+
+```bash
+scripts/ingest/ingest.sh \
+  --target remote \
+  build
+
+scripts/ingest/ingest.sh \
+  --target remote \
+  run fresh
+```
+
+Inspect or control the detached run from the current workstation:
+
+```bash
+scripts/ingest/ingest.sh --target remote \
+  status
+scripts/ingest/ingest.sh --target remote \
+  logs
+scripts/ingest/ingest.sh --target remote \
+  stop
+```
+
+Use `--remote-workspace`, `--remote-workspace-type`, `--image`, and
+`--env-file` for target-specific configuration. The container can continue
+after the initiating terminal disconnects; export completed artifacts back to
+the current workstation before Phase 2.
+
+### 1.C: Collect on Fly (`bg-lib-ingest`)
 
 Use this path for long-running or memory-intensive collection. The ingest
 machine runs independently of your terminal. Do not also run the local
@@ -125,6 +213,7 @@ BGG_TOKEN=<your_bgg_token>
 BGG_RANKS_ZIP_URL=<signed_bgg_ranks_zip_url>
 INGEST_NOTIFY_EMAIL_TO=<your_email>
 INGEST_NOTIFY_EMAIL_FROM=<verified_sender>
+### Optional
 BREVO_SMTP_LOGIN=<brevo_smtp_login_or_username>
 BREVO_SMTP_KEY=<brevo_smtp_key>
 # optional overrides:
@@ -144,23 +233,12 @@ fly volumes create bg_lib_ingest_data \
 ```
 
 #### Required steps: Run the remote ingest
-1. Obtain a fresh signed BGG ranks URL:
-
-   Log in to BGG, open `https://boardgamegeek.com/data_dumps/bg_ranks`, and copy the current ZIP link.
-
-   Update the repo-root `.env` value:
-   ```bash
-   BGG_RANKS_ZIP_URL=<current_signed_bgg_ranks_zip_url>
-   ```
-
-   The signed URL is not generated by this repository and may expire. A new URL is normally required for each new full ingest run.
-
-2. Sync the ingest secrets to Fly:
+1. Sync the ingest secrets to Fly:
 ```bash
 scripts/ingest/fly_ingest.sh secrets sync
 ```
 
-3. Start ingest:
+2. Start ingest:
 ```bash
 scripts/ingest/fly_ingest.sh run fresh
 ```
@@ -172,12 +250,12 @@ scripts/ingest/fly_ingest.sh secrets sync
 scripts/ingest/fly_ingest.sh run fresh
 ```
 
-4. Check status:
+3. Check status:
 ```bash
 scripts/ingest/fly_ingest.sh machine status
 ```
 
-5. Optional logs:
+4. Optional logs:
 ```bash
 scripts/ingest/fly_ingest.sh logs
 ```
@@ -223,53 +301,85 @@ Maintenance mode is managed by the dispatcher. Normal runs should use
 `run ranks`, `run game-data`, `run ratings`, `run fresh`, or `run resume`; do
 not manually toggle the secret.
 
-#### Optional: Export artifacts to local processing
+### Export artifacts to local processing
 
-This handoff is required when continuing to Phase 2 on the local machine. It is
-not required if the remote artifacts will remain on Fly and no local processing
-or import is planned.
+Export is explicit and is required before continuing to Phase 2 when collection
+ran on a remote Docker host or Fly. The command runs on the current workstation
+and writes verified artifacts to the existing `data/ingest/` directories. It
+does not process or import the data.
 
-If the pipeline has already finished (machine stopped), you must use maintenance mode to keep the machine up long enough to list/download files.
+List artifacts for the selected target, then identify the exact completed file
+to export. Use the matching target-specific form below for each canonical
+artifact (`ranks`, `game_data`, and `ratings`):
 
-Start the machine in maintenance mode:
+```bash
+scripts/ingest/ingest.sh --target <local|remote|fly> list
+```
+
+#### Local Docker host
+
+Use this when the local Docker workspace is separate from the checkout's
+`data/` directory. If the workspace is already the checkout's `data/`
+directory, the artifacts are already available for Phase 2 and no export is
+needed.
+
+```bash
+scripts/ingest/ingest.sh \
+  --target local \
+  --local-workspace "$LOCAL_WORKSPACE" \
+  export \
+  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv \
+  --output-dir "$PWD/data/ingest/ranks" \
+  --chunk-mb 256
+```
+
+#### Remote Docker host (SSH)
+
+```bash
+scripts/ingest/ingest.sh \
+  --target remote \
+  export \
+  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv \
+  --chunk-mb 256
+```
+
+#### Fly
+
+If a completed Fly run is stopped, start maintenance mode before listing or
+exporting files:
+
 ```bash
 scripts/ingest/fly_ingest.sh maintenance start --for 4h
+scripts/ingest/ingest.sh --target fly list
 ```
 
-List remote files:
+Then export the selected artifact:
+
 ```bash
-scripts/ingest/fly_ingest.sh artifacts list
-```
-
-Download (resumable + checksum verified):
-```bash
-# ranks -> data/ingest/ranks
-scripts/ingest/fly_ingest.sh artifacts download \
-  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv
-
-# game_data -> data/ingest/game_data
-scripts/ingest/fly_ingest.sh artifacts download \
-  --remote-path /app/data/ingest/game_data/boardgame_data_<timestamp>.duckdb \
-  --chunk-mb 256
-
-# ratings -> data/ingest/ratings
-scripts/ingest/fly_ingest.sh artifacts download \
-  --remote-path /app/data/ingest/ratings/boardgame_ratings_<timestamp>.duckdb \
+scripts/ingest/ingest.sh \
+  --target fly \
+  export \
+  --remote-path /app/data/ingest/ranks/boardgame_ranks_<date>.csv \
   --chunk-mb 256
 ```
 
-Stop machine when done:
+Stop Fly maintenance mode after exporting:
+
 ```bash
 scripts/ingest/fly_ingest.sh maintenance stop
 ```
 
+For all targets, replace the example ranks path with the completed game-data
+or ratings path when exporting those artifacts. The default output directory
+is inferred from the artifact path; `--output-dir` can override it. Large
+transfers are chunked, resumable, and SHA-256 verified. A final file is
+promoted only after verification, and the local `.parts` cache is removed
+after success unless `--keep-parts` is supplied. Existing files are not
+silently overwritten; use `--overwrite` only after confirming the artifact
+set.
 
-
-Download notes:
-- Default output dir is inferred from remote path
-- Download resumes from existing chunk cache
-- Final file is promoted only after SHA-256 match
-- `.parts` cache is removed on success (use `--keep-parts` to retain)
+The existing Fly-specific command remains available as a compatibility path;
+see the [Fly ingest command reference](../scripts/ingest/README.md).
 
 ## Phase 2: Process artifacts locally
 

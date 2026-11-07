@@ -1,5 +1,24 @@
 # Data Pipeline Scripts
 
+## Responsibilities
+
+The orchestrator and target adapters have separate responsibilities:
+
+- `run_ingest_pipeline.py` owns stage ordering, retries, run state, stage logs,
+  and the collection behavior itself. It runs inside the ingestion container
+  against the persistent `/app/data` workspace.
+- `scripts/ingest/ingest.sh` owns target selection and Docker lifecycle for
+  `local` and `remote` collection, including workspace mounts, detached runs,
+  status, logs, and verified artifact export.
+- The `fly` target delegates to `scripts/ingest/fly_ingest.sh`, which retains
+  Fly Machine lifecycle, maintenance, secrets, and compatibility operations.
+
+Adapters select where the unchanged orchestrator runs; they do not reimplement
+stage behavior or move Phase 2 processing into the collection container.
+
+See [`scripts/ingest/README.md`](../ingest/README.md) for the common target
+interface and target-specific options.
+
 ## `run_ingest_pipeline.py`
 - What it does:
   - Orchestrates staged ingest execution:
@@ -41,7 +60,10 @@ poetry run python scripts/data_pipeline/run_ingest_pipeline.py --only-stage get_
 Stage-only runs preserve the other stage states. `get_game_data` requires
 completed rankings, and `get_ratings` requires completed game data.
 
-The preferred Fly operator interface is `scripts/ingest/fly_ingest.sh`. It separates machine lifecycle from ingestion jobs:
+The target-neutral operator interface is `scripts/ingest/ingest.sh --target fly`.
+Use `scripts/ingest/fly_ingest.sh` for Fly-specific maintenance, deployment,
+secrets, and compatibility operations. It separates machine lifecycle from
+ingestion jobs:
 
 ```bash
 scripts/ingest/fly_ingest.sh maintenance start --for 4h
