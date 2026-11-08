@@ -117,16 +117,15 @@ Security note:
 
 - keep `.env` out of git and do not share it.
 
-## 4. Mode A: Local SQLite
+## 4. Mode A: Legacy Local SQLite
 
-Uses generated `.env` values (`SECRET_KEY`, `DATABASE_PATH`).
+Uses generated `.env` values (`SECRET_KEY`, `DATABASE_PATH`). Set
+`DATABASE_BACKEND=sqlite` in `.env` for this legacy compatibility mode. It is
+not part of the current local development or import workflow; use Mode B.
 
 ### 4.1 Run migrations and start backend
 
 ```bash
-set -a && source .env && set +a
-
-unset DATABASE_URL
 poetry run alembic upgrade head
 poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -145,11 +144,14 @@ Expected:
 
 ## 5. Mode B: Local Postgres
 
-Uses generated `.env` values (`POSTGRES_*_LOCAL`, `POSTGRES_USER`, `POSTGRES_DB`, `SECRET_KEY`).
+Uses generated `.env` values (`DATABASE_BACKEND=postgres`, `POSTGRES_*_LOCAL`,
+`POSTGRES_USER`, `POSTGRES_DB`, `SECRET_KEY`).
 
 ### 5.1 Start a local Postgres (Docker quick path)
 
 ```bash
+set -a && source .env && set +a
+
 docker run --name boardgame-pg-local \
   -e POSTGRES_USER="${POSTGRES_USER}" \
   -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD_LOCAL}" \
@@ -158,12 +160,9 @@ docker run --name boardgame-pg-local \
   -d postgres:18.3
 ```
 
-### 5.2 Set `DATABASE_URL`, run migrations, start backend
+### 5.2 Run migrations and start backend
 
 ```bash
-set -a && source .env && set +a
-
-export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD_LOCAL}@${POSTGRES_HOST_LOCAL}:${POSTGRES_PORT_LOCAL}/${POSTGRES_DB}"
 poetry run alembic upgrade head
 poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -172,13 +171,18 @@ poetry run uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 poetry run python -c "from backend.app.db_config import get_database_url; print(get_database_url())"
-psql "${DATABASE_URL}" -c "SELECT 1;"
+PGPASSWORD="${POSTGRES_PASSWORD_LOCAL}" psql \
+  -h "${POSTGRES_HOST_LOCAL}" \
+  -p "${POSTGRES_PORT_LOCAL}" \
+  -U "${POSTGRES_USER}" \
+  -d "${POSTGRES_DB}" \
+  -c "SELECT 1;"
 curl -sS http://localhost:8000/api
 ```
 
 Expected:
 
-- DB URL starts with `postgresql://`
+- DB URL starts with `postgresql+psycopg2://`
 - SQL `SELECT 1` succeeds
 - `/api` responds
 

@@ -7,6 +7,7 @@ from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def should_enable_db_keepalive(
     database_url: str, env: dict[str, str] | None = None
 ) -> bool:
     environment = env or os.environ
-    if not database_url.startswith("postgresql://"):
+    if make_url(database_url).get_backend_name() != "postgresql":
         return False
     return _is_truthy(environment.get("DB_KEEPALIVE_ENABLED", "true"))
 

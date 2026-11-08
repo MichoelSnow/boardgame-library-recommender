@@ -114,8 +114,10 @@ tmp_file="$(mktemp)"
 awk '
   BEGIN {
     skip["DATABASE_PATH"]=1
+    skip["DATABASE_BACKEND"]=1
     skip["POSTGRES_USER"]=1
     skip["POSTGRES_DB"]=1
+    skip["POSTGRES_DB_TEST"]=1
     skip["POSTGRES_HOST_LOCAL"]=1
     skip["POSTGRES_PORT_LOCAL"]=1
     skip["POSTGRES_PASSWORD_LOCAL"]=1
@@ -148,6 +150,7 @@ awk '
 
 {
   printf '# ===== Core Local Runtime =====\n'
+  printf 'DATABASE_BACKEND=postgres\n'
   printf 'DATABASE_PATH=backend/database/boardgames.db\n'
   printf 'SECRET_KEY=%s\n' "${SECRET_KEY}"
 
@@ -155,6 +158,7 @@ awk '
   printf '# ===== Local Postgres =====\n'
   printf 'POSTGRES_USER=postgres\n'
   printf 'POSTGRES_DB=boardgame_recommender\n'
+  printf 'POSTGRES_DB_TEST=boardgame_recommender_test\n'
   printf 'POSTGRES_HOST_LOCAL=127.0.0.1\n'
   printf 'POSTGRES_PORT_LOCAL=5432\n'
   printf 'POSTGRES_PASSWORD_LOCAL=%s\n' "${POSTGRES_PASSWORD_LOCAL}"

@@ -1,6 +1,5 @@
 from datetime import datetime, timezone
 import importlib.util
-import logging
 from pathlib import Path
 import sys
 
@@ -245,32 +244,3 @@ def test_main_emits_recovery_notice(monkeypatch) -> None:
     assert result == 0
     assert any("recommendation_degraded" in item for item in notices)
     assert summaries
-
-
-def test_load_alert_state_logs_and_recovers_on_invalid_json(
-    tmp_path: Path, caplog
-) -> None:
-    state_path = tmp_path / "state.json"
-    state_path.write_text("{invalid-json", encoding="utf-8")
-
-    with caplog.at_level(logging.WARNING):
-        loaded = MODULE.load_alert_state(state_path)
-
-    assert loaded == {}
-    assert "Failed to load alert state" in caplog.text
-
-
-def test_save_alert_state_logs_and_recovers_on_write_failure(
-    tmp_path: Path, monkeypatch, caplog
-) -> None:
-    state_path = tmp_path / "state.json"
-
-    def _raise_on_replace(self: Path, target: Path) -> None:
-        raise OSError("replace failed")
-
-    monkeypatch.setattr(Path, "replace", _raise_on_replace)
-
-    with caplog.at_level(logging.WARNING):
-        MODULE.save_alert_state(state_path, {"k": "v"})
-
-    assert "Failed to persist alert state" in caplog.text

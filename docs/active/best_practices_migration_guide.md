@@ -190,7 +190,7 @@ Deployment verification rule:
 - [x] [P1] Select and finalize the primary image-storage runtime path for Phase 4 implementation (Fly-local).
 
 ### Phase 4B: Architecture Implementation (Must Occur Before Later Phases)
-- [x] [P1] Implement `DATABASE_URL` support with SQLite fallback.
+- [x] [P1] Implement explicit PostgreSQL selection with `DATABASE_URL` deployment support; retain SQLite compatibility outside the current tested runtime.
 - [x] [P1] Complete the Postgres compatibility audit.
 - [x] [P1] Stand up native local Postgres inside WSL and validate local app startup against Postgres.
 - [x] [P1] Run `alembic upgrade head` against local Postgres and verify schema creation succeeds.
@@ -198,7 +198,7 @@ Deployment verification rule:
 - [x] [P1] Provision self-managed Postgres on Fly for `dev`, migrate schema/data, and cut `dev` over to Postgres.
 - [x] [P1] Run the full dev validation flow on Postgres-backed `dev` and stabilize any regressions.
 - [x] [P1] Provision self-managed Postgres on Fly for `prod`, migrate schema/data, and cut `prod` over to Postgres.
-- [x] [P1] Keep the SQLite fallback path intact until Postgres-backed `prod` is validated and stable.
+- [x] [P1] Keep SQLite compatibility code intact until Postgres-backed `prod` is validated and stable.
 - [x] [P1] Record final Postgres cutover and rollback decisions in `docs/core/architecture.md`.
 - [x] [P1] Define and test backup and restore procedures for self-managed Postgres on Fly before the production cutover.
 - [x] [P1] Update the app image to include `backend/scripts/` so deploy-environment operational scripts are available inside the container.

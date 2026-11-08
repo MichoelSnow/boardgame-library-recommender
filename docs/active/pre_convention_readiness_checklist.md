@@ -38,7 +38,7 @@
 - [x] [P0] Implement admin-only kiosk setup UI (`/kiosk/setup`) for enroll/unenroll without manual kiosk-key entry on shared devices.
 
 ## Data and Storage
-- [x] [P0] Add `DATABASE_URL` support with SQLite fallback.
+- [x] [P0] Add explicit PostgreSQL selection with `DATABASE_URL` deployment support; retain SQLite compatibility outside the current tested runtime.
 - [x] [P0] Stand up native local Postgres in WSL and validate local app behavior.
 - [x] [P0] Build and validate the SQLite -> Postgres migration path locally.
 - [x] [P0] Provision and cut over `dev` to self-managed Postgres on Fly.
