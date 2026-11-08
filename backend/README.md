@@ -62,21 +62,15 @@ poetry run pytest backend/tests -q
 
 Run targeted suites:
 ```bash
-poetry run pytest backend/tests/test_db_queries.py -q
 poetry run pytest backend/tests/test_db_keepalive.py -q
 poetry run pytest backend/tests/test_runtime_profile.py -q
-poetry run pytest backend/tests/test_performance.py -q
-poetry run python backend/tests/create_indexes.py
 ```
 
 ### Test File Guide
-- `test_db_queries.py`
-  - Basic database query behavior and non-hanging query paths.
 - `test_performance.py`
-  - Endpoint performance checks (requires app server running).
-- `create_indexes.py`
-  - Utility script to create/refresh index set used in local perf testing.
-
+  - Manual endpoint performance checks; run with
+    `poetry run python backend/tests/test_performance.py` while the app server
+    is running. It is not a pytest test.
 ### Performance Expectations
 - Canonical SLO/latency targets live in:
   - [docs/core/ownership_and_slos.md](../docs/core/ownership_and_slos.md)
@@ -97,9 +91,16 @@ tail -f logs/get_game_data.log
 tail -f logs/get_ratings.log
 ```
 
+The default backend test suite does not create or reset a separate PostgreSQL
+test database. Database migrations and imports are validated through the
+normal local development workflow.
+
 ## Production Configuration Notes
 - In Fly-hosted production, use `DATABASE_URL` (Postgres).
-- Do not rely on SQLite fallback in production.
+- For local execution, set `DATABASE_BACKEND=postgres` in `.env`.
+- SQLite compatibility code is retained but is not part of the current supported
+  or tested runtime.
+- Do not rely on an implicit database fallback in production or local development.
 - Core auth/runtime variables include:
   - `SECRET_KEY`
   - `ALGORITHM`

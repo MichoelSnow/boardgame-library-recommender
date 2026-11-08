@@ -9,16 +9,17 @@ from backend.app.db_keepalive import (
 
 
 def test_should_enable_db_keepalive_enabled_for_postgres_by_default() -> None:
-    assert should_enable_db_keepalive("postgresql://u:p@localhost/db", {}) is True
-
-
-def test_should_enable_db_keepalive_disabled_for_sqlite() -> None:
-    assert should_enable_db_keepalive("sqlite:////tmp/test.db", {}) is False
+    assert (
+        should_enable_db_keepalive("postgresql+psycopg2://u:p@localhost/db", {}) is True
+    )
 
 
 def test_should_enable_db_keepalive_explicit_disable() -> None:
     env = {"DB_KEEPALIVE_ENABLED": "false"}
-    assert should_enable_db_keepalive("postgresql://u:p@localhost/db", env) is False
+    assert (
+        should_enable_db_keepalive("postgresql+psycopg2://u:p@localhost/db", env)
+        is False
+    )
 
 
 def test_resolve_keepalive_interval_default() -> None:

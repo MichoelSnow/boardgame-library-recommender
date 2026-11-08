@@ -46,26 +46,6 @@ def test_clear_import_tables_for_reimport_postgres_uses_truncate(monkeypatch):
     assert "library_games" not in fake_session.executed_queries[0]
 
 
-def test_clear_import_tables_for_reimport_non_postgres_uses_delete(monkeypatch):
-    fake_session = _FakeSession()
-    monkeypatch.setattr(import_data, "SessionLocal", lambda: fake_session)
-    monkeypatch.setattr(
-        import_data,
-        "engine",
-        SimpleNamespace(dialect=SimpleNamespace(name="sqlite")),
-    )
-
-    import_data.clear_import_tables_for_reimport()
-
-    assert fake_session.committed is True
-    assert fake_session.closed is True
-    assert fake_session.rolled_back is False
-    assert len(fake_session.executed_queries) == len(import_data.IMPORT_TABLES)
-    assert all(
-        query.startswith("DELETE FROM ") for query in fake_session.executed_queries
-    )
-
-
 def test_create_related_objects_dedupes_duplicate_designer_names():
     related_data = {
         "boardgamedesigner": pd.DataFrame(

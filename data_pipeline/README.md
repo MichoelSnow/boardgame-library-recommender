@@ -437,8 +437,10 @@ every import.
 
 ### 3.A: Import into a local database
 
-Use this path for a local/offline application. It is independent of the remote
-Fly Postgres import path.
+Use this path for a local application backed by PostgreSQL. Set
+`DATABASE_BACKEND=postgres` in the repository `.env` file. SQLite is not a
+current supported import target. This path is independent of the remote Fly
+Postgres import path.
 
 1. **Required — run migrations:**
 ```bash
@@ -452,6 +454,7 @@ poetry run python backend/app/import_data.py
 ```
 
 3. **Optional — replace existing imported game data:**
+This is typically the command you will be using as you will most often be replacing the existing db with newest version of the data.
 ```bash
 poetry run python backend/app/import_data.py --delete-existing
 ```
@@ -463,7 +466,9 @@ poetry run python backend/app/import_library_data.py --csv data/library/bg_lib_g
 ```
 
 Notes:
-- Local DB target is controlled by your local `DATABASE_URL` (SQLite fallback or Postgres).
+- Local DB target is controlled by `DATABASE_BACKEND` in `.env`.
+- Use `DATABASE_BACKEND=postgres` for the normal local development/import path.
+- The current test and import workflows require PostgreSQL.
 - `import_data.py` imports latest `processed_games_*` timestamp set.
 - `import_library_data.py` imports legacy `data/library/bg_lib_games_*.csv` into
   `library_imports` + `library_import_items` (not `library_games`).

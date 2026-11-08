@@ -45,7 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SECRET_KEY: "DUMMY_CI_ONLY_SECRET_KEY_NOT_FOR_PRODUCTION_12345"
-      DATABASE_PATH: "/tmp/bg_lib_ci.db"
+      # The default pytest suite does not connect to a database. This
+      # PostgreSQL-shaped URL only satisfies import-time app configuration.
+      DATABASE_URL: "postgresql+psycopg2://ci:ci@127.0.0.1:5432/ci"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -73,10 +75,9 @@ jobs:
       - name: Python import sanity check
         run: |
           poetry run python -m compileall backend data_pipeline scripts
-      - name: Python tests (full suite)
+      - name: Python tests
         run: |
           poetry run pytest -q
-
   frontend-build:
     runs-on: ubuntu-latest
     steps:

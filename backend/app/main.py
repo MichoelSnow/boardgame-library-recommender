@@ -41,7 +41,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pathlib import Path
-from . import crud, models, schemas, recommender, security
+from . import crud, schemas, recommender, security
 from . import convention_kiosk
 from .database import (
     engine,
@@ -77,9 +77,6 @@ logging.basicConfig(
     handlers=build_log_handlers("app.log"),
 )
 logger = logging.getLogger(__name__)
-
-# Ensure base tables exist for local/test SQLite execution paths.
-models.Base.metadata.create_all(bind=engine)
 
 # Get the project root directory
 PROJECT_ROOT = Path(__file__).parent.parent.parent

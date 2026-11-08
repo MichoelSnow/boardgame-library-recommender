@@ -8,7 +8,6 @@
 
 ## Prerequisites
 - From repo root: `poetry install`
-- No external network calls are required for core backend unit/API tests.
 - Keep test commands bounded when iterating locally:
   - `timeout 10s poetry run pytest <path> -q`
 
@@ -46,5 +45,8 @@ poetry run pytest backend/tests/test_performance.py -q
 - `test_performance.py`: depends on running server state and local DB size
 
 ## Notes
+- The default suite is database-independent and does not create, reset, or
+  migrate a PostgreSQL test database.
+- Validate database migrations and imports against the local development
+  database using the documented backend and data-pipeline commands.
 - `test_performance.py` is a smoke/perf check; run it after booting the app.
-- Legacy utility script `backend/tests/create_indexes.py` is not part of the pytest suite.
