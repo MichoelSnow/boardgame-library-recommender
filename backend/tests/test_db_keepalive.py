@@ -10,8 +10,7 @@ from backend.app.db_keepalive import (
 
 def test_should_enable_db_keepalive_enabled_for_postgres_by_default() -> None:
     assert (
-        should_enable_db_keepalive("postgresql+psycopg2://u:p@localhost/db", {})
-        is True
+        should_enable_db_keepalive("postgresql+psycopg2://u:p@localhost/db", {}) is True
     )
 
 

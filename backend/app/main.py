@@ -41,7 +41,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pathlib import Path
-from . import crud, models, schemas, recommender, security
+from . import crud, schemas, recommender, security
 from . import convention_kiosk
 from .database import (
     engine,
