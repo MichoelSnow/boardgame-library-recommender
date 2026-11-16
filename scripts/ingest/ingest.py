@@ -38,6 +38,7 @@ STAGE_OPTIONS = {
     "ranks": "get_ranks",
     "game-data": "get_game_data",
     "ratings": "get_ratings",
+    "user-collections": "get_user_collections",
 }
 DOCKER_CLIENT_ENV_VARS = {
     "DOCKER_CONTEXT",
@@ -286,18 +287,43 @@ def _container_state(profile: Profile) -> str | None:
     return result.stdout.strip() or None
 
 
-def _run_arguments(mode: str) -> list[str]:
+def _run_arguments(
+    mode: str, user_collection_arguments: Sequence[str] = ()
+) -> list[str]:
     if mode == "fresh":
+        if user_collection_arguments:
+            raise OperatorError(
+                "user collection arguments require the user-collections run mode"
+            )
         return ["--reset-state"]
     if mode == "resume":
+        if user_collection_arguments:
+            raise OperatorError(
+                "user collection arguments require the user-collections run mode"
+            )
         return []
+    if mode == "user-collections":
+        return [
+            "--include-user-collections",
+            "--only-stage",
+            STAGE_OPTIONS[mode],
+            *user_collection_arguments,
+        ]
+    if user_collection_arguments:
+        raise OperatorError(
+            "user collection arguments require the user-collections run mode"
+        )
     try:
         return ["--only-stage", STAGE_OPTIONS[mode]]
     except KeyError as exc:
         raise OperatorError(f"unsupported run mode: {mode}") from exc
 
 
-def start_run(profile: Profile, mode: str) -> int:
+def start_run(
+    profile: Profile,
+    mode: str,
+    user_collection_arguments: Sequence[str] = (),
+) -> int:
     require_docker(profile)
     existing_state = _container_state(profile)
     if existing_state == "running":
@@ -312,7 +338,13 @@ def start_run(profile: Profile, mode: str) -> int:
     parsed_env = _container_env_values(profile)
     environment = docker_environment(profile)
     environment.update(parsed_env)
-    command = _build_run_command(profile, mode, run_id, parsed_env)
+    command = _build_run_command(
+        profile,
+        mode,
+        run_id,
+        parsed_env,
+        user_collection_arguments,
+    )
     result = _run(command, profile, capture=True, environment=environment)
     print(f"Started {profile.target} ingest container {result.stdout.strip()}")
     print(f"Container name: {profile.container_name}")
@@ -325,6 +357,7 @@ def _build_run_command(
     mode: str,
     run_id: str,
     env_names: Sequence[str] = (),
+    user_collection_arguments: Sequence[str] = (),
 ) -> list[str]:
     command = [
         "docker",
@@ -358,10 +391,60 @@ def _build_run_command(
             "run",
             "python",
             "scripts/data_pipeline/run_ingest_pipeline.py",
-            *_run_arguments(mode),
+            *_run_arguments(mode, user_collection_arguments),
         ]
     )
     return command
+
+
+def _user_collection_arguments(args: argparse.Namespace) -> list[str]:
+    values = (
+        args.user_collection_batch_size,
+        args.user_collection_coverage_percent,
+        args.user_collection_max_users,
+        args.user_collection_additional_users,
+    )
+    if args.mode != "user-collections":
+        if any(value is not None for value in values):
+            raise OperatorError(
+                "user collection arguments require the user-collections run mode"
+            )
+        return []
+
+    arguments: list[str] = []
+    if args.user_collection_batch_size is not None:
+        if args.user_collection_batch_size < 1:
+            raise OperatorError("--user-collection-batch-size must be at least 1")
+        arguments.extend(
+            ["--user-collection-batch-size", str(args.user_collection_batch_size)]
+        )
+    if args.user_collection_coverage_percent is not None:
+        if not 0 < args.user_collection_coverage_percent <= 100:
+            raise OperatorError(
+                "--user-collection-coverage-percent must be greater than 0 and at most 100"
+            )
+        arguments.extend(
+            [
+                "--user-collection-coverage-percent",
+                str(args.user_collection_coverage_percent),
+            ]
+        )
+    if args.user_collection_max_users is not None:
+        if args.user_collection_max_users < 1:
+            raise OperatorError("--user-collection-max-users must be at least 1")
+        arguments.extend(
+            ["--user-collection-max-users", str(args.user_collection_max_users)]
+        )
+    if args.user_collection_additional_users is not None:
+        if args.user_collection_additional_users < 1:
+            raise OperatorError("--user-collection-additional-users must be at least 1")
+        arguments.extend(
+            [
+                "--user-collection-additional-users",
+                str(args.user_collection_additional_users),
+            ]
+        )
+    return arguments
 
 
 def _workspace_file(profile: Profile, relative_path: str) -> str:
@@ -612,7 +695,7 @@ def list_artifacts(profile: Profile) -> int:
         "if [ -d /app/data/ingest ]; then "
         "find /app/data/ingest -maxdepth 2 -type f "
         "\\( -name 'boardgame_ranks_*' -o -name 'boardgame_data_*' "
-        "-o -name 'boardgame_ratings_*' \\) -print; "
+        "-o -name 'boardgame_ratings_*' -o -name 'user_collections_*' \\) -print; "
         "fi",
     ]
     return _run(command, profile).returncode
@@ -656,7 +739,24 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("build")
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument(
-        "mode", choices=("ranks", "game-data", "ratings", "fresh", "resume")
+        "mode",
+        choices=(
+            "ranks",
+            "game-data",
+            "ratings",
+            "user-collections",
+            "fresh",
+            "resume",
+        ),
+    )
+    run_parser.add_argument("--user-collection-batch-size", type=int)
+    user_collection_selection = run_parser.add_mutually_exclusive_group()
+    user_collection_selection.add_argument(
+        "--user-collection-coverage-percent", type=float
+    )
+    user_collection_selection.add_argument("--user-collection-max-users", type=int)
+    user_collection_selection.add_argument(
+        "--user-collection-additional-users", type=int
     )
     subparsers.add_parser("status")
     logs_parser = subparsers.add_parser("logs")
@@ -681,9 +781,10 @@ def main() -> int:
         if args.command == "build":
             return build_image(profile)
         if args.command == "run":
+            user_collection_arguments = _user_collection_arguments(args)
             if profile.target == "fly":
-                return fly_command(["run", args.mode])
-            return start_run(profile, args.mode)
+                return fly_command(["run", args.mode, *user_collection_arguments])
+            return start_run(profile, args.mode, user_collection_arguments)
         if args.command == "status":
             return show_status(profile)
         if args.command == "logs":

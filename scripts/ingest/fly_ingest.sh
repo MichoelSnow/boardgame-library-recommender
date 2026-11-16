@@ -21,7 +21,7 @@ Usage:
   scripts/ingest/fly_ingest.sh maintenance start [--for <duration>]
   scripts/ingest/fly_ingest.sh maintenance stop|status
   scripts/ingest/fly_ingest.sh machine status|shell
-  scripts/ingest/fly_ingest.sh run ranks|game-data|ratings|fresh|resume
+  scripts/ingest/fly_ingest.sh run ranks|game-data|ratings|user-collections|fresh|resume [user collection options]
   scripts/ingest/fly_ingest.sh deploy
   scripts/ingest/fly_ingest.sh secrets sync
   scripts/ingest/fly_ingest.sh resize --memory <mb>
@@ -262,7 +262,9 @@ start_run() {
 }
 
 run_command() {
-  case "$1" in
+  local mode="${1:-}"
+  shift || true
+  case "$mode" in
     ranks)
       start_run "$PIPELINE_COMMAND --only-stage get_ranks"
       ;;
@@ -270,12 +272,39 @@ run_command() {
       start_run "$PIPELINE_COMMAND --only-stage get_game_data"
       ;;
     ratings)
+      [ "$#" -eq 0 ] || { usage; exit 1; }
       start_run "$PIPELINE_COMMAND --only-stage get_ratings"
       ;;
+    user-collections)
+      local collection_command
+      collection_command="$PIPELINE_COMMAND --include-user-collections --only-stage get_user_collections"
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --user-collection-batch-size|--user-collection-coverage-percent|--user-collection-max-users|--user-collection-additional-users)
+            [ "$#" -ge 2 ] || { usage; exit 1; }
+            case "$2" in
+              ""|*[!0-9.]* )
+                echo "Error: invalid numeric value for $1: $2" >&2
+                exit 1
+                ;;
+            esac
+            collection_command="$collection_command $1 $2"
+            shift 2
+            ;;
+          *)
+            usage
+            exit 1
+            ;;
+        esac
+      done
+      start_run "$collection_command"
+      ;;
     fresh)
+      [ "$#" -eq 0 ] || { usage; exit 1; }
       start_run "$PIPELINE_COMMAND --reset-state"
       ;;
     resume)
+      [ "$#" -eq 0 ] || { usage; exit 1; }
       start_run "$PIPELINE_COMMAND"
       ;;
     *)
@@ -338,7 +367,8 @@ main() {
       esac
       ;;
     run)
-      run_command "${2:-}"
+      shift
+      run_command "$@"
       ;;
     deploy) scripts/deploy/fly_ingest_deploy.sh ;;
     secrets)

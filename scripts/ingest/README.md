@@ -23,7 +23,7 @@ Common commands:
 
 ```bash
 scripts/ingest/ingest.sh --target <local|remote|fly> build
-scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|fresh|resume>
+scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|user-collections|fresh|resume>
 scripts/ingest/ingest.sh --target <local|remote|fly> status
 scripts/ingest/ingest.sh --target <local|remote|fly> logs [--follow]
 scripts/ingest/ingest.sh --target <local|remote|fly> stop
@@ -33,10 +33,11 @@ scripts/ingest/ingest.sh --target <local|remote|fly> export \
   [--keep-parts] [--overwrite]
 ```
 
-For `local` and `remote`, the `logs` command writes Docker output to a
-timestamped file under `logs/deploy/` and prints only the file path. It never
-streams application logs to the terminal. The `fly` target uses the same
-file-oriented behavior through its Fly log capture command.
+For `local` and `remote`, the `logs` command writes Docker output—including
+orchestrator and stage application logs—to a timestamped file under
+`logs/deploy/` and prints only the file path. It does not print the log
+contents to the terminal. The `fly` target uses the same file-oriented
+behavior through its Fly log capture command.
 
 Target-specific options are supplied before the command:
 
@@ -114,9 +115,24 @@ start while maintenance mode is active.
 scripts/ingest/fly_ingest.sh run ranks       # rankings only
 scripts/ingest/fly_ingest.sh run game-data   # requires completed rankings
 scripts/ingest/fly_ingest.sh run ratings     # requires completed game data
+scripts/ingest/fly_ingest.sh run user-collections # explicit; requires completed ratings
 scripts/ingest/fly_ingest.sh run fresh       # all stages, new state and data
 scripts/ingest/fly_ingest.sh run resume      # first incomplete stage onward
 ```
+
+User collection options can be passed through the target-neutral operator:
+
+```bash
+scripts/ingest/ingest.sh --target remote run user-collections \
+  --user-collection-batch-size 100 \
+  --user-collection-max-users 200000
+```
+
+Use `--user-collection-coverage-percent <percent>` instead of
+`--user-collection-max-users` when selecting by rating-row coverage. Use
+`--user-collection-additional-users <count>` to extend the selection by that
+many next-ranked users. The orchestrator converts this to a stable absolute
+max-users target so automatic retries do not append the same users again.
 
 Individual stage commands update only their requested stage in
 `run_state.json`. A later `run resume` continues with the next incomplete
@@ -124,8 +140,11 @@ stage. Each stage retries twice after its initial attempt; after three total
 attempts it is marked failed and the machine stops.
 
 `run ranks` may run regardless of the other stage states. `run game-data`
-requires rankings to be completed, and `run ratings` requires game data to be
-completed. The local terminal does not need to remain open.
+requires rankings to be completed, `run ratings` requires game data to be
+completed, and `run user-collections` requires completed ratings. The user
+collection stage is never included in `run fresh` or `run resume` unless the
+orchestrator is invoked with `--include-user-collections`. The local terminal
+does not need to remain open.
 
 ## Operations
 

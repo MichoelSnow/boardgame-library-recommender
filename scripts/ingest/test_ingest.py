@@ -74,6 +74,82 @@ def test_remote_run_command_uses_target_and_remote_mount(monkeypatch):
     assert command[-1] == "--reset-state"
 
 
+def test_user_collection_arguments_are_passed_to_orchestrator(monkeypatch):
+    monkeypatch.delenv("INGEST_ENV_FILE", raising=False)
+    profile = ingest.build_profile(
+        Namespace(
+            target="remote",
+            image="example/ingest:test",
+            container_name="remote-ingest",
+            local_workspace=None,
+            remote_host="ssh://msnow@example.invalid",
+            remote_workspace="bg-lib-ingest-data",
+            remote_workspace_type="volume",
+            env_file=None,
+        )
+    )
+
+    command = ingest._build_run_command(
+        profile,
+        "user-collections",
+        "run-123",
+        user_collection_arguments=[
+            "--user-collection-batch-size",
+            "250",
+            "--user-collection-max-users",
+            "200000",
+        ],
+    )
+
+    assert command[-7:] == [
+        "--include-user-collections",
+        "--only-stage",
+        "get_user_collections",
+        "--user-collection-batch-size",
+        "250",
+        "--user-collection-max-users",
+        "200000",
+    ]
+
+
+def test_user_collection_additional_users_are_passed_to_orchestrator(monkeypatch):
+    monkeypatch.delenv("INGEST_ENV_FILE", raising=False)
+    profile = ingest.build_profile(
+        Namespace(
+            target="remote",
+            image="example/ingest:test",
+            container_name="remote-ingest",
+            local_workspace=None,
+            remote_host="ssh://msnow@example.invalid",
+            remote_workspace="bg-lib-ingest-data",
+            remote_workspace_type="volume",
+            env_file=None,
+        )
+    )
+
+    command = ingest._build_run_command(
+        profile,
+        "user-collections",
+        "run-123",
+        user_collection_arguments=[
+            "--user-collection-batch-size",
+            "250",
+            "--user-collection-additional-users",
+            "100",
+        ],
+    )
+
+    assert command[-7:] == [
+        "--include-user-collections",
+        "--only-stage",
+        "get_user_collections",
+        "--user-collection-batch-size",
+        "250",
+        "--user-collection-additional-users",
+        "100",
+    ]
+
+
 def test_docker_environment_parses_dotenv_quotes_without_exposing_values(tmp_path):
     source_env = tmp_path / ".env"
     source_env.write_text(

@@ -21,6 +21,7 @@ ARTIFACT_DESTINATIONS = {
     "ranks": "data/ingest/ranks",
     "game_data": "data/ingest/game_data",
     "ratings": "data/ingest/ratings",
+    "collections": "data/ingest/collections",
 }
 MEGABYTE = 1024 * 1024
 

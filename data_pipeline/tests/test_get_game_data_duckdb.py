@@ -111,7 +111,7 @@ def test_http_get_bgg_xml_includes_bearer_token(monkeypatch):
 
     monkeypatch.setenv("BGG_TOKEN", "test-token")
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data.requests.get",
+        "data_pipeline.src.common.bgg_http.requests.get",
         _fake_get,
     )
 
@@ -135,15 +135,15 @@ def test_http_get_bgg_xml_reads_token_from_repo_root_dotenv(monkeypatch):
 
     monkeypatch.delenv("BGG_TOKEN", raising=False)
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data.Path.exists",
+        "data_pipeline.src.common.bgg_auth.Path.exists",
         lambda _self: True,
     )
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data.load_dotenv",
+        "data_pipeline.src.common.bgg_auth.load_dotenv",
         lambda *args, **kwargs: monkeypatch.setenv("BGG_TOKEN", "dotenv-token"),
     )
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data.requests.get",
+        "data_pipeline.src.common.bgg_http.requests.get",
         _fake_get,
     )
 
@@ -154,7 +154,7 @@ def test_http_get_bgg_xml_reads_token_from_repo_root_dotenv(monkeypatch):
 
 def test_http_get_bgg_xml_raises_when_bgg_token_missing(monkeypatch):
     monkeypatch.setattr(
-        "data_pipeline.src.ingest.get_game_data._get_bgg_token",
+        "data_pipeline.src.common.bgg_auth.get_bgg_token",
         lambda: "",
     )
 

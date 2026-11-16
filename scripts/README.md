@@ -66,6 +66,7 @@ scripts/ingest/fly_ingest.sh maintenance stop
 scripts/ingest/fly_ingest.sh run ranks
 scripts/ingest/fly_ingest.sh run game-data
 scripts/ingest/fly_ingest.sh run ratings
+scripts/ingest/fly_ingest.sh run user-collections
 scripts/ingest/fly_ingest.sh run fresh
 scripts/ingest/fly_ingest.sh machine status
 ```
