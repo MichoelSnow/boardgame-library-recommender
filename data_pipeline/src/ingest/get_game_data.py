@@ -14,128 +14,51 @@ Usage:
 """
 
 from bs4 import BeautifulSoup
-import requests
 import pandas as pd
 import logging
 import math
-import json
-import os
 from time import sleep, time
 from pathlib import Path
 import argparse
 import bs4
 import csv
 import duckdb
-from dotenv import load_dotenv
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 try:
-    from ..common.logging_utils import build_log_handlers
+    from ..common.bgg_http import request_bgg_xml
+    from ..common.game_data_store import (
+        initialize_game_data_store,
+        load_game_data_from_connection,
+        upsert_game_data_batch,
+    )
+    from ..common.ingest_utils import latest_file
+    from ..common.logging_utils import configure_stage_logging
 except ImportError:
-    from data_pipeline.src.common.logging_utils import build_log_handlers
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=build_log_handlers("get_game_data.log"),
-)
+    from data_pipeline.src.common.bgg_http import request_bgg_xml
+    from data_pipeline.src.common.game_data_store import (
+        initialize_game_data_store,
+        load_game_data_from_connection,
+        upsert_game_data_batch,
+    )
+    from data_pipeline.src.common.ingest_utils import latest_file
+    from data_pipeline.src.common.logging_utils import configure_stage_logging
+
 logger = logging.getLogger(__name__)
 
-BATCH_REQUEST_TIMEOUT_SECONDS = 20
-BGG_TOKEN_ENV_VAR = "BGG_TOKEN"
 MAX_SKIPPED_GAME_IDS = 100
 
 
-def _get_bgg_token() -> str:
-    token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
-    if token:
-        return token
-
-    repo_root_dotenv = Path(__file__).resolve().parents[3] / ".env"
-    if repo_root_dotenv.exists():
-        load_dotenv(dotenv_path=repo_root_dotenv, override=False)
-        token = os.getenv(BGG_TOKEN_ENV_VAR, "").strip()
-        if token:
-            return token
-
-    return ""
-
-
-def _build_bgg_auth_headers() -> dict[str, str]:
-    token = _get_bgg_token()
-    if not token:
-        raise ValueError(
-            f"Missing required {BGG_TOKEN_ENV_VAR} environment variable for BGG API auth."
-        )
-    return {"Authorization": f"Bearer {token}"}
-
-
-@retry(
-    retry=retry_if_exception_type(requests.RequestException),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=8),
-    reraise=True,
-)
-def _http_get_bgg_xml(url: str) -> requests.Response:
-    response = requests.get(
-        url,
-        headers=_build_bgg_auth_headers(),
-        timeout=BATCH_REQUEST_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    return response
-
-
-def _initialize_game_data_store(conn: duckdb.DuckDBPyConnection) -> None:
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS boardgame_data (
-            id BIGINT PRIMARY KEY,
-            payload_json TEXT
-        );
-        """
-    )
-
-
-def _upsert_game_batch(
-    conn: duckdb.DuckDBPyConnection, game_dicts: list[dict[str, object]]
-) -> None:
-    if not game_dicts:
-        return
-    rows = [
-        {"id": int(game_dict["id"]), "payload_json": json.dumps(game_dict)}
-        for game_dict in game_dicts
-    ]
-    df_rows = pd.DataFrame(rows)
-    conn.register("game_data_tmp", df_rows)
-    conn.execute(
-        """
-        INSERT OR REPLACE INTO boardgame_data (id, payload_json)
-        SELECT id, payload_json
-        FROM game_data_tmp;
-        """
-    )
-    conn.unregister("game_data_tmp")
+# Keep the stage-level names available to existing callers and tests while the
+# implementations live in common modules.
+_http_get_bgg_xml = request_bgg_xml
+_initialize_game_data_store = initialize_game_data_store
+_load_game_data_from_store = load_game_data_from_connection
+_upsert_game_batch = upsert_game_data_batch
 
 
 def _load_completed_ids(conn: duckdb.DuckDBPyConnection) -> set[int]:
     completed_rows = conn.execute("SELECT id FROM boardgame_data").fetchall()
     return {int(row[0]) for row in completed_rows}
-
-
-def _load_game_data_from_store(conn: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    payload_rows = conn.execute(
-        "SELECT payload_json FROM boardgame_data ORDER BY id"
-    ).fetchall()
-    if not payload_rows:
-        return pd.DataFrame()
-    records = [json.loads(row[0]) for row in payload_rows]
-    return pd.DataFrame(records)
 
 
 def _seed_store_from_dataframe(
@@ -519,6 +442,7 @@ def get_simple_game_data(
 
 def main():
     """Main function to get board game data."""
+    configure_stage_logging(logger, "get_game_data.log")
     try:
         # Set up argument parser
         parser = argparse.ArgumentParser(description="Get board game data from BGG")
@@ -549,7 +473,7 @@ def main():
         if not ranks_files:
             raise FileNotFoundError("No rankings files found")
 
-        latest_ranks = max(ranks_files, key=lambda x: x.stat().st_mtime)
+        latest_ranks = latest_file(ranks_dir, "boardgame_ranks_*.csv")
         logger.info(f"Using rankings file: {latest_ranks}")
 
         # Read rankings
@@ -567,7 +491,7 @@ def main():
             )
             game_files = list(game_data_dir.glob(file_pattern))
             if game_files:
-                latest_games = max(game_files, key=lambda x: x.stat().st_mtime)
+                latest_games = latest_file(game_data_dir, file_pattern)
                 logger.info(f"Continuing from game data store: {latest_games}")
                 existing_store_path = latest_games
 

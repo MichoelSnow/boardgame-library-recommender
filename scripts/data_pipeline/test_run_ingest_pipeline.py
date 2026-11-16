@@ -15,6 +15,22 @@ def test_build_initial_state_excludes_ratings_when_skipped():
     assert "get_ranks" in state["stages"]
     assert "get_game_data" in state["stages"]
     assert "get_ratings" not in state["stages"]
+    assert "get_user_collections" not in state["stages"]
+
+
+def test_user_collections_are_opt_in():
+    default_state = run_ingest_pipeline._build_initial_state(include_ratings=True)
+    enabled_state = run_ingest_pipeline._build_initial_state(
+        include_ratings=True, include_user_collections=True
+    )
+
+    assert "get_user_collections" not in default_state["stages"]
+    assert list(enabled_state["stages"]) == [
+        "get_ranks",
+        "get_game_data",
+        "get_ratings",
+        "get_user_collections",
+    ]
 
 
 def test_runtime_target_defaults_to_unspecified(monkeypatch):
@@ -45,7 +61,7 @@ def test_default_paths_respect_runtime_overrides(monkeypatch):
     assert run_ingest_pipeline._default_log_dir() == Path("/workspace/logs")
 
 
-def test_setup_logging_uses_file_handler_only(tmp_path):
+def test_setup_logging_uses_stream_and_file_handlers(tmp_path):
     root_logger = logging.getLogger()
     existing_handlers = root_logger.handlers[:]
 
@@ -53,8 +69,9 @@ def test_setup_logging_uses_file_handler_only(tmp_path):
 
     try:
         assert run_log_path.exists()
-        assert len(root_logger.handlers) == 1
-        assert type(root_logger.handlers[0]) is logging.FileHandler
+        assert len(root_logger.handlers) == 2
+        assert type(root_logger.handlers[0]) is logging.StreamHandler
+        assert type(root_logger.handlers[1]) is logging.FileHandler
     finally:
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
@@ -100,6 +117,132 @@ def test_only_stage_selects_ratings():
     )
 
     assert [stage.name for stage in stages] == ["get_ratings"]
+
+
+def test_user_collection_stage_command_includes_selection_arguments():
+    stages = run_ingest_pipeline._selected_stages(
+        include_ratings=True,
+        include_user_collections=True,
+        user_collection_batch_size=25,
+        user_collection_coverage_percent=None,
+        user_collection_max_users=200,
+    )
+
+    collection_stage = next(
+        stage for stage in stages if stage.name == "get_user_collections"
+    )
+
+    assert collection_stage.command[-4:] == [
+        "--batch-size",
+        "25",
+        "--max-users",
+        "200",
+    ]
+
+
+def test_user_collection_stage_command_includes_additional_users():
+    stages = run_ingest_pipeline._selected_stages(
+        include_ratings=True,
+        include_user_collections=True,
+        user_collection_batch_size=25,
+        user_collection_coverage_percent=None,
+        user_collection_additional_users=100,
+    )
+
+    collection_stage = next(
+        stage for stage in stages if stage.name == "get_user_collections"
+    )
+
+    assert collection_stage.command[-4:] == [
+        "--batch-size",
+        "25",
+        "--additional-users",
+        "100",
+    ]
+
+
+def test_resolve_additional_users_to_stable_max_users_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        run_ingest_pipeline,
+        "_current_collection_user_count",
+        lambda _collections_dir, _ratings_db_path: 100,
+    )
+    state = {
+        "stages": {"get_user_collections": {"attempts": 0}},
+    }
+
+    target = run_ingest_pipeline._resolve_user_collection_max_users(
+        state=state,
+        additional_users=3100,
+        start_new_run=False,
+        only_stage=None,
+        project_root=tmp_path,
+    )
+
+    assert target == 3200
+    assert state["user_collection_max_users_target"] == 3200
+
+
+def test_resolve_additional_users_reuses_persisted_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        run_ingest_pipeline,
+        "_current_collection_user_count",
+        lambda *_args: 8100,
+    )
+    state = {
+        "user_collection_max_users_target": 3200,
+        "stages": {"get_user_collections": {"attempts": 1}},
+    }
+
+    target = run_ingest_pipeline._resolve_user_collection_max_users(
+        state=state,
+        additional_users=3100,
+        start_new_run=False,
+        only_stage=None,
+        project_root=tmp_path,
+    )
+
+    assert target == 3200
+
+
+def test_resolve_additional_users_avoids_legacy_duplicate_append(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(
+        run_ingest_pipeline,
+        "_current_collection_user_count",
+        lambda *_args: 8100,
+    )
+    state = {
+        "status": "running",
+        "stages": {"get_user_collections": {"attempts": 2}},
+    }
+
+    target = run_ingest_pipeline._resolve_user_collection_max_users(
+        state=state,
+        additional_users=3100,
+        start_new_run=False,
+        only_stage=None,
+        project_root=tmp_path,
+    )
+
+    assert target == 8100
+
+
+def test_user_collection_stage_requires_ratings_prerequisite():
+    state = run_ingest_pipeline._build_initial_state(
+        include_ratings=True, include_user_collections=True
+    )
+
+    with pytest.raises(ValueError, match="requires get_ratings"):
+        run_ingest_pipeline._validate_stage_prerequisite(
+            state, stage_name="get_user_collections"
+        )
+
+    state["stages"]["get_ratings"]["status"] = "completed"
+    run_ingest_pipeline._validate_stage_prerequisite(
+        state, stage_name="get_user_collections"
+    )
 
 
 def test_stage_prerequisites():

@@ -18,6 +18,7 @@ Lists ingest artifact files currently present on the Fly ingest volume:
 - /app/data/ingest/ranks
 - /app/data/ingest/game_data
 - /app/data/ingest/ratings
+- /app/data/ingest/collections
 EOF
 }
 
@@ -78,6 +79,7 @@ list_group() {
 list_group "ranks" "/app/data/ingest/ranks" "boardgame_ranks_*"
 list_group "game_data" "/app/data/ingest/game_data" "boardgame_data_*"
 list_group "ratings" "/app/data/ingest/ratings" "boardgame_ratings_*"
+list_group "collections" "/app/data/ingest/collections" "user_collections_*"
 EOF
 )
 

@@ -18,6 +18,28 @@ def get_logs_dir() -> Path:
 
 def build_log_handlers(filename: str) -> list[logging.Handler]:
     log_path = get_logs_dir() / filename
-    # Keep application logs in files so container stdout remains available for
-    # command results and operational status rather than duplicated log output.
-    return [logging.FileHandler(str(log_path))]
+    return [
+        logging.FileHandler(str(log_path)),
+        logging.StreamHandler(),
+    ]
+
+
+def configure_stage_logging(
+    logger: logging.Logger,
+    filename: str,
+    *,
+    level: int = logging.INFO,
+) -> None:
+    """Configure one ingestion stage logger without import-time side effects."""
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+        handler.close()
+
+    logger.setLevel(level)
+    logger.propagate = False
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    for handler in build_log_handlers(filename):
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)

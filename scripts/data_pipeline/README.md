@@ -25,6 +25,7 @@ interface and target-specific options.
     - `get_ranks`
     - `get_game_data` (fresh on a new run; resumes on retries)
     - `get_ratings` (incremental refresh of stale games, unless `--skip-ratings`)
+    - `get_user_collections` (optional; only with `--include-user-collections`)
   - Persists stage/run state to JSON for resume.
   - Retries failed stages up to max attempts.
   - Sends optional email notification on failure/completion.
@@ -55,10 +56,15 @@ operator commands documented below:
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py --only-stage get_ranks
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py --only-stage get_game_data
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py --only-stage get_ratings
+poetry run python scripts/data_pipeline/run_ingest_pipeline.py \
+  --include-user-collections --only-stage get_user_collections
 ```
 
 Stage-only runs preserve the other stage states. `get_game_data` requires
-completed rankings, and `get_ratings` requires completed game data.
+completed rankings, `get_ratings` requires completed game data, and
+`get_user_collections` requires completed ratings plus the explicit
+`--include-user-collections` flag. The user collection stage is never selected
+by default.
 
 The target-neutral operator interface is `scripts/ingest/ingest.sh --target fly`.
 Use `scripts/ingest/fly_ingest.sh` for Fly-specific maintenance, deployment,
@@ -93,6 +99,15 @@ poetry run python scripts/data_pipeline/run_ingest_pipeline.py
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py --skip-ratings
 poetry run python scripts/data_pipeline/run_ingest_pipeline.py --max-stage-attempts 5
 ```
+
+When enabled, user collection selection defaults to 90% of rating rows and
+batches 100 users at a time. Override
+these values with `--user-collection-coverage-percent`,
+`--user-collection-max-users`, `--user-collection-additional-users`, and
+`--user-collection-batch-size`. The orchestrator resolves
+`--user-collection-additional-users` once into an absolute max-users target so
+stage retries are idempotent. Direct stage-module use of `--additional-users`
+continues to append the next-ranked users intentionally.
 
 ## `profile_ingest_stage.py`
 - What it does:

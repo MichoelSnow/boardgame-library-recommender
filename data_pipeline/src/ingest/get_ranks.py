@@ -38,16 +38,10 @@ from tenacity import (
 )
 
 try:
-    from ..common.logging_utils import build_log_handlers
+    from ..common.logging_utils import configure_stage_logging
 except ImportError:
-    from data_pipeline.src.common.logging_utils import build_log_handlers
+    from data_pipeline.src.common.logging_utils import configure_stage_logging
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=build_log_handlers("get_ranks.log"),
-)
 logger = logging.getLogger(__name__)
 
 RANKS_CSV_FILENAME = "boardgames_ranks.csv"
@@ -141,6 +135,7 @@ def get_boardgame_ranks(
 
 
 def main() -> None:
+    configure_stage_logging(logger, "get_ranks.log")
     parser = argparse.ArgumentParser(description="Get board game rankings from BGG.")
     parser.add_argument(
         "--ranks-zip-url",

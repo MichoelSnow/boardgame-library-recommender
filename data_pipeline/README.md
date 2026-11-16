@@ -14,9 +14,10 @@ then run only the optional operations you need.
 | Run a long refresh on Fly | [1.C: Collect on Fly](#1c-collect-on-fly-bg-lib-ingest) -> [Export artifacts](#export-artifacts-to-local-processing) -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) |
 | Resume a failed or interrupted collection | Check status and logs -> `run resume` for the selected target |
 | Rerun only the ratings stage | Use `run ratings` for the selected target |
+| Fetch selected user collections | Explicitly use `run user-collections` after ratings |
 | Update the deployed application | Collect on the selected target -> [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.B: Import into deployed Fly Postgres](#3b-import-into-deployed-fly-postgres) |
 | Process and import a collected dataset locally | [Phase 2: Process artifacts locally](#phase-2-process-artifacts-locally) -> [3.A: Import into a local database](#3a-import-into-a-local-database) |
-| Rebuild only a particular ingest stage | Use `run ranks`, `run game-data`, or `run ratings` for the selected target |
+| Rebuild only a particular ingest stage | Use `run ranks`, `run game-data`, `run ratings`, or `run user-collections` for the selected target |
 
 Local and remote collection are alternatives. Local and remote import are also
 alternatives. Library import, database reset, backups, image synchronization,
@@ -31,6 +32,7 @@ and embedding transfer are conditional operations described in their sections.
   - `get_ranks.py`
   - `get_game_data.py`
   - `get_ratings.py`
+  - `get_user_collections.py`
 - `src/transform/`
   - `data_processor.py`
 - `src/features/`
@@ -65,7 +67,7 @@ The common interface is:
 
 ```bash
 scripts/ingest/ingest.sh --target <local|remote|fly> build
-scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|fresh|resume>
+scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|user-collections|fresh|resume>
 scripts/ingest/ingest.sh --target <local|remote|fly> status
 scripts/ingest/ingest.sh --target <local|remote|fly> logs [--follow]
 scripts/ingest/ingest.sh --target <local|remote|fly> stop
@@ -109,14 +111,15 @@ scripts/ingest/ingest.sh --target local build
 scripts/ingest/ingest.sh --target local run fresh
 ```
 
-Use `run ranks`, `run game-data`, `run ratings`, or `run resume` when only one
-stage or an incomplete run should be executed. Inspect progress with `status`
-and `logs`.
+Use `run ranks`, `run game-data`, `run ratings`, `run user-collections`, or
+`run resume` when only one stage or an incomplete run should be executed.
+Inspect progress with `status` and `logs`.
 
 #### Reference: Inputs and outputs
 
 Token requirements:
-- `BGG_TOKEN` is required for `get_game_data` and `get_ratings`.
+- `BGG_TOKEN` is required for `get_game_data`, `get_ratings`, and
+  `get_user_collections`.
 - Auth format: `Authorization: Bearer <token>`.
 - Scripts check process env first, then repo-root `.env`.
 
@@ -124,11 +127,56 @@ Outputs:
 - Rankings: `data/ingest/ranks/boardgame_ranks_*.csv`
 - Game data: `data/ingest/game_data/boardgame_data_*.duckdb`
 - Ratings: `data/ingest/ratings/boardgame_ratings_*.duckdb`
+- User collections: `data/ingest/collections/user_collections_*.duckdb`
 
 Ratings DuckDB details:
 - Table: `boardgame_ratings(game_id BIGINT, rating_round DOUBLE, username TEXT)`
 - Index: `idx_boardgame_ratings` on `(game_id, rating_round, username)`
 - Inserts are de-duplicated and resume-safe.
+
+User collection ingestion is never included in a normal full run. Enable it
+explicitly with the orchestrator or operator command:
+
+```bash
+poetry run python scripts/data_pipeline/run_ingest_pipeline.py \
+  --include-user-collections
+scripts/ingest/ingest.sh --target <local|remote|fly> run user-collections
+```
+
+The operator forwards collection options to the orchestrator:
+
+```bash
+scripts/ingest/ingest.sh --target remote run user-collections \
+  --user-collection-batch-size 100 \
+  --user-collection-coverage-percent 90
+```
+
+The default selects users in descending rating-row count until at least 90% of
+all rating rows are covered, and processes 100 users per batch. Use the stage
+module directly when a different cutoff is needed:
+
+```bash
+poetry run python -m data_pipeline.src.ingest.get_user_collections \
+  --continue-from-last --batch-size 100 --max-users 200000
+```
+
+To append users to an existing collection DuckDB, use the operator's
+`--user-collection-additional-users <count>` option or the stage module's
+`--additional-users <count>` option. For example, adding 100 users to an
+artifact containing 100 selected users results in 200 selected users, subject
+to the number of ranked users available in the ratings database. The
+orchestrator resolves the operator option to an absolute `--max-users` target
+and persists that target so automatic retries are idempotent; the stage-module
+option remains an intentional append operation.
+
+The collection endpoint is asynchronous. Processing responses remain queued in
+the collection DuckDB and are retried with bounded backoff. A collection that
+exceeds BGG's export limit is recorded as `too_large` and is not retried
+indefinitely. HTTP 429 responses trigger a global request cooldown using
+`Retry-After` when available, or bounded exponential backoff otherwise; no
+other collection request is sent during that cooldown.
+If BGG reports `Invalid username specified`, the user is recorded as an
+`invalid_user` terminal failure, skipped, and not retried.
 
 ### 1.B: Collect on a remote Docker host (SSH)
 
@@ -261,9 +309,12 @@ scripts/ingest/fly_ingest.sh logs
 ```
 
 #### Reference: Remote run behavior
-- Stage order: `get_ranks -> get_game_data -> get_ratings`
+- Stage order: `get_ranks -> get_game_data -> get_ratings`; the optional
+  `get_user_collections` stage follows ratings only when explicitly enabled.
 - Individual stage commands run exactly one selected stage and preserve the other stage states.
-- `run game-data` requires completed rankings; `run ratings` requires completed game data.
+- `run game-data` requires completed rankings; `run ratings` requires completed
+  game data; `run user-collections` requires completed ratings and is never
+  selected by default.
 - A new run downloads fresh ranks and creates a fresh game-data DuckDB.
 - A failed or interrupted run resumes the game-data DuckDB created by that run.
 - Ratings reuse the existing ratings DuckDB and refresh only games that are behind the current game-data `numratings` values.
