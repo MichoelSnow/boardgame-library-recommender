@@ -140,9 +140,7 @@ def _latest_artifact(directory: Path, pattern: str) -> Path | None:
 def _current_collection_user_count(
     collections_dir: Path, ratings_db_path: Path | None = None
 ) -> int:
-    collection_store = _latest_artifact(
-        collections_dir, "user_collections_*.duckdb"
-    )
+    collection_store = _latest_artifact(collections_dir, "user_collections_*.duckdb")
     if collection_store is None:
         return 0
 
@@ -224,9 +222,7 @@ def _build_initial_state(
         stage.name
         for stage in STAGES
         if (include_ratings or stage.name != "get_ratings")
-        and (
-            include_user_collections or stage.name != "get_user_collections"
-        )
+        and (include_user_collections or stage.name != "get_user_collections")
     ]
     stage_records = {
         stage_name: {
@@ -301,9 +297,7 @@ def _selected_stages(
             user_collection_additional_users is not None
             and user_collection_additional_users < 1
         ):
-            raise ValueError(
-                "--user-collection-additional-users must be at least 1"
-            )
+            raise ValueError("--user-collection-additional-users must be at least 1")
         selection_values = [
             user_collection_coverage_percent,
             user_collection_max_users,
@@ -324,9 +318,7 @@ def _selected_stages(
             str(user_collection_batch_size),
         ]
         if user_collection_max_users is not None:
-            collection_command.extend(
-                ["--max-users", str(user_collection_max_users)]
-            )
+            collection_command.extend(["--max-users", str(user_collection_max_users)])
         elif user_collection_additional_users is not None:
             collection_command.extend(
                 ["--additional-users", str(user_collection_additional_users)]
@@ -349,9 +341,7 @@ def _selected_stages(
         stage
         for stage in stages
         if (include_ratings or stage.name != "get_ratings")
-        and (
-            include_user_collections or stage.name != "get_user_collections"
-        )
+        and (include_user_collections or stage.name != "get_user_collections")
     ]
     if only_stage is not None:
         selected = [stage for stage in selected if stage.name == only_stage]
@@ -705,8 +695,7 @@ def main() -> int:
         )
     if args.only_stage == "get_user_collections" and not args.include_user_collections:
         raise ValueError(
-            "--only-stage get_user_collections requires "
-            "--include-user-collections"
+            "--only-stage get_user_collections requires --include-user-collections"
         )
     existing_state = _load_state(args.state_path)
     if args.only_stage and args.reset_state:
@@ -734,9 +723,8 @@ def main() -> int:
         )
     else:
         state = existing_state
-        if (
-            args.include_user_collections
-            and "get_user_collections" not in state.get("stages", {})
+        if args.include_user_collections and "get_user_collections" not in state.get(
+            "stages", {}
         ):
             state["stages"]["get_user_collections"] = {
                 "status": "pending",
@@ -776,8 +764,7 @@ def main() -> int:
         user_collection_batch_size=args.user_collection_batch_size,
         user_collection_coverage_percent=(
             None
-            if resolved_max_users is not None
-            or resolved_additional_users is not None
+            if resolved_max_users is not None or resolved_additional_users is not None
             else args.user_collection_coverage_percent
         ),
         user_collection_max_users=resolved_max_users,
@@ -795,9 +782,7 @@ def main() -> int:
         stage = _next_incomplete_stage(state, selected_stages)
         if stage is None:
             all_stages_completed = not args.only_stage and all(
-                state.get("stages", {})
-                .get(selected_stage.name, {})
-                .get("status")
+                state.get("stages", {}).get(selected_stage.name, {}).get("status")
                 == "completed"
                 for selected_stage in selected_stages
             )

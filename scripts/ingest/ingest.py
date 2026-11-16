@@ -437,9 +437,7 @@ def _user_collection_arguments(args: argparse.Namespace) -> list[str]:
         )
     if args.user_collection_additional_users is not None:
         if args.user_collection_additional_users < 1:
-            raise OperatorError(
-                "--user-collection-additional-users must be at least 1"
-            )
+            raise OperatorError("--user-collection-additional-users must be at least 1")
         arguments.extend(
             [
                 "--user-collection-additional-users",
@@ -785,9 +783,7 @@ def main() -> int:
         if args.command == "run":
             user_collection_arguments = _user_collection_arguments(args)
             if profile.target == "fly":
-                return fly_command(
-                    ["run", args.mode, *user_collection_arguments]
-                )
+                return fly_command(["run", args.mode, *user_collection_arguments])
             return start_run(profile, args.mode, user_collection_arguments)
         if args.command == "status":
             return show_status(profile)

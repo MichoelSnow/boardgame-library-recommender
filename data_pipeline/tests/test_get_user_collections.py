@@ -185,7 +185,9 @@ def test_find_or_create_store_max_users_target_is_idempotent(tmp_path: Path):
         selection_value=3,
     )
     assert resumed_path == store_path
-    assert connection.execute("SELECT COUNT(*) FROM collection_users").fetchone() == (3,)
+    assert connection.execute("SELECT COUNT(*) FROM collection_users").fetchone() == (
+        3,
+    )
     connection.close()
 
     _, connection = get_user_collections._find_or_create_store(
@@ -198,7 +200,9 @@ def test_find_or_create_store_max_users_target_is_idempotent(tmp_path: Path):
         selection_mode="max_users",
         selection_value=3,
     )
-    assert connection.execute("SELECT COUNT(*) FROM collection_users").fetchone() == (3,)
+    assert connection.execute("SELECT COUNT(*) FROM collection_users").fetchone() == (
+        3,
+    )
     connection.close()
 
 

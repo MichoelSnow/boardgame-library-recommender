@@ -18,7 +18,9 @@ def test_build_log_handlers_uses_file_and_stream_handlers(tmp_path, monkeypatch)
             handler.close()
 
 
-def test_configure_stage_logging_attaches_handlers_to_stage_logger(tmp_path, monkeypatch):
+def test_configure_stage_logging_attaches_handlers_to_stage_logger(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("DATA_PIPELINE_LOG_DIR", str(tmp_path))
     logger = logging.getLogger("test.stage.logger")
 

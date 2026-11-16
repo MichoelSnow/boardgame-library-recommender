@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 _http_get_bgg_xml = request_bgg_xml
 save_game_data_to_duckdb = replace_game_data_in_duckdb
 
+
 def get_boardgame_ratings(
     boardgame_data: pd.DataFrame,
     boardgame_ratings: pd.DataFrame = None,
@@ -513,9 +514,7 @@ def main():
         if args.continue_from_last:
             ratings_files = list(ratings_dir.glob("boardgame_ratings_*.duckdb"))
             if ratings_files:
-                latest_ratings = latest_file(
-                    ratings_dir, "boardgame_ratings_*.duckdb"
-                )
+                latest_ratings = latest_file(ratings_dir, "boardgame_ratings_*.duckdb")
                 ratings_store_path = latest_ratings
                 logger.info("Continuing from DuckDB ratings at: %s", latest_ratings)
                 con = duckdb.connect(str(latest_ratings))

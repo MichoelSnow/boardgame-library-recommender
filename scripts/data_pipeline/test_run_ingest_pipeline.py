@@ -205,9 +205,7 @@ def test_resolve_additional_users_reuses_persisted_target(monkeypatch, tmp_path)
     assert target == 3200
 
 
-def test_resolve_additional_users_avoids_legacy_duplicate_append(
-    monkeypatch, tmp_path
-):
+def test_resolve_additional_users_avoids_legacy_duplicate_append(monkeypatch, tmp_path):
     monkeypatch.setattr(
         run_ingest_pipeline,
         "_current_collection_user_count",

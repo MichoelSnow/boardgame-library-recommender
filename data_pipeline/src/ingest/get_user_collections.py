@@ -139,7 +139,9 @@ def _initialize_collection_store(connection: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def _set_metadata(connection: duckdb.DuckDBPyConnection, values: dict[str, str]) -> None:
+def _set_metadata(
+    connection: duckdb.DuckDBPyConnection, values: dict[str, str]
+) -> None:
     connection.executemany(
         "INSERT OR REPLACE INTO collection_metadata (key, value) VALUES (?, ?)",
         list(values.items()),
@@ -196,9 +198,7 @@ def _populate_selected_users(
     logger.info(
         "Building collection user queue from ratings DuckDB: %s", ratings_db_path
     )
-    connection.execute(
-        f"ATTACH '{ratings_db_literal}' AS ratings_source (READ_ONLY)"
-    )
+    connection.execute(f"ATTACH '{ratings_db_literal}' AS ratings_source (READ_ONLY)")
     try:
         if max_users is not None:
             if existing_user_count:
@@ -218,8 +218,7 @@ def _populate_selected_users(
             ]
         else:
             selection_filter = (
-                "cumulative_rating_count - rating_count "
-                "< total_rating_count * ? / 100"
+                "cumulative_rating_count - rating_count < total_rating_count * ? / 100"
             )
             selection_parameters = [coverage_percent]
 
@@ -439,21 +438,15 @@ def _parse_collection_items(content: bytes, username: str) -> CollectionResponse
                 "want_to_play": _parse_int(
                     status.get("wanttoplay") if status else None
                 ),
-                "want_to_buy": _parse_int(
-                    status.get("wanttobuy") if status else None
-                ),
+                "want_to_buy": _parse_int(status.get("wanttobuy") if status else None),
                 "wishlist": _parse_int(status.get("wishlist") if status else None),
                 "wishlist_priority": _parse_int(
                     status.get("wishlistpriority") if status else None
                 ),
-                "preordered": _parse_int(
-                    status.get("preordered") if status else None
-                ),
+                "preordered": _parse_int(status.get("preordered") if status else None),
                 "last_modified": status.get("lastmodified") if status else None,
                 "num_plays": _parse_int(
-                    numplays_element.get_text(strip=True)
-                    if numplays_element
-                    else None
+                    numplays_element.get_text(strip=True) if numplays_element else None
                 ),
                 "rating": _parse_float(
                     rating_element.get("value") if rating_element else None
@@ -490,7 +483,9 @@ def _retry_after_seconds(response: requests.Response) -> float | None:
         return max(0.0, (retry_at - datetime.now(UTC)).total_seconds())
 
 
-def _classify_response(response: requests.Response, username: str) -> CollectionResponse:
+def _classify_response(
+    response: requests.Response, username: str
+) -> CollectionResponse:
     if response.status_code in {401, 403}:
         raise RuntimeError(
             f"BGG authorization failed while fetching {username} "
@@ -654,8 +649,7 @@ def _find_or_create_store(
                 )
             connection.commit()
             logger.info(
-                "Continuing from user collections DuckDB: %s "
-                "(selection=%s %s)",
+                "Continuing from user collections DuckDB: %s (selection=%s %s)",
                 existing_store,
                 metadata.get("selection_mode", "unknown"),
                 metadata.get("selection_value", "unknown"),
@@ -1092,8 +1086,12 @@ def main() -> int:
     args = parse_args()
     project_root = Path(__file__).resolve().parents[3]
     ratings_dir = project_root / "data" / "ingest" / "ratings"
-    collections_dir = args.collections_dir or project_root / "data" / "ingest" / "collections"
-    ratings_db = args.ratings_db or _latest_file(ratings_dir, "boardgame_ratings_*.duckdb")
+    collections_dir = (
+        args.collections_dir or project_root / "data" / "ingest" / "collections"
+    )
+    ratings_db = args.ratings_db or _latest_file(
+        ratings_dir, "boardgame_ratings_*.duckdb"
+    )
     ingest_user_collections(
         ratings_db_path=ratings_db,
         collections_dir=collections_dir,
