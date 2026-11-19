@@ -45,10 +45,10 @@ jest.mock('../hooks/useRecommendationSessionState', () => ({
   }),
 }));
 
-const renderGameList = () =>
+const renderGameList = (initialEntries = ['/']) =>
   render(
     withQueryClient(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
           <GameList />
         </AuthContext.Provider>
@@ -91,13 +91,46 @@ describe('GameList browse shell', () => {
     );
   });
 
-  test('opens and closes the filter drawer', async () => {
+  test('migrates filters into persistent accordion sections', async () => {
     renderGameList();
 
     fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
     expect(screen.getByText('Filter Games')).toBeInTheDocument();
+    expect(screen.getByText('Group & Requirements')).toBeInTheDocument();
+    expect(screen.getByText('Players')).toBeInTheDocument();
+    expect(screen.getByText('Complexity')).toBeInTheDocument();
+    expect(screen.getByText('Game Type')).toBeInTheDocument();
+    expect(screen.getByText('Theme & Setting')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '4' }));
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerOptions: expect.objectContaining({ count: 4 }),
+      })
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Close filters' }));
     await waitForElementToBeRemoved(() => screen.queryByText('Filter Games'));
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters \(1\)/ }));
+    expect(screen.getByRole('button', { name: '4' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('Clear All only clears filter constraints', () => {
+    renderGameList(['/?search=Wingspan&sort=name_asc&library_only=false&players=4&weight=beginner']);
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters \(2\)/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
+
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        searchTerm: 'Wingspan',
+        sortBy: 'name_asc',
+        libraryOnly: false,
+        playerOptions: expect.objectContaining({ count: null }),
+        weight: { beginner: false, midweight: false, heavy: false },
+      })
+    );
+    expect(screen.getByLabelText('Search Games')).toHaveValue('Wingspan');
   });
 });

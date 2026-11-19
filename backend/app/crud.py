@@ -155,16 +155,16 @@ def get_games(
             weight_list = weight.split(",")
             weight_conditions = []
             if "beginner" in weight_list:
-                weight_conditions.append(models.BoardGame.average_weight <= 2.0)
+                weight_conditions.append(models.BoardGame.average_weight < 2.0)
             if "midweight" in weight_list:
                 weight_conditions.append(
                     and_(
-                        models.BoardGame.average_weight > 2.0,
-                        models.BoardGame.average_weight < 4.0,
+                        models.BoardGame.average_weight >= 2.0,
+                        models.BoardGame.average_weight <= 4.0,
                     )
                 )
             if "heavy" in weight_list:
-                weight_conditions.append(models.BoardGame.average_weight >= 4.0)
+                weight_conditions.append(models.BoardGame.average_weight > 4.0)
 
             if weight_conditions:
                 query = query.filter(or_(*weight_conditions))
