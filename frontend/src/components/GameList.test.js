@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from '@testing-library/react';
 
 import AuthContext from '../context/AuthContext';
@@ -104,6 +105,27 @@ describe('GameList browse shell', () => {
     expect(mockUseGamesQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         playerOptions: expect.objectContaining({ count: 4 }),
+      })
+    );
+  });
+
+  test('removing a drawer filter updates the query while preserving the drawer and other filters', () => {
+    renderGameList(['/?players=4&max_playtime=60&cooperative=true']);
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+
+    const activeFiltersSection = screen.getByRole('region', { name: 'Active Filters (3)' });
+    fireEvent.click(within(activeFiltersSection).getByLabelText('Remove 4 players filter'));
+
+    expect(screen.getByRole('button', { name: 'Close filters' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Active Filters (2)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '4' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Cooperative games only' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockUseGamesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        playerOptions: expect.objectContaining({ count: null }),
+        maxPlaytime: 60,
+        cooperative: true,
       })
     );
   });

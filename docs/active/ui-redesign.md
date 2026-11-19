@@ -112,6 +112,7 @@ The agent may determine exact spacing, breakpoints, and component structure, pro
 - Filters can use different control types inside an accordion; they do not all need to be checkboxes.
 - **No required “Show Games” button.** Changing filters updates a temporary draft while the drawer is open; closing the drawer commits the draft and returns users to the filtered game list. The X, backdrop, Escape, and browser/Android Back close paths all commit the draft. This avoids a separate apply button while preventing a query for every intermediate selection.
 - The drawer closes through the header X, backdrop tap, or browser/Android Back. Drawer visibility is temporary UI state and must not be stored in URL parameters.
+- When filters are active, show an **Active Filters (N)** section directly below the fixed header and above the accordions. It belongs to the scrollable drawer content, wraps chips across rows, and displays every active filter as a removable, touch-friendly chip. Removing a chip immediately commits that removal to the filter state and results while keeping the drawer open; the main results screen retains its three-chip cap and **+N more** shortcut.
 - Touch targets should be comfortably large. Active chips on the results screen should allow removal by tapping the chip, with a sufficiently large visible × affordance; this addresses repeated feedback that the current × is too small.
 
 ## Filter taxonomy — agreed structure
@@ -226,6 +227,7 @@ Show the following **10 featured themes**:
 - Preserve selection state when accordion sections collapse or the drawer is reopened.
 - In a compound control such as Players, the active chip text should accurately describe the number and mode (e.g., `4 players · Best`).
 - The main screen shows at most three chips and a **+N more** drawer shortcut; see the agreed main browsing screen section above.
+- The filter drawer shows all active filters in its scrollable **Active Filters (N)** section, and removing one preserves the remaining selections, updates the corresponding controls and URL, and leaves the drawer open.
 
 ### From game details versus from the list
 

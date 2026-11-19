@@ -66,11 +66,11 @@ Tasks:
 - [x] Implement the default accordion state: Group & Requirements expanded; Game Type and Theme & Setting collapsed. Preserve selections when sections collapse or the drawer reopens.
 - [x] Migrate current Players, Complexity/Weight, mechanics, and categories controls into the drawer, keeping changes immediately applied without a Show Games button.
 - [x] Rename the user-facing Weight control to Complexity and align thresholds with the specification. Resolve the existing boundary mismatch (`crud.py` currently uses beginner `<= 2`, midweight `> 2 and < 4`, heavy `>= 4`) before changing labels or comparisons to the specified Light `< 2`, Medium `2–4` inclusive, Heavy `> 4`.
-- [x] Implement active-filter accounting, prioritized maximum-three chips, `+N more`, whole-chip touch targets, and section-selection counts. Keep sort, search, library scope, and recommendation state distinct from filter chips; Clear All clears only filter constraints.
+- [x] Implement active-filter accounting, prioritized maximum-three chips, `+N more`, whole-chip touch targets, and section-selection counts. Keep sort, search, library scope, and recommendation state distinct from filter chips; Clear All clears only filter constraints. The drawer also exposes every active filter in a scrollable `Active Filters (N)` chip section; removing one immediately updates the committed state and results without closing the drawer.
 - [x] Preserve URL state for all existing filters; do not encode drawer visibility or transient accordion state in URL parameters.
 - [x] Add or adjust one focused flow test only where filter state or URL serialization changes: cover restoration of a meaningful filter selection and recommendation-mode disabling if affected. Verify chip prioritization, collapse/reopen presentation, and touch behavior manually rather than adding a test for each control.
 
-Completion conditions: all currently supported filters work from the drawer with unchanged backend semantics, active selections are discoverable/removable on touch, and existing deep links continue to restore their state.
+Completion conditions: all currently supported filters work from the drawer with unchanged backend semantics, active selections are discoverable/removable on touch both on the results screen and in the drawer, and existing deep links continue to restore their state.
 
 ### Stage 3 — Define and implement the expanded filter contract
 

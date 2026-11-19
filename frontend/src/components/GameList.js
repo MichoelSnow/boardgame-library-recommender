@@ -218,6 +218,170 @@ const buildEmptyFilterDraft = () => ({
   cooperative: false,
 });
 
+const complexityLabels = {
+  beginner: 'Complexity: Light',
+  midweight: 'Complexity: Medium',
+  heavy: 'Complexity: Heavy',
+};
+
+const buildActiveFilterChips = ({
+  playerOptions,
+  weight,
+  selectedDesigners,
+  selectedArtists,
+  selectedMechanics,
+  selectedCategories,
+  selectedGameTypes,
+  selectedThemes,
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+}) => [
+  ...(playerOptions.count !== null
+    ? [{
+        key: 'players',
+        label: `${playerOptions.count === PLAYER_COUNT_NINE_PLUS ? '9+' : playerOptions.count} players${playerOptions.recommendation !== 'allowed' ? ` · ${playerOptions.recommendation[0].toUpperCase()}${playerOptions.recommendation.slice(1)}` : ''}`,
+        type: 'players',
+        id: null,
+      }]
+    : []),
+  ...(maxPlaytime !== null
+    ? [{
+        key: 'max-playtime',
+        label: `Up to ${formatPlaytimeLabel(maxPlaytime)}`,
+        type: 'max_playtime',
+        id: null,
+      }]
+    : []),
+  ...(minAge !== null
+    ? [{
+        key: 'min-age',
+        label: `Age ${minAge}+`,
+        type: 'min_age',
+        id: null,
+      }]
+    : []),
+  ...Object.entries(weight)
+    .filter(([, selected]) => selected)
+    .map(([key]) => ({
+      key: `weight-${key}`,
+      label: complexityLabels[key],
+      type: 'weight',
+      id: key,
+    })),
+  ...(gameStyle !== 'any'
+    ? [{
+        key: 'game-style',
+        label: gameStyleOptions.find((option) => option.value === gameStyle)?.label || gameStyle,
+        type: 'game_style',
+        id: null,
+      }]
+    : []),
+  ...(cooperative
+    ? [{
+        key: 'cooperative',
+        label: 'Cooperative',
+        type: 'cooperative',
+        id: null,
+      }]
+    : []),
+  ...selectedGameTypes.map((option) => ({
+    key: `game-type-${option.option_id}`,
+    label: `Game Type: ${option.label}`,
+    type: 'game_type',
+    id: option.option_id,
+  })),
+  ...selectedThemes.map((option) => ({
+    key: `theme-${option.option_id}`,
+    label: `Theme: ${option.label}`,
+    type: 'theme',
+    id: option.option_id,
+  })),
+  ...selectedMechanics.map((mechanic) => ({
+    key: `mechanic-${mechanic.boardgamemechanic_id}`,
+    label: `Mechanic: ${mechanic.boardgamemechanic_name || mechanic.boardgamemechanic_id}`,
+    type: 'mechanic',
+    id: mechanic.boardgamemechanic_id,
+  })),
+  ...selectedCategories.map((category) => ({
+    key: `category-${category.boardgamecategory_id}`,
+    label: `Category: ${category.boardgamecategory_name || category.boardgamecategory_id}`,
+    type: 'category',
+    id: category.boardgamecategory_id,
+  })),
+  ...selectedDesigners.map((designer) => ({
+    key: `designer-${designer.boardgamedesigner_id}`,
+    label: `Designer: ${designer.boardgamedesigner_name}`,
+    type: 'designer',
+    id: designer.boardgamedesigner_id,
+  })),
+  ...selectedArtists.map((artist) => ({
+    key: `artist-${artist.boardgameartist_id}`,
+    label: `Artist: ${artist.boardgameartist_name}`,
+    type: 'artist',
+    id: artist.boardgameartist_id,
+  })),
+];
+
+const removeFilterFromDraft = (draft, type, id) => {
+  if (type === 'players') {
+    return { ...draft, playerOptions: { count: null, recommendation: 'allowed' } };
+  }
+  if (type === 'weight') {
+    return { ...draft, weight: { ...draft.weight, [id]: false } };
+  }
+  if (type === 'max_playtime') {
+    return { ...draft, maxPlaytime: null };
+  }
+  if (type === 'min_age') {
+    return { ...draft, minAge: null };
+  }
+  if (type === 'game_style') {
+    return { ...draft, gameStyle: 'any' };
+  }
+  if (type === 'cooperative') {
+    return { ...draft, cooperative: false };
+  }
+  if (type === 'designer') {
+    return {
+      ...draft,
+      selectedDesigners: draft.selectedDesigners.filter((designer) => designer.boardgamedesigner_id !== id),
+    };
+  }
+  if (type === 'artist') {
+    return {
+      ...draft,
+      selectedArtists: draft.selectedArtists.filter((artist) => artist.boardgameartist_id !== id),
+    };
+  }
+  if (type === 'mechanic') {
+    return {
+      ...draft,
+      selectedMechanics: draft.selectedMechanics.filter((mechanic) => mechanic.boardgamemechanic_id !== id),
+    };
+  }
+  if (type === 'category') {
+    return {
+      ...draft,
+      selectedCategories: draft.selectedCategories.filter((category) => category.boardgamecategory_id !== id),
+    };
+  }
+  if (type === 'game_type') {
+    return {
+      ...draft,
+      selectedGameTypes: draft.selectedGameTypes.filter((option) => option.option_id !== id),
+    };
+  }
+  if (type === 'theme') {
+    return {
+      ...draft,
+      selectedThemes: draft.selectedThemes.filter((option) => option.option_id !== id),
+    };
+  }
+  return draft;
+};
+
 const EMPTY_GAMES_RESPONSE = { games: [], total: 0 };
 
 // Memoized GameCardSkeleton component
@@ -272,14 +436,15 @@ const BrowseHeader = ({
             startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
             endAdornment: (
               <InputAdornment position="end">
-                {inputValue && (
-                  <IconButton aria-label="Clear search" size="small" onClick={onClearSearch}>
+                <Tooltip title={inputValue ? 'Clear search' : 'Close search'}>
+                  <IconButton
+                    aria-label={inputValue ? 'Clear search' : 'Close search'}
+                    size="small"
+                    onClick={inputValue ? onClearSearch : onCloseSearch}
+                  >
                     <CloseIcon fontSize="small" />
                   </IconButton>
-                )}
-                <IconButton aria-label="Close search" size="small" onClick={onCloseSearch}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
+                </Tooltip>
               </InputAdornment>
             ),
           }}
@@ -363,6 +528,7 @@ const FilterDrawer = ({
   isRecommendation,
   filterValues,
   draftRef,
+  onCommitDraft,
   gameTypeOptions,
   themeOptions,
 }) => {
@@ -399,8 +565,16 @@ const FilterDrawer = ({
     (cooperative ? 1 : 0);
   const gameTypeSelectionCount = selectedGameTypes.length + draft.selectedMechanics.length;
   const themeSelectionCount = selectedThemes.length + draft.selectedCategories.length;
+  const activeFilterChips = buildActiveFilterChips(draft);
 
   const handleClearAll = () => updateDraft(() => buildEmptyFilterDraft());
+
+  const handleRemoveFilter = (type, id) => {
+    const nextDraft = removeFilterFromDraft(draft, type, id);
+    setDraft(nextDraft);
+    draftRef.current = nextDraft;
+    onCommitDraft(nextDraft);
+  };
 
   const handlePlayerCountChange = (_event, newCount) => updateDraft((previous) => ({
     ...previous,
@@ -723,6 +897,18 @@ const FilterDrawer = ({
       </Box>
       <Divider />
       <Box sx={{ overflowY: 'auto', flex: 1, p: 1 }}>
+        {activeFilterChips.length > 0 && (
+          <Box component="section" aria-labelledby="active-filters-heading" sx={{ px: 1, pt: 1 }}>
+            <Typography id="active-filters-heading" variant="subtitle2" sx={{ mb: 1 }}>
+              Active Filters ({activeFilterChips.length})
+            </Typography>
+            <ActiveFilterChips
+              chips={activeFilterChips}
+              onRemove={handleRemoveFilter}
+              maxVisible={null}
+            />
+          </Box>
+        )}
         <Accordion
           disableGutters
           expanded={expandedSections.has('group')}
@@ -822,13 +1008,13 @@ const FilterDrawer = ({
   );
 };
 
-const ActiveFilterChips = ({ chips, onRemove, onShowMore }) => {
+const ActiveFilterChips = ({ chips, onRemove, onShowMore, maxVisible = 3 }) => {
   if (chips.length === 0) {
     return null;
   }
 
-  const visibleChips = chips.slice(0, 3);
-  const hiddenCount = chips.length - visibleChips.length;
+  const visibleChips = maxVisible === null ? chips : chips.slice(0, maxVisible);
+  const hiddenCount = maxVisible === null ? 0 : chips.length - visibleChips.length;
 
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1 }}>
@@ -1406,98 +1592,20 @@ const GameList = () => {
   const isSortFiltered = sortBy !== 'rank';
   const sortButtonLabel = isSortFiltered ? (sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort') : 'Sort';
 
-  const isPlayersFiltered = playerOptions.count !== null;
-  const complexityLabels = {
-    beginner: 'Complexity: Light',
-    midweight: 'Complexity: Medium',
-    heavy: 'Complexity: Heavy',
-  };
-  const activeFilterChips = [
-    ...(isPlayersFiltered
-      ? [{
-          key: 'players',
-          label: `${playerOptions.count === PLAYER_COUNT_NINE_PLUS ? '9+' : playerOptions.count} players${playerOptions.recommendation !== 'allowed' ? ` · ${playerOptions.recommendation[0].toUpperCase()}${playerOptions.recommendation.slice(1)}` : ''}`,
-          type: 'players',
-          id: null,
-        }]
-      : []),
-    ...(maxPlaytime !== null
-      ? [{
-          key: 'max-playtime',
-          label: `Up to ${formatPlaytimeLabel(maxPlaytime)}`,
-          type: 'max_playtime',
-          id: null,
-        }]
-      : []),
-    ...(minAge !== null
-      ? [{
-          key: 'min-age',
-          label: `Age ${minAge}+`,
-          type: 'min_age',
-          id: null,
-        }]
-      : []),
-    ...Object.entries(weight)
-      .filter(([, selected]) => selected)
-      .map(([key]) => ({
-        key: `weight-${key}`,
-        label: complexityLabels[key],
-        type: 'weight',
-        id: key,
-      })),
-    ...(gameStyle !== 'any'
-      ? [{
-          key: 'game-style',
-          label: gameStyleOptions.find((option) => option.value === gameStyle)?.label || gameStyle,
-          type: 'game_style',
-          id: null,
-        }]
-      : []),
-    ...(cooperative
-      ? [{
-          key: 'cooperative',
-          label: 'Cooperative',
-          type: 'cooperative',
-          id: null,
-        }]
-      : []),
-    ...selectedGameTypes.map((option) => ({
-      key: `game-type-${option.option_id}`,
-      label: `Game Type: ${option.label}`,
-      type: 'game_type',
-      id: option.option_id,
-    })),
-    ...selectedThemes.map((option) => ({
-      key: `theme-${option.option_id}`,
-      label: `Theme: ${option.label}`,
-      type: 'theme',
-      id: option.option_id,
-    })),
-    ...selectedMechanics.map((mechanic) => ({
-      key: `mechanic-${mechanic.boardgamemechanic_id}`,
-      label: `Mechanic: ${mechanic.boardgamemechanic_name || mechanic.boardgamemechanic_id}`,
-      type: 'mechanic',
-      id: mechanic.boardgamemechanic_id,
-    })),
-    ...selectedCategories.map((category) => ({
-      key: `category-${category.boardgamecategory_id}`,
-      label: `Category: ${category.boardgamecategory_name || category.boardgamecategory_id}`,
-      type: 'category',
-      id: category.boardgamecategory_id,
-    })),
-    ...selectedDesigners.map((designer) => ({
-      key: `designer-${designer.boardgamedesigner_id}`,
-      label: `Designer: ${designer.boardgamedesigner_name}`,
-      type: 'designer',
-      id: designer.boardgamedesigner_id,
-    })),
-    ...selectedArtists.map((artist) => ({
-      key: `artist-${artist.boardgameartist_id}`,
-      label: `Artist: ${artist.boardgameartist_name}`,
-      type: 'artist',
-      id: artist.boardgameartist_id,
-    })),
-  ];
+  const activeFilterChips = buildActiveFilterChips({
+    playerOptions,
+    weight,
+    selectedDesigners,
+    selectedArtists,
+    selectedMechanics,
+    selectedCategories,
+    selectedGameTypes,
+    selectedThemes,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
+  });
   const activeFilterCount = activeFilterChips.length;
 
   const closeSearch = () => {
@@ -1506,12 +1614,7 @@ const GameList = () => {
     setSearchOpen(false);
   };
 
-  const commitFilterDraft = useCallback(() => {
-    const filterDraft = filterDraftRef.current;
-    if (!filterDraft) {
-      return;
-    }
-
+  const applyFilterDraft = useCallback((filterDraft) => {
     setPlayerOptions(filterDraft.playerOptions);
     setWeight(filterDraft.weight);
     setSelectedDesigners(filterDraft.selectedDesigners);
@@ -1525,8 +1628,17 @@ const GameList = () => {
     setGameStyle(filterDraft.gameStyle);
     setCooperative(filterDraft.cooperative);
     setCurrentPage(1);
-    filterDraftRef.current = null;
   }, []);
+
+  const commitFilterDraft = useCallback(() => {
+    const filterDraft = filterDraftRef.current;
+    if (!filterDraft) {
+      return;
+    }
+
+    applyFilterDraft(filterDraft);
+    filterDraftRef.current = null;
+  }, [applyFilterDraft]);
 
   const openSortMenu = (event) => {
     if (!isRecommendation) {
@@ -1852,6 +1964,10 @@ const GameList = () => {
               cooperative,
             })}
             draftRef={filterDraftRef}
+            onCommitDraft={(nextDraft) => {
+              filterDraftRef.current = nextDraft;
+              applyFilterDraft(nextDraft);
+            }}
             gameTypeOptions={gameTypeOptions}
             themeOptions={themeOptions}
           />
