@@ -175,6 +175,51 @@ const buildTaxonomyPlaceholders = (ids) => ids.map((option_id) => ({
   sources: [],
 }));
 
+const buildFilterDraft = ({
+  playerOptions,
+  weight,
+  selectedDesigners,
+  selectedArtists,
+  selectedMechanics,
+  selectedCategories,
+  selectedGameTypes,
+  selectedThemes,
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+}) => ({
+  playerOptions: { ...playerOptions },
+  weight: { ...weight },
+  selectedDesigners: [...selectedDesigners],
+  selectedArtists: [...selectedArtists],
+  selectedMechanics: [...selectedMechanics],
+  selectedCategories: [...selectedCategories],
+  selectedGameTypes: [...selectedGameTypes],
+  selectedThemes: [...selectedThemes],
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+});
+
+const buildEmptyFilterDraft = () => ({
+  playerOptions: { count: null, recommendation: 'allowed' },
+  weight: { beginner: false, midweight: false, heavy: false },
+  selectedDesigners: [],
+  selectedArtists: [],
+  selectedMechanics: [],
+  selectedCategories: [],
+  selectedGameTypes: [],
+  selectedThemes: [],
+  maxPlaytime: null,
+  minAge: null,
+  gameStyle: 'any',
+  cooperative: false,
+});
+
+const EMPTY_GAMES_RESPONSE = { games: [], total: 0 };
+
 // Memoized GameCardSkeleton component
 const GameCardSkeleton = memo(() => (
   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -315,33 +360,126 @@ const BrowseToolbar = ({
 const FilterDrawer = ({
   open,
   onClose,
-  onClearAll,
   isRecommendation,
-  groupSelectionCount,
-  gameTypeSelectionCount,
-  themeSelectionCount,
-  playerOptions,
-  onPlayerCountChange,
-  onPlayerRecChange,
-  maxPlaytime,
-  onMaxPlaytimeChange,
-  minAge,
-  onMinAgeChange,
-  weight,
-  onWeightToggle,
-  gameStyle,
-  onGameStyleChange,
-  cooperative,
-  onCooperativeChange,
+  filterValues,
+  draftRef,
   gameTypeOptions,
-  selectedGameTypes,
   themeOptions,
-  selectedThemes,
-  onTaxonomyToggle,
 }) => {
   const [expandedSections, setExpandedSections] = useState(() => new Set(['group']));
   const [showAll, setShowAll] = useState({ gameType: false, theme: false });
   const [taxonomySearch, setTaxonomySearch] = useState({ gameType: '', theme: '' });
+  const [draft, setDraft] = useState(() => buildFilterDraft(filterValues));
+
+  const updateDraft = (updater) => {
+    setDraft((previous) => {
+      const next = updater(previous);
+      draftRef.current = next;
+      return next;
+    });
+  };
+
+  const {
+    playerOptions,
+    maxPlaytime,
+    minAge,
+    weight,
+    gameStyle,
+    cooperative,
+    selectedGameTypes,
+    selectedThemes,
+  } = draft;
+
+  const groupSelectionCount =
+    (playerOptions.count !== null ? 1 : 0) +
+    (maxPlaytime !== null ? 1 : 0) +
+    (minAge !== null ? 1 : 0) +
+    Object.values(weight).filter(Boolean).length +
+    (gameStyle !== 'any' ? 1 : 0) +
+    (cooperative ? 1 : 0);
+  const gameTypeSelectionCount = selectedGameTypes.length + draft.selectedMechanics.length;
+  const themeSelectionCount = selectedThemes.length + draft.selectedCategories.length;
+
+  const handleClearAll = () => updateDraft(() => buildEmptyFilterDraft());
+
+  const handlePlayerCountChange = (_event, newCount) => updateDraft((previous) => ({
+    ...previous,
+    playerOptions: {
+      ...previous.playerOptions,
+      count: newCount,
+    },
+  }));
+
+  const handlePlayerRecChange = (_event, newRec) => {
+    if (newRec !== null) {
+      updateDraft((previous) => ({
+        ...previous,
+        playerOptions: {
+          ...previous.playerOptions,
+          recommendation: newRec,
+        },
+      }));
+    }
+  };
+
+  const handleWeightToggle = (weightKey) => updateDraft((previous) => ({
+    ...previous,
+    weight: {
+      ...previous.weight,
+      [weightKey]: !previous.weight[weightKey],
+    },
+  }));
+
+  const handleMaxPlaytimeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    maxPlaytime: value,
+  }));
+
+  const handleMinAgeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    minAge: value,
+  }));
+
+  const handleGameStyleChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    gameStyle: value,
+  }));
+
+  const handleCooperativeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    cooperative: value,
+  }));
+
+  const handleTaxonomyToggle = (option) => {
+    const mechanicIds = new Set(
+      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
+    );
+    const categoryIds = new Set(
+      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
+    );
+    updateDraft((previous) => {
+      const selectionKey = option.group === 'game_type' ? 'selectedGameTypes' : 'selectedThemes';
+      const isSelected = previous[selectionKey].some(
+        (item) => item.option_id === option.option_id
+      );
+      return {
+        ...previous,
+        [selectionKey]: isSelected
+          ? previous[selectionKey].filter((item) => item.option_id !== option.option_id)
+          : [...previous[selectionKey], option],
+        selectedMechanics: mechanicIds.size > 0
+          ? previous.selectedMechanics.filter(
+            (item) => !mechanicIds.has(item.boardgamemechanic_id)
+          )
+          : previous.selectedMechanics,
+        selectedCategories: categoryIds.size > 0
+          ? previous.selectedCategories.filter(
+            (item) => !categoryIds.has(item.boardgamecategory_id)
+          )
+          : previous.selectedCategories,
+      };
+    });
+  };
 
   const handleSectionChange = (section) => (_event, isExpanded) => {
     setExpandedSections((previous) => {
@@ -388,7 +526,7 @@ const FilterDrawer = ({
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <Button
           variant={playerOptions.count === null ? 'contained' : 'outlined'}
-          onClick={() => onPlayerCountChange(null, null)}
+          onClick={() => handlePlayerCountChange(null, null)}
           size="small"
           disabled={isRecommendation}
           aria-pressed={playerOptions.count === null}
@@ -399,7 +537,7 @@ const FilterDrawer = ({
           <Button
             key={count}
             variant={playerOptions.count === count ? 'contained' : 'outlined'}
-            onClick={() => onPlayerCountChange(null, count)}
+            onClick={() => handlePlayerCountChange(null, count)}
             size="small"
             disabled={isRecommendation}
             aria-pressed={playerOptions.count === count}
@@ -409,7 +547,7 @@ const FilterDrawer = ({
         ))}
         <Button
           variant={playerOptions.count === PLAYER_COUNT_NINE_PLUS ? 'contained' : 'outlined'}
-          onClick={() => onPlayerCountChange(null, PLAYER_COUNT_NINE_PLUS)}
+          onClick={() => handlePlayerCountChange(null, PLAYER_COUNT_NINE_PLUS)}
           size="small"
           disabled={isRecommendation}
           aria-pressed={playerOptions.count === PLAYER_COUNT_NINE_PLUS}
@@ -424,7 +562,7 @@ const FilterDrawer = ({
               key={recommendation}
               size="small"
               variant={playerOptions.recommendation === recommendation ? 'contained' : 'outlined'}
-              onClick={() => onPlayerRecChange(null, recommendation)}
+              onClick={() => handlePlayerRecChange(null, recommendation)}
               disabled={isRecommendation}
               aria-pressed={playerOptions.recommendation === recommendation}
             >
@@ -445,7 +583,7 @@ const FilterDrawer = ({
         <Button
           size="small"
           variant={weight.beginner ? 'contained' : 'outlined'}
-          onClick={() => onWeightToggle('beginner')}
+          onClick={() => handleWeightToggle('beginner')}
           disabled={isRecommendation}
           aria-pressed={weight.beginner}
         >
@@ -454,7 +592,7 @@ const FilterDrawer = ({
         <Button
           size="small"
           variant={weight.midweight ? 'contained' : 'outlined'}
-          onClick={() => onWeightToggle('midweight')}
+          onClick={() => handleWeightToggle('midweight')}
           disabled={isRecommendation}
           aria-pressed={weight.midweight}
         >
@@ -463,7 +601,7 @@ const FilterDrawer = ({
         <Button
           size="small"
           variant={weight.heavy ? 'contained' : 'outlined'}
-          onClick={() => onWeightToggle('heavy')}
+          onClick={() => handleWeightToggle('heavy')}
           disabled={isRecommendation}
           aria-pressed={weight.heavy}
         >
@@ -530,7 +668,7 @@ const FilterDrawer = ({
               <Button
                 fullWidth
                 variant={selectedIds.has(option.option_id) ? 'contained' : 'outlined'}
-                onClick={() => onTaxonomyToggle(option)}
+                onClick={() => handleTaxonomyToggle(option)}
                 size="small"
                 disabled={isRecommendation}
                 aria-pressed={selectedIds.has(option.option_id)}
@@ -579,7 +717,7 @@ const FilterDrawer = ({
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, flexShrink: 0 }}>
         <Typography variant="h6">Filter Games</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Button onClick={onClearAll} size="small">Clear All</Button>
+          <Button onClick={handleClearAll} size="small">Clear All</Button>
           <IconButton aria-label="Close filters" onClick={onClose}><CloseIcon /></IconButton>
         </Box>
       </Box>
@@ -609,11 +747,11 @@ const FilterDrawer = ({
               </Box>
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Maximum Play Time</Typography>
-                {renderSingleSelectButtons(playtimeOptions, maxPlaytime, onMaxPlaytimeChange, formatPlaytimeLabel)}
+                {renderSingleSelectButtons(playtimeOptions, maxPlaytime, handleMaxPlaytimeChange, formatPlaytimeLabel)}
               </Box>
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Minimum Age</Typography>
-                {renderSingleSelectButtons(ageOptions, minAge, onMinAgeChange, (option) => `${option}+`)}
+                {renderSingleSelectButtons(ageOptions, minAge, handleMinAgeChange, (option) => `${option}+`)}
               </Box>
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Game Style</Typography>
@@ -623,7 +761,7 @@ const FilterDrawer = ({
                       key={option.value}
                       size="small"
                       variant={gameStyle === option.value ? 'contained' : 'outlined'}
-                      onClick={() => onGameStyleChange(option.value)}
+                      onClick={() => handleGameStyleChange(option.value)}
                       disabled={isRecommendation}
                       aria-pressed={gameStyle === option.value}
                     >
@@ -635,7 +773,7 @@ const FilterDrawer = ({
               <Button
                 size="small"
                 variant={cooperative ? 'contained' : 'outlined'}
-                onClick={() => onCooperativeChange(!cooperative)}
+                onClick={() => handleCooperativeChange(!cooperative)}
                 disabled={isRecommendation}
                 aria-pressed={cooperative}
                 sx={{ alignSelf: 'flex-start' }}
@@ -803,6 +941,7 @@ const GameList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 24;
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const filterDraftRef = useRef(null);
   const [searchOpen, setSearchOpen] = useState(Boolean(initialSearchValue));
   const [sortMenuAnchorEl, setSortMenuAnchorEl] = useState(null);
 
@@ -873,7 +1012,7 @@ const GameList = () => {
   const { data: libraryGameIds = [] } = useLibraryGameIdsQuery();
 
   const {
-    data: response = { games: [], total: 0 },
+    data: response = EMPTY_GAMES_RESPONSE,
     isLoading,
     error,
   } = useGamesQuery({
@@ -980,74 +1119,6 @@ const GameList = () => {
         message: 'Unable to generate recommendations right now.',
       });
       console.error('Failed to fetch recommendations:', err);
-    }
-  };
-
-  const handleClearAll = () => {
-    setPlayerOptions({ count: null, recommendation: 'allowed' });
-    setWeight({ beginner: false, midweight: false, heavy: false });
-    setSelectedMechanics([]);
-    setSelectedCategories([]);
-    setSelectedGameTypes([]);
-    setSelectedThemes([]);
-    setSelectedDesigners([]);
-    setSelectedArtists([]);
-    setMaxPlaytime(null);
-    setMinAge(null);
-    setGameStyle('any');
-    setCooperative(false);
-    setCurrentPage(1);
-  };
-
-  const handlePlayerCountChange = (event, newCount) => {
-    setPlayerOptions(prev => ({
-      ...prev,
-      count: newCount,
-    }));
-  };
-
-  const handlePlayerRecChange = (event, newRec) => {
-    if (newRec !== null) {
-      setPlayerOptions(prev => ({ ...prev, recommendation: newRec }));
-    }
-  };
-
-  const handleWeightToggle = (weightKey) => {
-    setWeight((previous) => ({ ...previous, [weightKey]: !previous[weightKey] }));
-  };
-
-  const handleMaxPlaytimeChange = (value) => setMaxPlaytime(value);
-
-  const handleMinAgeChange = (value) => setMinAge(value);
-
-  const handleGameStyleChange = (value) => setGameStyle(value);
-
-  const handleCooperativeChange = (value) => setCooperative(value);
-
-  const handleTaxonomyToggle = (option) => {
-    const setSelection = option.group === 'game_type' ? setSelectedGameTypes : setSelectedThemes;
-    setSelection((previous) => {
-      const isSelected = previous.some((item) => item.option_id === option.option_id);
-      return isSelected
-        ? previous.filter((item) => item.option_id !== option.option_id)
-        : [...previous, option];
-    });
-
-    const mechanicIds = new Set(
-      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
-    );
-    const categoryIds = new Set(
-      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
-    );
-    if (mechanicIds.size > 0) {
-      setSelectedMechanics((previous) => previous.filter(
-        (item) => !mechanicIds.has(item.boardgamemechanic_id)
-      ));
-    }
-    if (categoryIds.size > 0) {
-      setSelectedCategories((previous) => previous.filter(
-        (item) => !categoryIds.has(item.boardgamecategory_id)
-      ));
     }
   };
 
@@ -1428,21 +1499,34 @@ const GameList = () => {
     })),
   ];
   const activeFilterCount = activeFilterChips.length;
-  const groupSelectionCount =
-    (isPlayersFiltered ? 1 : 0) +
-    (maxPlaytime !== null ? 1 : 0) +
-    (minAge !== null ? 1 : 0) +
-    Object.values(weight).filter(Boolean).length +
-    (gameStyle !== 'any' ? 1 : 0) +
-    (cooperative ? 1 : 0);
-  const gameTypeSelectionCount = selectedGameTypes.length + selectedMechanics.length;
-  const themeSelectionCount = selectedThemes.length + selectedCategories.length;
 
   const closeSearch = () => {
     setInputValue('');
     setSearchTerm('');
     setSearchOpen(false);
   };
+
+  const commitFilterDraft = useCallback(() => {
+    const filterDraft = filterDraftRef.current;
+    if (!filterDraft) {
+      return;
+    }
+
+    setPlayerOptions(filterDraft.playerOptions);
+    setWeight(filterDraft.weight);
+    setSelectedDesigners(filterDraft.selectedDesigners);
+    setSelectedArtists(filterDraft.selectedArtists);
+    setSelectedMechanics(filterDraft.selectedMechanics);
+    setSelectedCategories(filterDraft.selectedCategories);
+    setSelectedGameTypes(filterDraft.selectedGameTypes);
+    setSelectedThemes(filterDraft.selectedThemes);
+    setMaxPlaytime(filterDraft.maxPlaytime);
+    setMinAge(filterDraft.minAge);
+    setGameStyle(filterDraft.gameStyle);
+    setCooperative(filterDraft.cooperative);
+    setCurrentPage(1);
+    filterDraftRef.current = null;
+  }, []);
 
   const openSortMenu = (event) => {
     if (!isRecommendation) {
@@ -1462,6 +1546,20 @@ const GameList = () => {
       return;
     }
 
+    filterDraftRef.current = buildFilterDraft({
+      playerOptions,
+      weight,
+      selectedDesigners,
+      selectedArtists,
+      selectedMechanics,
+      selectedCategories,
+      selectedGameTypes,
+      selectedThemes,
+      maxPlaytime,
+      minAge,
+      gameStyle,
+      cooperative,
+    });
     window.history.pushState(
       { ...(window.history.state || {}), [FILTER_DRAWER_HISTORY_KEY]: true },
       '',
@@ -1475,6 +1573,7 @@ const GameList = () => {
       return;
     }
 
+    commitFilterDraft();
     setFilterDrawerOpen(false);
     if (window.history.state?.[FILTER_DRAWER_HISTORY_KEY]) {
       window.history.back();
@@ -1483,12 +1582,13 @@ const GameList = () => {
 
   useEffect(() => {
     const handlePopState = () => {
+      commitFilterDraft();
       setFilterDrawerOpen(false);
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [commitFilterDraft]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -1706,31 +1806,27 @@ const GameList = () => {
           />
 
           <FilterDrawer
+            key={filterDrawerOpen ? 'open' : 'closed'}
             open={filterDrawerOpen}
             onClose={closeFilterDrawer}
-            onClearAll={handleClearAll}
             isRecommendation={isRecommendation}
-            groupSelectionCount={groupSelectionCount}
-            gameTypeSelectionCount={gameTypeSelectionCount}
-            themeSelectionCount={themeSelectionCount}
-            playerOptions={playerOptions}
-            onPlayerCountChange={handlePlayerCountChange}
-            onPlayerRecChange={handlePlayerRecChange}
-            maxPlaytime={maxPlaytime}
-            onMaxPlaytimeChange={handleMaxPlaytimeChange}
-            minAge={minAge}
-            onMinAgeChange={handleMinAgeChange}
-            weight={weight}
-            onWeightToggle={handleWeightToggle}
-            gameStyle={gameStyle}
-            onGameStyleChange={handleGameStyleChange}
-            cooperative={cooperative}
-            onCooperativeChange={handleCooperativeChange}
+            filterValues={buildFilterDraft({
+              playerOptions,
+              weight,
+              selectedDesigners,
+              selectedArtists,
+              selectedMechanics,
+              selectedCategories,
+              selectedGameTypes,
+              selectedThemes,
+              maxPlaytime,
+              minAge,
+              gameStyle,
+              cooperative,
+            })}
+            draftRef={filterDraftRef}
             gameTypeOptions={gameTypeOptions}
-            selectedGameTypes={selectedGameTypes}
             themeOptions={themeOptions}
-            selectedThemes={selectedThemes}
-            onTaxonomyToggle={handleTaxonomyToggle}
           />
 
           <ActiveFilterChips

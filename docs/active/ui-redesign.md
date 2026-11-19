@@ -110,7 +110,7 @@ The agent may determine exact spacing, breakpoints, and component structure, pro
 - Use a **single scrollable drawer with accordion sections**, not separate screens for each filter.
 - Default expanded state: **Group & Requirements** expanded; **Game Type** and **Theme & Setting** collapsed.
 - Filters can use different control types inside an accordion; they do not all need to be checkboxes.
-- **No required “Show Games” button.** Changing filters applies them, and closing the drawer simply returns users to the filtered game list. This avoids separate draft/applied filter state.
+- **No required “Show Games” button.** Changing filters updates a temporary draft while the drawer is open; closing the drawer commits the draft and returns users to the filtered game list. The X, backdrop, Escape, and browser/Android Back close paths all commit the draft. This avoids a separate apply button while preventing a query for every intermediate selection.
 - The drawer closes through the header X, backdrop tap, or browser/Android Back. Drawer visibility is temporary UI state and must not be stored in URL parameters.
 - Touch targets should be comfortably large. Active chips on the results screen should allow removal by tapping the chip, with a sufficiently large visible × affordance; this addresses repeated feedback that the current × is too small.
 
@@ -220,7 +220,7 @@ Show the following **10 featured themes**:
 
 ### Applying and clearing filters
 
-- Filter selections update the underlying results; closing the drawer reveals the current filtered list, **without a separate apply action**.
+- Filter selections remain in a temporary drawer draft; closing the drawer commits the complete selection and updates the underlying results, **without a separate apply button**.
 - The drawer **Clear All** clears only filter constraints. It preserves text search, sorting, library scope, liked/disliked games, and recommendation state.
 - On the main results screen, show active selections as accessible, touch-friendly chips. Tapping an active chip removes that filter; show a prominent × on the chip.
 - Preserve selection state when accordion sections collapse or the drawer is reopened.

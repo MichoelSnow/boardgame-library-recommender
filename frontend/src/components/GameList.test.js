@@ -92,7 +92,15 @@ describe('GameList browse shell', () => {
     fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
     expect(screen.getByText('Filter Games')).toBeInTheDocument();
 
+    mockUseGamesQuery.mockClear();
     fireEvent.click(screen.getByRole('button', { name: '4' }));
+    expect(mockUseGamesQuery).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerOptions: expect.objectContaining({ count: 4 }),
+      })
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close filters' }));
     expect(mockUseGamesQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         playerOptions: expect.objectContaining({ count: 4 }),

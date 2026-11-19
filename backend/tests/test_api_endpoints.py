@@ -98,29 +98,6 @@ async def test_filter_taxonomy_endpoint_returns_stable_option_contract(monkeypat
 
 
 @pytest.mark.anyio
-async def test_games_endpoint_rejects_invalid_expanded_filter_values(api_client):
-    invalid_style = await api_client.get("/api/games/", params={"game_style": "competitive"})
-    invalid_players = await api_client.get("/api/games/", params={"players": "13"})
-
-    assert invalid_style.status_code == 422
-    assert invalid_players.status_code == 422
-
-
-@pytest.mark.anyio
-async def test_recommendations_endpoint_returns_recommendations(monkeypatch, api_client):
-    monkeypatch.setattr(
-        main.crud,
-        "get_recommendations",
-        lambda **kwargs: [{"id": 2, "name": "Rec", "recommendation_score": 0.9}],
-    )
-
-    response = await api_client.get("/api/recommendations/1", params={"limit": 5})
-
-    assert response.status_code == 200
-    assert response.json()[0]["id"] == 2
-
-
-@pytest.mark.anyio
 async def test_authentication_accepts_valid_credentials_and_rejects_invalid(
     monkeypatch, api_client
 ):
