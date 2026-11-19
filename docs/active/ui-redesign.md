@@ -28,7 +28,7 @@ Catalog filters are **hard constraints**, not partial-match suitability scores. 
 - The personalized recommendation flow uses liked/disliked game IDs; it is distinct from boolean catalog filtering.
 - Filtering from tags in game details should navigate back to the game list, apply the chosen filter, and clear existing search keywords. This is intentionally different from changing filters while already browsing.
 - The current app has convention/library-specific behavior; preserve it when revising the UI.
-- **Known redesign consideration:** Existing catalog filters are disabled while viewing personalized recommendations. Whether/how to change that has **not** been decided.
+- **Known redesign decision:** Existing catalog filters remain disabled while viewing personalized recommendations. Preserve this behavior; changing it is outside the current scope.
 
 ## Overall UI direction — agreed
 
@@ -63,7 +63,44 @@ The original personalized recommendation flow and its UI are **out of scope for 
 - Selecting an option immediately updates the results and closes the menu.
 - **Preserve the actual available sort options and underlying behavior from the current application.** Names in mockups are examples, not an instruction to delete or invent sort modes.
 
-**Still open:** Exact navigation-menu behavior, detailed header spacing/responsive treatment, and fine visual styling. These do not block the agreed layout direction.
+### Decision: Header navigation and responsive layout
+
+Use a consistent, compact header across mobile, tablet, and desktop.
+
+**Header layout**
+
+- Display the application name on the left.
+- Display the search icon and hamburger menu on the right.
+- Keep the header to a single row when search is collapsed.
+- Use touch-friendly controls with sufficiently large tap targets (approximately 44×44px).
+- Adapt spacing and sizing responsively, but preserve the same navigation structure across devices.
+
+**Hamburger menu**
+
+- Move secondary navigation into the hamburger menu, using descriptive text labels rather than relying on icons alone.
+- Include Help / Tour, Suggestions, and applicable account and administrative actions.
+- Preserve existing functionality, permissions, and conditional visibility, including kiosk-specific behavior.
+- Use the same hamburger menu on desktop, tablet, and mobile.
+
+**Search**
+
+- Preserve the previously agreed expandable search behavior.
+- The search field stays open until explicitly dismissed.
+- Clearing the query does not close the field; closing the search interface clears the query.
+- Search must not close automatically when results update, Enter is pressed, or the keyboard is dismissed.
+- Preserve existing debounced search functionality.
+
+**Filtering and sorting**
+
+- Place the prominent Filters button and Sort control together in a toolbar below the header.
+- Use the same left-side filter drawer on all devices, with responsive width (90% on phones, capped at 420px).
+- Do not introduce a permanently visible desktop filter sidebar.
+
+**Implementation guidance**
+
+Reuse existing MUI components and responsive styling. Keep the design compact, avoid unnecessary navigation complexity, and preserve all existing actions.
+
+The agent may determine exact spacing, breakpoints, and component structure, provided these requirements are met.
 
 ### Filter drawer
 
@@ -209,11 +246,10 @@ Do not exclude expansions by default, add an expansion filter, or otherwise chan
 
 ## Decisions still open
 
-1. Detailed header navigation, spacing, and responsive treatment beyond the finalized search interaction.
-2. The complete crosswalk of BGG categories/mechanics to the unified user-facing Game Type and Theme lists, including duplicate handling and full-list labels. Ambiguous classifications must be flagged for review rather than silently resolved.
-3. What happens to conventional filters while viewing personalized recommendation results (current behavior disables them; changing this is outside the current scope).
-4. Final tooltip/help text for technical game types and overall accessibility review.
-5. Exact sorting choices should be verified against existing code rather than inferred from mockups.
+1. The complete crosswalk of BGG categories/mechanics to the unified user-facing Game Type and Theme lists, including duplicate handling and full-list labels. Ambiguous classifications must be flagged for review rather than silently resolved.
+2. Final tooltip/help text for technical game types and overall accessibility review.
+
+These remaining decisions do not block Stage 1. Sort options should be verified directly against the existing code during implementation rather than inferred from mockups. Existing recommendation-mode filtering behavior is preserved and is not an open decision for this redesign.
 
 ## Working process
 

@@ -10,7 +10,7 @@ The main browse experience is implemented in `frontend/src/components/GameList.j
 
 The frontend query boundary is `frontend/src/hooks/useGameListQueries.js` and `frontend/src/api/games.js`. The catalog request currently sends the existing scalar/CSV filters to `GET /api/games/`; mechanics and categories are loaded independently from `/api/mechanics/` and `/api/categories/`. The backend endpoint in `backend/app/main.py` delegates filtering and sorting to `backend/app/crud.py`. Existing filtering supports search, library scope, player count plus recommended/best modes, weight, mechanics, categories, and the existing sort fields. The data model already contains `max_playtime`, `min_age`, `average_weight`, rank fields, mechanics, categories, and suggested-player rows, but the current game-list API does not expose redesign-specific playtime, age, style, or cooperative parameters.
 
-Existing frontend tests include `frontend/src/components/GameList.test.js`, integration coverage in `frontend/src/integration/gameFilteringFlow.test.js` and `recommendationFlow.test.js`, and component tests for `Navbar`, `GameDetails`, and `GameCard`. Backend API and CRUD behavior is covered primarily by `backend/tests/test_api_endpoints.py` and `backend/tests/test_crud_helpers.py`.
+The maintained test suite is intentionally small. Frontend coverage is concentrated in `GameList.test.js`, the filtering and recommendation flows, and the authentication/admin-route checks. Backend coverage is concentrated in the API contract, security, database configuration, kiosk-token, image-proxy, and degraded-recommendation tests. Do not add tests for deleted legacy paths or for framework behavior that is already covered by MUI, React Router, React Query, or the browser.
 
 ## Fixed constraints and non-goals
 
@@ -25,13 +25,21 @@ Existing frontend tests include `frontend/src/components/GameList.test.js`, inte
 
 ## Prerequisites and decisions before implementation
 
-The following decisions materially affect API contracts or user-visible behavior and should be resolved before the corresponding phase. Finalized behavior is recorded in the specification; the remaining items are genuine implementation inputs:
+The following decisions materially affect API contracts or later user-visible behavior and should be resolved before the corresponding phase. Finalized behavior is recorded in the specification. Only decisions needed by the current stage should block implementation:
 
-1. Detailed header navigation, spacing, and responsive treatment beyond the finalized search interaction.
-2. The complete BGG category/mechanic crosswalk, duplicate handling, friendly labels, and source IDs needed by the full searchable lists. Ambiguous classifications must be flagged for review rather than silently resolved.
-3. What conventional filters should do while viewing personalized recommendation results; current behavior disables them and changing that remains outside scope.
-4. Final tooltip/help text and accessibility acceptance details.
-5. The exact supported sort labels/options to expose, verified against the current `sortOptions` and backend `GameSortField` rather than mockup examples.
+1. The complete BGG category/mechanic crosswalk, duplicate handling, friendly labels, and source IDs needed by the full searchable lists. Ambiguous classifications must be flagged for review rather than silently resolved; defer this to the taxonomy stages.
+2. Final tooltip/help text and accessibility acceptance details; defer wording and the full accessibility review to the relevant implementation stage.
+
+The header navigation and responsive layout decision is recorded in the living specification and is ready for Stage 1. Preserve the existing recommendation-mode filtering behavior; it is not an open decision. Verify the supported sort options directly against the existing `sortOptions` and backend `GameSortField` during implementation rather than treating mockup labels as prerequisites.
+
+### Testing scope for this plan
+
+Keep only tests that protect an essential user workflow, security boundary, API contract, data-integrity rule, or non-obvious state transition. Prefer one focused test or flow for related behavior over separate tests for every control or visual variation.
+
+- Do not add automated tests for static placement, exact copy, MUI primitives, responsive breakpoints, tap-target dimensions, drawer animation, or duplicate legacy paths. Verify visual and responsive behavior manually on the target devices.
+- Keep frontend tests focused on state/query changes and critical preserved behavior. Do not add a dedicated automated browser-back test; verify browser/Android Back during the manual mobile review.
+- Keep backend tests focused on new contract boundaries, security behavior, and filter combinations that could return incorrect data. Combine related cases where practical instead of creating one test per field or label.
+- Run tests only after explicit execution authorization. A full suite, lint run, or CI run is an optional handoff check, not a requirement for every implementation stage.
 
 ## Implementation stages
 
@@ -41,12 +49,12 @@ Purpose: implement the agreed layout without changing filtering semantics or rec
 
 Tasks:
 
-- [ ] Extract the catalog-toolbar responsibilities from `frontend/src/components/GameList.js` into small local components or clearly bounded sections: compact header/search control, toolbar, active chips, filter drawer shell, and sort popover. Keep state ownership in `GameList` initially unless extraction is required for testability.
-- [ ] Add the compact browse header around the existing `Navbar`/browse content without disturbing global navigation, help, suggestions, admin, password, or logout actions. Make the search icon expand a field that stays open until explicitly closed; clearing removes the query without closing it, closing clears the query and collapses the field, and Enter, keyboard dismissal, and result updates do not close it. Preserve the current debounced query behavior.
-- [ ] Replace the permanent filter-button row with `Filters` and `Sort` controls. Use the existing sort values and immediately apply selection; non-default sort labels must be visible on the control, and the menu must identify the currently selected option.
-- [ ] Add the result count directly above the existing results and retain current pagination and responsive `GameCard` rendering.
-- [ ] Add left-side drawer open/close behavior with approximately 90% phone width and a 420px maximum on larger screens. Support the header X, backdrop tap, and browser/Android Back; keep drawer visibility temporary and out of URL parameters. Keep the fixed drawer header (`Filter Games`, `Clear All`) and scroll only the accordion body. Do not yet rename or add filter semantics that require backend work.
-- [ ] Add focused frontend tests for toolbar placement, sort selection/closing, drawer dismissal, result count, and preservation of existing search/pagination behavior.
+- [x] Extract the catalog-toolbar responsibilities from `frontend/src/components/GameList.js` into small local components or clearly bounded sections: compact header/search control, toolbar, active chips, filter drawer shell, and sort popover. Keep state ownership in `GameList` initially unless extraction is required for testability.
+- [x] Add the compact browse header around the existing `Navbar`/browse content without disturbing global navigation, help, suggestions, admin, password, or logout actions. Make the search icon expand a field that stays open until explicitly closed; clearing removes the query without closing it, closing clears the query and collapses the field, and Enter, keyboard dismissal, and result updates do not close it. Preserve the current debounced query behavior.
+- [x] Replace the permanent filter-button row with `Filters` and `Sort` controls. Use the existing sort values and immediately apply selection; non-default sort labels must be visible on the control, and the menu must identify the currently selected option.
+- [x] Add the result count directly above the existing results and retain current pagination and responsive `GameCard` rendering.
+- [x] Add left-side drawer open/close behavior with approximately 90% phone width and a 420px maximum on larger screens. Support the header X, backdrop tap, and browser/Android Back; keep drawer visibility temporary and out of URL parameters. Keep the fixed drawer header (`Filter Games`, `Clear All`) and scroll only the accordion body. Do not yet rename or add filter semantics that require backend work.
+- [x] Keep only the minimal frontend coverage for state-changing browse behavior: search clear/close, sort application, drawer dismissal, and any preserved query behavior not already covered by the existing flows. Verify static placement, result-count presentation, and responsive sizing manually.
 
 Completion conditions: the browse page has the agreed shell at phone, tablet, and desktop breakpoints; existing catalog requests receive the same filter values; recommendation mode and game details still operate through their existing paths; no new backend contract is required for this stage.
 
@@ -61,7 +69,7 @@ Tasks:
 - [ ] Rename the user-facing Weight control to Complexity and align thresholds with the specification. Resolve the existing boundary mismatch (`crud.py` currently uses beginner `<= 2`, midweight `> 2 and < 4`, heavy `>= 4`) before changing labels or comparisons to the specified Light `< 2`, Medium `2–4` inclusive, Heavy `> 4`.
 - [ ] Implement active-filter accounting, prioritized maximum-three chips, `+N more`, whole-chip touch targets, and section-selection counts. Keep sort, search, library scope, and recommendation state distinct from filter chips; Clear All clears only filter constraints.
 - [ ] Preserve URL state for all existing filters; do not encode drawer visibility or transient accordion state in URL parameters.
-- [ ] Update `GameList.test.js` and `gameFilteringFlow.test.js` for chip removal, hidden selections, URL refresh, drawer reopening, and recommendation-mode disabling.
+- [ ] Add or adjust one focused flow test only where filter state or URL serialization changes: cover restoration of a meaningful filter selection and recommendation-mode disabling if affected. Verify chip prioritization, collapse/reopen presentation, and touch behavior manually rather than adding a test for each control.
 
 Completion conditions: all currently supported filters work from the drawer with unchanged backend semantics, active selections are discoverable/removable on touch, and existing deep links continue to restore their state.
 
@@ -77,7 +85,7 @@ Tasks:
 - [ ] Implement the Game Style mappings exactly after approval: family rank, children category membership, and party rank/category union. Add cooperative mechanic matching without presenting absence as “Competitive.” Review the complete BGG crosswalk during this stage and flag ambiguous classifications for developer review rather than silently resolving them.
 - [ ] Implement player `9+` and Recommended/Best behavior using existing suggested-player semantics: Allowed matches support at least one count of nine or more; Recommended and Best match the corresponding level at any count of nine or more. Verify how imported rows represent these cases and avoid a new model field unless the existing data cannot support the agreed behavior.
 - [ ] Add or extend filter-option API support for full searchable mechanics/categories and any server-side user-facing crosswalk needed to avoid shipping an unmaintainable hard-coded taxonomy. Keep option payloads stable and cacheable.
-- [ ] Add backend CRUD/API tests for boundaries, unknown values, style unions, cooperative matching, player modes, combinations, pagination totals, and cache-key separation. Add frontend MSW/flow coverage for serialization and restored URL state.
+- [ ] Add focused backend API/CRUD coverage for the new contract's boundary and combination semantics, unknown-value handling, pagination totals, and cache-key separation when caching changes. Combine related cases where practical. Add one frontend flow check for serialization/restored URL state only if the new parameters require it.
 
 Completion conditions: every implemented drawer control maps to a documented API parameter and deterministic hard constraint; invalid/unknown options fail safely or are ignored according to an explicit contract; backend tests demonstrate no cross-filter leakage.
 
@@ -90,7 +98,7 @@ Tasks:
 - [ ] Add the ten approved featured Game Types and Themes, keeping Set Collection in the full Game Type list and keeping Medieval/World War II and Zombies/Horror separate.
 - [ ] Add inline Show All expansion and search for each list, retaining selections while collapsed. Ensure technical/non-featured options remain available in the complete list.
 - [ ] Apply the approved friendly-label crosswalk and only add short explanations/tooltips where the terminology needs them. Base explanations on verified BGG definitions rather than name similarity.
-- [ ] Test keyboard access, focus behavior, touch target size, drawer scrolling, chip removal, accordion semantics, and narrow viewport overflow.
+- [ ] Perform a manual keyboard and narrow-device smoke check for focus, touch targets, drawer scrolling, accordion behavior, chip removal, and overflow. Add an automated test only if a non-obvious interaction cannot be checked reliably by inspection.
 
 Completion conditions: featured and full lists share one selection state and one backend mapping, selections survive collapse/reopen, and accessibility checks cover the interactive drawer controls.
 
@@ -102,11 +110,11 @@ Tasks:
 
 - [ ] Update `GameDetails` tag callbacks and `GameList` navigation/state handling so detail-originated category/mechanic selection immediately returns to the list, adds the selected filter without duplicating it, preserves all other active filters, clears search, and applies the updated filters automatically.
 - [ ] Verify sort behavior against all current backend-supported values, including default rank and name/rank variants; ensure recommendation sorting remains separate and unchanged.
-- [ ] Run targeted frontend and backend tests only after explicit execution authorization; then run the repository’s documented quality gates if authorized. Record failures and any approved exceptions.
+- [ ] After explicit execution authorization, run only the focused tests for changed behavior and record failures. Full-suite tests, lint, and CI remain optional handoff checks rather than mandatory per-stage work.
 - [ ] Review the result on a narrow phone and convention tablet, including kiosk/library scope, filter drawer dismissal/back behavior, no-results states, pagination, and recommendation-mode transition.
 - [ ] Update the canonical documentation or the living specification if implementation decisions resolve currently open items; do not duplicate the specification’s full taxonomy in code comments or a second policy document.
 
-Completion conditions: existing browse, details, search, sort, library, filtering, and recommendation workflows pass their regression coverage; the agreed open decisions are recorded; implementation can ship as one focused PR unless a concrete dependency failure later justifies splitting it.
+Completion conditions: essential browse, details, search, sort, library, filtering, and recommendation workflows have focused regression coverage where their behavior changed; the agreed open decisions are recorded; implementation can ship as one focused PR unless a concrete dependency failure later justifies splitting it.
 
 ## Backend/API impact summary
 
@@ -117,7 +125,7 @@ The initial shell and migration stages can be frontend-only. New hard filters ca
 - likely `backend/app/schemas.py` only if filter-option or game response shapes change;
 - `backend/app/models.py` only if inspection proves the existing fields/relations are insufficient (no model change is currently indicated);
 - `frontend/src/api/games.js`, `frontend/src/hooks/useGameListQueries.js`, and `frontend/src/components/GameList.js` serialization/state;
-- backend API/CRUD tests and frontend component/integration/MSW tests.
+- focused backend API/CRUD tests and frontend component/flow tests only where a changed contract or non-obvious state transition requires them.
 
 No recommendation endpoint or recommender model change is required by the current specification.
 
@@ -134,4 +142,4 @@ No recommendation endpoint or recommender model change is required by the curren
 
 ## Open questions requiring developer decisions
 
-The implementation should not silently decide the following: detailed header navigation and responsive treatment beyond the finalized search behavior; the complete BGG crosswalk and option ownership; behavior of conventional filters in recommendation mode; tooltip wording/accessibility acceptance; and final sort choices verified against the existing code. These correspond to the remaining open items in `docs/active/ui-redesign.md` and should be resolved there before the dependent stage begins.
+The implementation should not silently decide the following: the complete BGG crosswalk and option ownership, or tooltip wording/accessibility acceptance. These remain open in `docs/active/ui-redesign.md` and should be resolved before their dependent taxonomy and accessibility work begins. Header navigation and responsive treatment are decided; recommendation-mode filtering remains unchanged; and sort choices should be verified from the existing code.

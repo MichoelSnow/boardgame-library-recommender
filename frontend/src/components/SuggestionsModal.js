@@ -13,10 +13,9 @@ import {
 } from '@mui/material';
 import { createSuggestion } from '../api/suggestions';
 
-const SuggestionsModal = ({ open, onClose }) => {
+const SuggestionsModal = ({ open, onClose, onSuccess }) => {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async () => {
@@ -35,12 +34,9 @@ const SuggestionsModal = ({ open, onClose }) => {
 
     try {
       await createSuggestion(comment.trim());
-      setSuccess(true);
       setComment('');
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-      }, 2000);
+      onClose();
+      onSuccess?.();
     } catch (err) {
       console.error('Suggestion submission failed:', err);
       const detail = err.response?.data?.detail;
@@ -58,7 +54,6 @@ const SuggestionsModal = ({ open, onClose }) => {
     if (!loading) {
       setComment('');
       setError('');
-      setSuccess(false);
       onClose();
     }
   };
@@ -82,12 +77,6 @@ const SuggestionsModal = ({ open, onClose }) => {
             Help us improve this site! Share your suggestions for new features, improvements, or bug reports.
           </Typography>
           
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              Thank you for your suggestion! It has been submitted successfully.
-            </Alert>
-          )}
-          
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
@@ -102,7 +91,7 @@ const SuggestionsModal = ({ open, onClose }) => {
             placeholder="Tell us about features you'd like to see, issues you've encountered, or ways we can improve the site..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            disabled={loading || success}
+            disabled={loading}
             error={characterCount > maxLength}
             helperText={`${characterCount}/${maxLength} characters`}
           />
@@ -115,7 +104,7 @@ const SuggestionsModal = ({ open, onClose }) => {
         <Button 
           onClick={handleSubmit} 
           variant="contained" 
-          disabled={loading || success || !comment.trim() || characterCount > maxLength}
+          disabled={loading || !comment.trim() || characterCount > maxLength}
           startIcon={loading && <CircularProgress size={20} />}
         >
           {loading ? 'Submitting...' : 'Submit Suggestion'}
