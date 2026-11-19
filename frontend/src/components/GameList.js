@@ -1621,6 +1621,33 @@ const GameList = () => {
     setDetailsOpen(true);
   };
 
+  const handleTaxonomyToggle = (option) => {
+    const setSelection = option.group === 'game_type' ? setSelectedGameTypes : setSelectedThemes;
+    setSelection((previous) => {
+      const isSelected = previous.some((item) => item.option_id === option.option_id);
+      return isSelected
+        ? previous.filter((item) => item.option_id !== option.option_id)
+        : [...previous, option];
+    });
+
+    const mechanicIds = new Set(
+      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
+    );
+    const categoryIds = new Set(
+      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
+    );
+    if (mechanicIds.size > 0) {
+      setSelectedMechanics((previous) => previous.filter(
+        (item) => !mechanicIds.has(item.boardgamemechanic_id)
+      ));
+    }
+    if (categoryIds.size > 0) {
+      setSelectedCategories((previous) => previous.filter(
+        (item) => !categoryIds.has(item.boardgamecategory_id)
+      ));
+    }
+  };
+
   const handleFilter = (type, id, name) => {
     if (type === 'game') {
       handleGameClick({ id });
