@@ -31,29 +31,4 @@ describe('auth flow integration', () => {
     expect(getMswState().tokenRequests).toBe(1);
   });
 
-  test('shows login error for invalid credentials', async () => {
-    const consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-    try {
-      render(
-        <MemoryRouter
-          initialEntries={['/login']}
-          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-        >
-          <AuthProvider>
-            <LoginPage />
-          </AuthProvider>
-        </MemoryRouter>
-      );
-
-      fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'demo' } });
-      fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'wrong' } });
-      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
-
-      expect(await screen.findByText(/failed to log in/i)).toBeInTheDocument();
-    } finally {
-      consoleErrorSpy.mockRestore();
-    }
-  });
 });

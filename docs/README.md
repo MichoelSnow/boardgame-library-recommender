@@ -17,6 +17,8 @@ navigation only; the linked documents are authoritative for their topics.
 | Deploy, validate, promote, or roll back the application | [Core runbook](core/runbook.md) |
 | Find a command without reading a workflow | [Command reference](core/command_reference.md) |
 | Understand architecture or operational policy | [Core documentation](core/README.md) |
+| Find testing strategy and quality-gate guidance | [Engineering guide](core/engineering_guide.md) |
+| Understand the BGG filter taxonomy contract | [Filter taxonomy contract](core/filter-taxonomy-contract.md) |
 
 ## Data refresh at a glance
 
@@ -47,6 +49,7 @@ should link to these sections rather than duplicate their procedures.
 | PAX title/BGG labeling workflow | `scripts/pax_labeling/README.md` | Link only |
 | Application deployment, promotion, rollback, and validation | `docs/core/runbook.md` | Link only |
 | Short command lookup | `docs/core/command_reference.md` | Link only |
+| User-facing BGG filter taxonomy | `docs/core/filter-taxonomy-contract.md` | Link only |
 | Architecture and long-lived policies | `docs/core/*.md` | Link only |
 
 ## Documentation lifecycle
@@ -109,4 +112,6 @@ Do not run tests, scripts, builds, installs, migrations, deployments, or other e
 If the request could mean either diagnosis/recommendations or implementation, treat it as diagnosis only and stop before changes. Ask for explicit authorization before implementing.
 
 Authorization from prior turns, goals, urgency, or implied intent does not carry forward. Explicit authorization must be present in the current user message.
+
+DO NOT ADD TESTS WITHOUT EXPLICIT AUTHORIZATION
 ```

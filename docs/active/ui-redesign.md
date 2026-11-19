@@ -1,7 +1,7 @@
 # Board Game Library Recommender — UI Redesign Specification
 
 **Status:** Living design specification; partial, not implementation-ready in its entirety  
-**Last updated:** 2026-11-17  
+**Last updated:** 2026-11-19
 **Project:** [boardgame-library-recommender](https://github.com/MichoelSnow/boardgame-library-recommender)
 
 ## Purpose and scope
@@ -185,7 +185,7 @@ Show the following **10 featured choices** before the expanded full list:
 | Worker Placement | Mechanic `Worker Placement`. |
 | Racing | Category `Racing` **only**; do **not** add the BGG `Race` mechanic, which includes any race to a fixed objective (such as reaching 10 points in Catan). |
 
-**Important open details:** Exact logic for merging any additional similar classifications and the exhaustive list of friendly-label renames have not yet been finalized. Multiple selections within Game Type use OR semantics; independent filter groups use AND semantics. The mapping table above is a starting specification, not an instruction to merge superficially similar terms without reviewing their BGG definitions. Ambiguous classifications must be flagged for review rather than silently resolved.
+**Approved taxonomy details:** The complete category/mechanic crosswalk, approved merges, stable option IDs, full-list labels, and source IDs are recorded in the [Filter Taxonomy Contract](../core/filter-taxonomy-contract.md). Multiple selections within Game Type use OR semantics; independent filter groups use AND semantics. Merged options expand their underlying category/mechanic sources with OR semantics, never AND. Set Collection remains in the full list; technical classifications remain searchable; Party, Children's, Cooperative, and Solo / Solitaire are not duplicated because they are represented by independent controls. Race remains a distinct full-list option and is not merged with Racing.
 
 ### C. Theme & Setting — collapsed by default
 
@@ -207,7 +207,7 @@ Show the following **10 featured themes**:
 - Use a **Show All Themes** control to reveal a searchable complete list inline, with selections retained when collapsed.
 - BGG category labels may be simplified where the meaning is preserved (e.g., `Murder / Mystery` → Mystery, `Movies / TV / Radio theme` → Movies & TV).
 - Reassign categories that are really *game types* rather than settings (e.g., Abstract Strategy, Wargame) to the appropriate user-facing set rather than blindly listing them under Theme.
-- **Open detail:** The complete crosswalk from every BGG category to Game Type or Theme and multi-select combination semantics remain to be defined.
+- The complete crosswalk from every BGG category/mechanic to Game Type or Theme, including source IDs and approved combination semantics, is recorded in the [Filter Taxonomy Contract](../core/filter-taxonomy-contract.md).
 
 ### Labels and explanations
 
@@ -244,12 +244,12 @@ Keep the existing like/dislike → personalized recommendation controls and work
 
 Do not exclude expansions by default, add an expansion filter, or otherwise change existing expansion behavior. Convention expansions are generally physically bundled with their base games.
 
-## Decisions still open
+## Maintenance and decisions still open
 
-1. The complete crosswalk of BGG categories/mechanics to the unified user-facing Game Type and Theme lists, including duplicate handling and full-list labels. Ambiguous classifications must be flagged for review rather than silently resolved.
+1. Future changes to the approved BGG crosswalk, duplicate handling, or full-list labels require an explicit update to the [Filter Taxonomy Contract](../core/filter-taxonomy-contract.md) and corresponding implementation review.
 2. Final tooltip/help text for technical game types and overall accessibility review.
 
-These remaining decisions do not block Stage 1. Sort options should be verified directly against the existing code during implementation rather than inferred from mockups. Existing recommendation-mode filtering behavior is preserved and is not an open decision for this redesign.
+These remaining decisions do not block the approved taxonomy implementation. Existing recommendation-mode filtering behavior is preserved and is not an open decision for this redesign.
 
 ## Working process
 
@@ -262,4 +262,4 @@ Recommended workflow:
 3. Give the repository coding agent a **small, separately scoped implementation task** that cites the relevant sections here.
 4. Review the result on a narrow phone viewport and convention-size tablet viewport before moving to the next task.
 
-**Immediate next activity:** Prepare a small first coding-agent task focused on the main browse header, sort control, active chips, and drawer shell while preserving the existing cards, recommendation workflow, and filter logic.
+**Immediate next activity:** Perform the planned narrow-device keyboard, touch-target, drawer-scrolling, accordion, and chip-removal smoke review. Record any accessibility or tooltip decisions before the redesign is considered fully complete.

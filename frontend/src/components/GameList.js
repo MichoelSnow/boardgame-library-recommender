@@ -37,7 +37,6 @@ import {
 } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
-import PeopleIcon from '@mui/icons-material/People';
 import SortIcon from '@mui/icons-material/Sort';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GameDetails from './GameDetails';
@@ -55,6 +54,7 @@ import {
   useConventionKioskStatusQuery,
   useGameDetailsQuery,
   useGamesQuery,
+  useFilterTaxonomyQuery,
   useMechanicsQuery,
   useLibraryGameIdsQuery,
 } from '../hooks/useGameListQueries';
@@ -94,11 +94,24 @@ const sortOptions = [
 //   return option ? option.label : 'Rank';
 // };
 
-// Generate player count options (1-12)
-const playerCountOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+const playerCountOptions = Array.from({ length: 8 }, (_, i) => i + 1);
+const PLAYER_COUNT_NINE_PLUS = '9plus';
+const playtimeOptions = [15, 30, 45, 60, 90, 120, 180, 240];
+const ageOptions = [5, 6, 8, 10, 12, 14];
+const gameStyleOptions = [
+  { value: 'any', label: 'Any' },
+  { value: 'family', label: 'Family Games' },
+  { value: 'children', label: "Children's Games" },
+  { value: 'party', label: 'Party Games' },
+];
+const formatPlaytimeLabel = (minutes) =>
+  minutes >= 120 ? `${minutes / 60} hours` : `${minutes} min`;
 
 const VALID_PLAYER_RECOMMENDATIONS = new Set(['allowed', 'recommended', 'best']);
 const VALID_SORT_OPTIONS = new Set(sortOptions.map((option) => option.value));
+const VALID_GAME_STYLES = new Set(gameStyleOptions.map((option) => option.value));
+const STYLE_CATEGORY_IDS = { party: 1030, children: 1041 };
+const COOPERATIVE_MECHANIC_ID = 2023;
 const FILTER_DRAWER_HISTORY_KEY = '__gameListFilterDrawer';
 
 const parseIntegerParam = (value) => {
@@ -109,6 +122,18 @@ const parseIntegerParam = (value) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
 };
+
+const parsePlayerCountParam = (value) => {
+  if (value === PLAYER_COUNT_NINE_PLUS) {
+    return value;
+  }
+
+  const parsed = parseIntegerParam(value);
+  return parsed !== null && parsed >= 1 && parsed <= 12 ? parsed : null;
+};
+
+const parseChoiceParam = (value, validChoices, fallback) =>
+  validChoices.has(value) ? value : fallback;
 
 const parseBooleanParam = (value, fallback) => {
   if (value === 'true') {
@@ -131,11 +156,24 @@ const parseCsvIntegers = (value) => {
     .filter((item) => !Number.isNaN(item));
 };
 
+const parseCsvStrings = (value) => (value || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
 const buildPlaceholderSelection = (ids, idKey, nameKey) =>
   ids.map((id) => ({
     [idKey]: id,
     [nameKey]: '',
   }));
+
+const buildTaxonomyPlaceholders = (ids) => ids.map((option_id) => ({
+  option_id,
+  label: option_id,
+  group: option_id.startsWith('theme:') ? 'theme' : 'game_type',
+  featured: false,
+  sources: [],
+}));
 
 // Memoized GameCardSkeleton component
 const GameCardSkeleton = memo(() => (
@@ -241,7 +279,6 @@ const BrowseToolbar = ({
       </Button>
       <Button
         variant="outlined"
-        startIcon={<PeopleIcon />}
         onClick={onOpenFilters}
         disabled={isRecommendation}
         data-tour="player-filter"
@@ -286,16 +323,25 @@ const FilterDrawer = ({
   playerOptions,
   onPlayerCountChange,
   onPlayerRecChange,
+  maxPlaytime,
+  onMaxPlaytimeChange,
+  minAge,
+  onMinAgeChange,
   weight,
   onWeightToggle,
-  popularMechanics,
-  selectedMechanics,
-  onMechanicToggle,
-  popularCategories,
-  selectedCategories,
-  onCategoryToggle,
+  gameStyle,
+  onGameStyleChange,
+  cooperative,
+  onCooperativeChange,
+  gameTypeOptions,
+  selectedGameTypes,
+  themeOptions,
+  selectedThemes,
+  onTaxonomyToggle,
 }) => {
   const [expandedSections, setExpandedSections] = useState(() => new Set(['group']));
+  const [showAll, setShowAll] = useState({ gameType: false, theme: false });
+  const [taxonomySearch, setTaxonomySearch] = useState({ gameType: '', theme: '' });
 
   const handleSectionChange = (section) => (_event, isExpanded) => {
     setExpandedSections((previous) => {
@@ -307,6 +353,19 @@ const FilterDrawer = ({
       }
       return next;
     });
+  };
+
+  const handleTaxonomyViewToggle = (sectionKey) => {
+    if (showAll[sectionKey]) {
+      setTaxonomySearch((previous) => ({
+        ...previous,
+        [sectionKey]: '',
+      }));
+    }
+    setShowAll((previous) => ({
+      ...previous,
+      [sectionKey]: !previous[sectionKey],
+    }));
   };
 
   const renderSelectionCount = (count) => (
@@ -348,6 +407,15 @@ const FilterDrawer = ({
             {count}
           </Button>
         ))}
+        <Button
+          variant={playerOptions.count === PLAYER_COUNT_NINE_PLUS ? 'contained' : 'outlined'}
+          onClick={() => onPlayerCountChange(null, PLAYER_COUNT_NINE_PLUS)}
+          size="small"
+          disabled={isRecommendation}
+          aria-pressed={playerOptions.count === PLAYER_COUNT_NINE_PLUS}
+        >
+          9+
+        </Button>
       </Box>
       {playerOptions.count !== null && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -405,34 +473,94 @@ const FilterDrawer = ({
     </Stack>
   );
 
-  const renderTaxonomyControls = (options, selected, idKey, nameKey, onToggle) => (
-    <Grid container spacing={1}>
+  const renderSingleSelectButtons = (options, value, onChange, formatLabel = (option) => option) => (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Button
+        size="small"
+        variant={value === null ? 'contained' : 'outlined'}
+        onClick={() => onChange(null)}
+        disabled={isRecommendation}
+        aria-pressed={value === null}
+      >
+        Any
+      </Button>
       {options.map((option) => (
-        <Grid size={{ xs: 6, sm: 4 }} key={option[idKey]}>
-          <Button
-            fullWidth
-            variant={selected.some((item) => item[idKey] === option[idKey]) ? 'contained' : 'outlined'}
-            onClick={() => onToggle(option)}
-            size="small"
-            disabled={isRecommendation}
-            aria-pressed={selected.some((item) => item[idKey] === option[idKey])}
-            sx={{
-              textAlign: 'center',
-              minHeight: 44,
-              height: '100%',
-              display: 'flex',
-              justifyContent: 'center',
-              fontSize: '0.8rem',
-              lineHeight: 1.2,
-              p: 1,
-            }}
-          >
-            {option[nameKey]}
-          </Button>
-        </Grid>
+        <Button
+          key={option}
+          size="small"
+          variant={value === option ? 'contained' : 'outlined'}
+          onClick={() => onChange(option)}
+          disabled={isRecommendation}
+          aria-pressed={value === option}
+        >
+          {formatLabel(option)}
+        </Button>
       ))}
-    </Grid>
+    </Box>
   );
+
+  const renderTaxonomyControls = (options, selected, sectionKey, sectionLabel) => {
+    const query = taxonomySearch[sectionKey].trim().toLowerCase();
+    const visibleOptions = (showAll[sectionKey] ? options : options.filter((option) => option.featured))
+      .filter((option) => {
+        if (!query) return true;
+        const sourceNames = option.sources.map((source) => source.name).join(' ');
+        return `${option.label} ${sourceNames}`.toLowerCase().includes(query);
+      });
+    const selectedIds = new Set(selected.map((option) => option.option_id));
+
+    return (
+      <Stack spacing={1.5}>
+        {showAll[sectionKey] && (
+          <TextField
+            size="small"
+            fullWidth
+            label={`Search ${sectionLabel}`}
+            value={taxonomySearch[sectionKey]}
+            onChange={(event) => setTaxonomySearch((previous) => ({
+              ...previous,
+              [sectionKey]: event.target.value,
+            }))}
+            inputProps={{ 'aria-label': `Search ${sectionLabel}` }}
+          />
+        )}
+        <Grid container spacing={1}>
+          {visibleOptions.map((option) => (
+            <Grid size={{ xs: 6, sm: 4 }} key={option.option_id}>
+              <Button
+                fullWidth
+                variant={selectedIds.has(option.option_id) ? 'contained' : 'outlined'}
+                onClick={() => onTaxonomyToggle(option)}
+                size="small"
+                disabled={isRecommendation}
+                aria-pressed={selectedIds.has(option.option_id)}
+                sx={{
+                  textAlign: 'center',
+                  minHeight: 44,
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.2,
+                  p: 1,
+                }}
+              >
+                {option.label}
+              </Button>
+            </Grid>
+          ))}
+        </Grid>
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => handleTaxonomyViewToggle(sectionKey)}
+          disabled={isRecommendation}
+        >
+          {showAll[sectionKey] ? `Show Featured ${sectionLabel}` : `Show All ${sectionLabel}`}
+        </Button>
+      </Stack>
+    );
+  };
 
   return (
     <Drawer
@@ -465,8 +593,7 @@ const FilterDrawer = ({
         >
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <PeopleIcon fontSize="small" />
-              <Typography sx={{ ml: 1, fontWeight: 600 }}>Group &amp; Requirements</Typography>
+              <Typography sx={{ fontWeight: 600 }}>Group &amp; Requirements</Typography>
               {renderSelectionCount(groupSelectionCount)}
             </Box>
           </AccordionSummary>
@@ -480,6 +607,41 @@ const FilterDrawer = ({
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Complexity</Typography>
                 {renderComplexityControls()}
               </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Maximum Play Time</Typography>
+                {renderSingleSelectButtons(playtimeOptions, maxPlaytime, onMaxPlaytimeChange, formatPlaytimeLabel)}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Minimum Age</Typography>
+                {renderSingleSelectButtons(ageOptions, minAge, onMinAgeChange, (option) => `${option}+`)}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Game Style</Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {gameStyleOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      size="small"
+                      variant={gameStyle === option.value ? 'contained' : 'outlined'}
+                      onClick={() => onGameStyleChange(option.value)}
+                      disabled={isRecommendation}
+                      aria-pressed={gameStyle === option.value}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+              <Button
+                size="small"
+                variant={cooperative ? 'contained' : 'outlined'}
+                onClick={() => onCooperativeChange(!cooperative)}
+                disabled={isRecommendation}
+                aria-pressed={cooperative}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Cooperative games only
+              </Button>
             </Stack>
           </AccordionDetails>
         </Accordion>
@@ -497,13 +659,7 @@ const FilterDrawer = ({
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            {renderTaxonomyControls(
-              popularMechanics,
-              selectedMechanics,
-              'boardgamemechanic_id',
-              'boardgamemechanic_name',
-              onMechanicToggle
-            )}
+            {renderTaxonomyControls(gameTypeOptions, selectedGameTypes, 'gameType', 'Game Types')}
           </AccordionDetails>
         </Accordion>
 
@@ -520,13 +676,7 @@ const FilterDrawer = ({
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            {renderTaxonomyControls(
-              popularCategories,
-              selectedCategories,
-              'boardgamecategory_id',
-              'boardgamecategory_name',
-              onCategoryToggle
-            )}
+            {renderTaxonomyControls(themeOptions, selectedThemes, 'theme', 'Themes')}
           </AccordionDetails>
         </Accordion>
       </Box>
@@ -576,7 +726,7 @@ const ActiveFilterChips = ({ chips, onRemove, onShowMore }) => {
 const GameList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearchValue = searchParams.get('search') || '';
-  const initialPlayerCount = parseIntegerParam(searchParams.get('players'));
+  const initialPlayerCount = parsePlayerCountParam(searchParams.get('players'));
   const initialPlayerRecommendation = searchParams.get('player_rec');
   const initialWeightValues = new Set(
     (searchParams.get('weight') || '')
@@ -586,6 +736,22 @@ const GameList = () => {
   );
   const initialMechanicIds = parseCsvIntegers(searchParams.get('mechanics'));
   const initialCategoryIds = parseCsvIntegers(searchParams.get('categories'));
+  const initialGameTypeIds = parseCsvStrings(searchParams.get('game_types'));
+  const initialThemeIds = parseCsvStrings(searchParams.get('themes'));
+  const initialMaxPlaytimeValue = parseIntegerParam(searchParams.get('max_playtime'));
+  const initialMaxPlaytime = playtimeOptions.includes(initialMaxPlaytimeValue)
+    ? initialMaxPlaytimeValue
+    : null;
+  const initialMinAgeValue = parseIntegerParam(searchParams.get('min_age'));
+  const initialMinAge = ageOptions.includes(initialMinAgeValue)
+    ? initialMinAgeValue
+    : null;
+  const initialGameStyle = parseChoiceParam(
+    searchParams.get('game_style'),
+    VALID_GAME_STYLES,
+    'any'
+  );
+  const initialCooperative = searchParams.get('cooperative') === 'true';
   const initialSortBy = searchParams.get('sort');
   const initialLibraryOnly = parseBooleanParam(searchParams.get('library_only'), true);
 
@@ -618,6 +784,16 @@ const GameList = () => {
       'boardgamecategory_name'
     )
   );
+  const [selectedGameTypes, setSelectedGameTypes] = useState(
+    buildTaxonomyPlaceholders(initialGameTypeIds)
+  );
+  const [selectedThemes, setSelectedThemes] = useState(
+    buildTaxonomyPlaceholders(initialThemeIds)
+  );
+  const [maxPlaytime, setMaxPlaytime] = useState(initialMaxPlaytime);
+  const [minAge, setMinAge] = useState(initialMinAge);
+  const [gameStyle, setGameStyle] = useState(initialGameStyle);
+  const [cooperative, setCooperative] = useState(initialCooperative);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [selectedGamePreview, setSelectedGamePreview] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -668,11 +844,32 @@ const GameList = () => {
   const selectedCategoryIds = selectedCategories.map(
     (item) => item.boardgamecategory_id
   );
+  const selectedTaxonomyMechanicIds = selectedGameTypes
+    .concat(selectedThemes)
+    .flatMap((option) => option.sources
+      .filter((source) => source.type === 'mechanic')
+      .map((source) => source.id));
+  const selectedTaxonomyCategoryIds = selectedGameTypes
+    .concat(selectedThemes)
+    .flatMap((option) => option.sources
+      .filter((source) => source.type === 'category')
+      .map((source) => source.id));
+  const selectedDetailMechanicIds = [...new Set(selectedMechanicIds
+    .concat(selectedTaxonomyMechanicIds)
+    .concat(cooperative ? [COOPERATIVE_MECHANIC_ID] : []))];
+  const selectedDetailCategoryIds = [...new Set(selectedCategoryIds
+    .concat(selectedTaxonomyCategoryIds)
+    .concat(gameStyle in STYLE_CATEGORY_IDS ? [STYLE_CATEGORY_IDS[gameStyle]] : []))];
   const recommendationMutation = useRecommendationMutation();
   const isRecommendationLoading = recommendationMutation.isPending;
 
   const { data: popularMechanics = [] } = useMechanicsQuery();
   const { data: popularCategories = [] } = useCategoriesQuery();
+  const { data: taxonomyOptions = [] } = useFilterTaxonomyQuery();
+  const gameTypeOptions = taxonomyOptions.filter((option) => option.group === 'game_type');
+  const themeOptions = taxonomyOptions.filter((option) => option.group === 'theme');
+  const selectedGameTypeIds = selectedGameTypes.map((option) => option.option_id);
+  const selectedThemeIds = selectedThemes.map((option) => option.option_id);
   const { data: libraryGameIds = [] } = useLibraryGameIdsQuery();
 
   const {
@@ -690,7 +887,13 @@ const GameList = () => {
     selectedArtists,
     selectedMechanicIds,
     selectedCategoryIds,
+    selectedGameTypeIds,
+    selectedThemeIds,
     weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
     isRecommendation,
   });
 
@@ -708,7 +911,8 @@ const GameList = () => {
       if (includeFilters) {
         querySpecs.push(
           { queryKey: ['mechanics_alphabetically'], type: 'active' },
-          { queryKey: ['categories_alphabetically'], type: 'active' }
+          { queryKey: ['categories_alphabetically'], type: 'active' },
+          { queryKey: ['filter_taxonomy'], type: 'active' }
         );
       }
       await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
@@ -784,8 +988,14 @@ const GameList = () => {
     setWeight({ beginner: false, midweight: false, heavy: false });
     setSelectedMechanics([]);
     setSelectedCategories([]);
+    setSelectedGameTypes([]);
+    setSelectedThemes([]);
     setSelectedDesigners([]);
     setSelectedArtists([]);
+    setMaxPlaytime(null);
+    setMinAge(null);
+    setGameStyle('any');
+    setCooperative(false);
     setCurrentPage(1);
   };
 
@@ -806,26 +1016,39 @@ const GameList = () => {
     setWeight((previous) => ({ ...previous, [weightKey]: !previous[weightKey] }));
   };
 
-  const handleMechanicToggle = (mechanic) => {
-    setSelectedMechanics((previous) => {
-      const isSelected = previous.some(
-        (item) => item.boardgamemechanic_id === mechanic.boardgamemechanic_id
-      );
-      return isSelected
-        ? previous.filter((item) => item.boardgamemechanic_id !== mechanic.boardgamemechanic_id)
-        : [...previous, mechanic];
-    });
-  };
+  const handleMaxPlaytimeChange = (value) => setMaxPlaytime(value);
 
-  const handleCategoryToggle = (category) => {
-    setSelectedCategories((previous) => {
-      const isSelected = previous.some(
-        (item) => item.boardgamecategory_id === category.boardgamecategory_id
-      );
+  const handleMinAgeChange = (value) => setMinAge(value);
+
+  const handleGameStyleChange = (value) => setGameStyle(value);
+
+  const handleCooperativeChange = (value) => setCooperative(value);
+
+  const handleTaxonomyToggle = (option) => {
+    const setSelection = option.group === 'game_type' ? setSelectedGameTypes : setSelectedThemes;
+    setSelection((previous) => {
+      const isSelected = previous.some((item) => item.option_id === option.option_id);
       return isSelected
-        ? previous.filter((item) => item.boardgamecategory_id !== category.boardgamecategory_id)
-        : [...previous, category];
+        ? previous.filter((item) => item.option_id !== option.option_id)
+        : [...previous, option];
     });
+
+    const mechanicIds = new Set(
+      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
+    );
+    const categoryIds = new Set(
+      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
+    );
+    if (mechanicIds.size > 0) {
+      setSelectedMechanics((previous) => previous.filter(
+        (item) => !mechanicIds.has(item.boardgamemechanic_id)
+      ));
+    }
+    if (categoryIds.size > 0) {
+      setSelectedCategories((previous) => previous.filter(
+        (item) => !categoryIds.has(item.boardgamecategory_id)
+      ));
+    }
   };
 
   // Handle search input change
@@ -894,6 +1117,42 @@ const GameList = () => {
       nextSearchParams.delete('categories');
     }
 
+    if (selectedGameTypeIds.length > 0) {
+      nextSearchParams.set('game_types', selectedGameTypeIds.join(','));
+    } else {
+      nextSearchParams.delete('game_types');
+    }
+
+    if (selectedThemeIds.length > 0) {
+      nextSearchParams.set('themes', selectedThemeIds.join(','));
+    } else {
+      nextSearchParams.delete('themes');
+    }
+
+    if (maxPlaytime !== null) {
+      nextSearchParams.set('max_playtime', String(maxPlaytime));
+    } else {
+      nextSearchParams.delete('max_playtime');
+    }
+
+    if (minAge !== null) {
+      nextSearchParams.set('min_age', String(minAge));
+    } else {
+      nextSearchParams.delete('min_age');
+    }
+
+    if (gameStyle !== 'any') {
+      nextSearchParams.set('game_style', gameStyle);
+    } else {
+      nextSearchParams.delete('game_style');
+    }
+
+    if (cooperative) {
+      nextSearchParams.set('cooperative', 'true');
+    } else {
+      nextSearchParams.delete('cooperative');
+    }
+
     nextSearchParams.delete('page');
 
     if (nextSearchParams.toString() === searchParams.toString()) {
@@ -906,12 +1165,16 @@ const GameList = () => {
     searchParams,
     searchTerm,
     selectedCategoryIds,
-    selectedCategories,
     selectedMechanicIds,
-    selectedMechanics,
+    selectedGameTypeIds,
+    selectedThemeIds,
     setSearchParams,
     sortBy,
     weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
   ]);
 
   useEffect(() => {
@@ -961,6 +1224,75 @@ const GameList = () => {
       return changed ? next : previous;
     });
   }, [popularCategories, selectedCategories.length]);
+
+  useEffect(() => {
+    if (!taxonomyOptions.length) {
+      return;
+    }
+
+    const optionsById = new Map(taxonomyOptions.map((option) => [option.option_id, option]));
+    const sourceOptions = new Map();
+    taxonomyOptions.forEach((option) => option.sources.forEach((source) => {
+      sourceOptions.set(`${source.type}:${source.id}`, option);
+    }));
+
+    setSelectedGameTypes((previous) => {
+      let changed = false;
+      const next = previous.map((option) => {
+        const resolved = optionsById.get(option.option_id);
+        if (resolved && resolved !== option) {
+          changed = true;
+          return resolved;
+        }
+        return option;
+      });
+      return changed ? next : previous;
+    });
+    setSelectedThemes((previous) => {
+      let changed = false;
+      const next = previous.map((option) => {
+        const resolved = optionsById.get(option.option_id);
+        if (resolved && resolved !== option) {
+          changed = true;
+          return resolved;
+        }
+        return option;
+      });
+      return changed ? next : previous;
+    });
+
+    const promoteLegacySources = (sourceType, selected, setLegacy) => {
+      const promoted = [];
+      const unresolved = [];
+      selected.forEach((source) => {
+        const option = sourceOptions.get(`${sourceType}:${source[sourceType === 'mechanic' ? 'boardgamemechanic_id' : 'boardgamecategory_id']}`);
+        if (option) {
+          promoted.push(option);
+        } else {
+          unresolved.push(source);
+        }
+      });
+      if (promoted.length > 0) {
+        const setters = {
+          game_type: setSelectedGameTypes,
+          theme: setSelectedThemes,
+        };
+        promoted.forEach((option) => setters[option.group]((previous) => {
+          const byId = new Map(previous.map((item) => [item.option_id, item]));
+          byId.set(option.option_id, option);
+          return Array.from(byId.values());
+        }));
+      }
+      if (unresolved.length !== selected.length) {
+        setLegacy(unresolved);
+      }
+    };
+
+    promoteLegacySources('mechanic', selectedMechanics, setSelectedMechanics);
+    promoteLegacySources('category', selectedCategories, setSelectedCategories);
+    // This effect intentionally runs only when the server contract becomes available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taxonomyOptions]);
 
   useEffect(() => {
     if (!isRecommendation && response?.games) {
@@ -1013,8 +1345,24 @@ const GameList = () => {
     ...(isPlayersFiltered
       ? [{
           key: 'players',
-          label: `${playerOptions.count} players${playerOptions.recommendation !== 'allowed' ? ` · ${playerOptions.recommendation[0].toUpperCase()}${playerOptions.recommendation.slice(1)}` : ''}`,
+          label: `${playerOptions.count === PLAYER_COUNT_NINE_PLUS ? '9+' : playerOptions.count} players${playerOptions.recommendation !== 'allowed' ? ` · ${playerOptions.recommendation[0].toUpperCase()}${playerOptions.recommendation.slice(1)}` : ''}`,
           type: 'players',
+          id: null,
+        }]
+      : []),
+    ...(maxPlaytime !== null
+      ? [{
+          key: 'max-playtime',
+          label: `Up to ${formatPlaytimeLabel(maxPlaytime)}`,
+          type: 'max_playtime',
+          id: null,
+        }]
+      : []),
+    ...(minAge !== null
+      ? [{
+          key: 'min-age',
+          label: `Age ${minAge}+`,
+          type: 'min_age',
           id: null,
         }]
       : []),
@@ -1026,6 +1374,34 @@ const GameList = () => {
         type: 'weight',
         id: key,
       })),
+    ...(gameStyle !== 'any'
+      ? [{
+          key: 'game-style',
+          label: gameStyleOptions.find((option) => option.value === gameStyle)?.label || gameStyle,
+          type: 'game_style',
+          id: null,
+        }]
+      : []),
+    ...(cooperative
+      ? [{
+          key: 'cooperative',
+          label: 'Cooperative',
+          type: 'cooperative',
+          id: null,
+        }]
+      : []),
+    ...selectedGameTypes.map((option) => ({
+      key: `game-type-${option.option_id}`,
+      label: `Game Type: ${option.label}`,
+      type: 'game_type',
+      id: option.option_id,
+    })),
+    ...selectedThemes.map((option) => ({
+      key: `theme-${option.option_id}`,
+      label: `Theme: ${option.label}`,
+      type: 'theme',
+      id: option.option_id,
+    })),
     ...selectedMechanics.map((mechanic) => ({
       key: `mechanic-${mechanic.boardgamemechanic_id}`,
       label: `Mechanic: ${mechanic.boardgamemechanic_name || mechanic.boardgamemechanic_id}`,
@@ -1053,9 +1429,14 @@ const GameList = () => {
   ];
   const activeFilterCount = activeFilterChips.length;
   const groupSelectionCount =
-    (isPlayersFiltered ? 1 : 0) + Object.values(weight).filter(Boolean).length;
-  const gameTypeSelectionCount = selectedMechanics.length;
-  const themeSelectionCount = selectedCategories.length;
+    (isPlayersFiltered ? 1 : 0) +
+    (maxPlaytime !== null ? 1 : 0) +
+    (minAge !== null ? 1 : 0) +
+    Object.values(weight).filter(Boolean).length +
+    (gameStyle !== 'any' ? 1 : 0) +
+    (cooperative ? 1 : 0);
+  const gameTypeSelectionCount = selectedGameTypes.length + selectedMechanics.length;
+  const themeSelectionCount = selectedThemes.length + selectedCategories.length;
 
   const closeSearch = () => {
     setInputValue('');
@@ -1112,7 +1493,22 @@ const GameList = () => {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, playerOptions, selectedDesigners, selectedArtists, selectedMechanics, selectedCategories, weight, sortBy]);
+  }, [
+    searchTerm,
+    playerOptions,
+    selectedDesigners,
+    selectedArtists,
+    selectedMechanics,
+    selectedCategories,
+    selectedGameTypes,
+    selectedThemes,
+    weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
+    sortBy,
+  ]);
 
   const handlePageChange = (event, newPage) => {
     setCurrentPage(newPage);
@@ -1128,6 +1524,15 @@ const GameList = () => {
   const handleFilter = (type, id, name) => {
     if (type === 'game') {
       handleGameClick({ id });
+    } else if (type === 'taxonomy') {
+      const taxonomyOption = taxonomyOptions.find((option) => option.option_id === id);
+      if (taxonomyOption) {
+        handleTaxonomyToggle(taxonomyOption);
+      }
+    } else if (type === 'style') {
+      setGameStyle((previous) => (previous === id ? 'any' : id));
+    } else if (type === 'cooperative') {
+      setCooperative((previous) => !previous);
     } else if (type === 'designer') {
       setSelectedDesigners(prev => {
         const exists = prev.some(d => d.boardgamedesigner_id === id);
@@ -1147,6 +1552,17 @@ const GameList = () => {
         }
       });
     } else if (type === 'mechanic') {
+      if (id === COOPERATIVE_MECHANIC_ID) {
+        setCooperative((previous) => !previous);
+        return;
+      }
+      const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
+        (source) => source.type === 'mechanic' && source.id === id
+      ));
+      if (taxonomyOption) {
+        handleTaxonomyToggle(taxonomyOption);
+        return;
+      }
       setSelectedMechanics(prev => {
         const exists = prev.some(m => m.boardgamemechanic_id === id);
         if (exists) {
@@ -1156,6 +1572,18 @@ const GameList = () => {
         }
       });
     } else if (type === 'category') {
+      const style = Object.entries(STYLE_CATEGORY_IDS).find(([, categoryId]) => categoryId === id)?.[0];
+      if (style) {
+        setGameStyle((previous) => (previous === style ? 'any' : style));
+        return;
+      }
+      const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
+        (source) => source.type === 'category' && source.id === id
+      ));
+      if (taxonomyOption) {
+        handleTaxonomyToggle(taxonomyOption);
+        return;
+      }
       setSelectedCategories(prev => {
         const exists = prev.some(c => c.boardgamecategory_id === id);
         if (exists) {
@@ -1172,6 +1600,14 @@ const GameList = () => {
       setPlayerOptions({ count: null, recommendation: 'allowed' });
     } else if (type === 'weight') {
       setWeight((previous) => ({ ...previous, [id]: false }));
+    } else if (type === 'max_playtime') {
+      setMaxPlaytime(null);
+    } else if (type === 'min_age') {
+      setMinAge(null);
+    } else if (type === 'game_style') {
+      setGameStyle('any');
+    } else if (type === 'cooperative') {
+      setCooperative(false);
     } else if (type === 'designer') {
       setSelectedDesigners(prev => prev.filter(d => d.boardgamedesigner_id !== id));
     } else if (type === 'artist') {
@@ -1180,6 +1616,10 @@ const GameList = () => {
       setSelectedMechanics(prev => prev.filter(m => m.boardgamemechanic_id !== id));
     } else if (type === 'category') {
       setSelectedCategories(prev => prev.filter(c => c.boardgamecategory_id !== id));
+    } else if (type === 'game_type') {
+      setSelectedGameTypes(prev => prev.filter((option) => option.option_id !== id));
+    } else if (type === 'theme') {
+      setSelectedThemes(prev => prev.filter((option) => option.option_id !== id));
     }
   };
 
@@ -1276,14 +1716,21 @@ const GameList = () => {
             playerOptions={playerOptions}
             onPlayerCountChange={handlePlayerCountChange}
             onPlayerRecChange={handlePlayerRecChange}
+            maxPlaytime={maxPlaytime}
+            onMaxPlaytimeChange={handleMaxPlaytimeChange}
+            minAge={minAge}
+            onMinAgeChange={handleMinAgeChange}
             weight={weight}
             onWeightToggle={handleWeightToggle}
-            popularMechanics={popularMechanics}
-            selectedMechanics={selectedMechanics}
-            onMechanicToggle={handleMechanicToggle}
-            popularCategories={popularCategories}
-            selectedCategories={selectedCategories}
-            onCategoryToggle={handleCategoryToggle}
+            gameStyle={gameStyle}
+            onGameStyleChange={handleGameStyleChange}
+            cooperative={cooperative}
+            onCooperativeChange={handleCooperativeChange}
+            gameTypeOptions={gameTypeOptions}
+            selectedGameTypes={selectedGameTypes}
+            themeOptions={themeOptions}
+            selectedThemes={selectedThemes}
+            onTaxonomyToggle={handleTaxonomyToggle}
           />
 
           <ActiveFilterChips
@@ -1457,8 +1904,13 @@ const GameList = () => {
             isLibraryGame={libraryGameIds.includes((selectedGame || selectedGamePreview).id)}
             selectedDesignerIds={selectedDesigners.map((designer) => designer.boardgamedesigner_id)}
             selectedArtistIds={selectedArtists.map((artist) => artist.boardgameartist_id)}
-            selectedMechanicIds={selectedMechanicIds}
-            selectedCategoryIds={selectedCategoryIds}
+            selectedMechanicIds={selectedDetailMechanicIds}
+            selectedCategoryIds={selectedDetailCategoryIds}
+            taxonomyOptions={taxonomyOptions}
+            selectedGameTypeIds={selectedGameTypeIds}
+            selectedThemeIds={selectedThemeIds}
+            selectedGameStyle={gameStyle}
+            cooperativeSelected={cooperative}
             libraryGameIds={libraryGameIds}
           />
         )}

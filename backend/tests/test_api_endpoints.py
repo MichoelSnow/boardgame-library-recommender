@@ -38,7 +38,20 @@ async def test_games_endpoint_preserves_core_query_contract(monkeypatch, api_cli
     monkeypatch.setattr(main.crud, "get_games", mock_get_games)
     response = await api_client.get(
         "/api/games/",
-        params={"skip": 5, "limit": 10, "sort_by": "rank", "search": "alph", "library_only": "true"},
+        params={
+            "skip": 5,
+            "limit": 10,
+            "sort_by": "rank",
+            "search": "alph",
+            "players": "9plus",
+            "max_playtime": 60,
+            "min_age": 8,
+            "game_style": "party",
+            "cooperative": "true",
+            "game_types": "game-type:deduction,game-type:dice-games",
+            "themes": "theme:fantasy",
+            "library_only": "true",
+        },
     )
 
     assert response.status_code == 200
@@ -47,7 +60,50 @@ async def test_games_endpoint_preserves_core_query_contract(monkeypatch, api_cli
     assert captured["skip"] == 5
     assert captured["limit"] == 10
     assert captured["search"] == "alph"
+    assert captured["players"] == "9plus"
+    assert captured["max_playtime"] == 60
+    assert captured["min_age"] == 8
+    assert captured["game_style"] == "party"
+    assert captured["cooperative"] is True
+    assert captured["game_types"] == "game-type:deduction,game-type:dice-games"
+    assert captured["themes"] == "theme:fantasy"
     assert captured["library_only"] is True
+
+
+@pytest.mark.anyio
+async def test_filter_taxonomy_endpoint_returns_stable_option_contract(monkeypatch, api_client):
+    monkeypatch.setattr(
+        main.taxonomy,
+        "get_taxonomy_options",
+        lambda db: [
+            {
+                "option_id": "game-type:dice-games",
+                "label": "Dice Games",
+                "group": "game_type",
+                "featured": False,
+                "sources": [
+                    {"type": "category", "id": 1017, "name": "Dice"},
+                    {"type": "mechanic", "id": 2072, "name": "Dice Rolling"},
+                ],
+                "explanation": None,
+            }
+        ],
+    )
+
+    response = await api_client.get("/api/filter-taxonomy/")
+
+    assert response.status_code == 200
+    assert response.json()[0]["option_id"] == "game-type:dice-games"
+    assert response.json()[0]["sources"][1]["id"] == 2072
+
+
+@pytest.mark.anyio
+async def test_games_endpoint_rejects_invalid_expanded_filter_values(api_client):
+    invalid_style = await api_client.get("/api/games/", params={"game_style": "competitive"})
+    invalid_players = await api_client.get("/api/games/", params={"players": "13"})
+
+    assert invalid_style.status_code == 422
+    assert invalid_players.status_code == 422
 
 
 @pytest.mark.anyio

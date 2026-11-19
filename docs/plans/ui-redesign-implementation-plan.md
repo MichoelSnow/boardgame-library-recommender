@@ -25,10 +25,9 @@ The maintained test suite is intentionally small. Frontend coverage is concentra
 
 ## Prerequisites and decisions before implementation
 
-The following decisions materially affect API contracts or later user-visible behavior and should be resolved before the corresponding phase. Finalized behavior is recorded in the specification. Only decisions needed by the current stage should block implementation:
+The following decision still materially affects later user-visible behavior and should be resolved before the corresponding phase. Finalized behavior is recorded in the specification. Only decisions needed by the current stage should block implementation:
 
-1. The complete BGG category/mechanic crosswalk, duplicate handling, friendly labels, and source IDs needed by the full searchable lists. Ambiguous classifications must be flagged for review rather than silently resolved; defer this to the taxonomy stages.
-2. Final tooltip/help text and accessibility acceptance details; defer wording and the full accessibility review to the relevant implementation stage.
+1. Final tooltip/help text and accessibility acceptance details; defer wording and the full accessibility review to the relevant implementation stage.
 
 The header navigation and responsive layout decision is recorded in the living specification and is ready for Stage 1. Preserve the existing recommendation-mode filtering behavior; it is not an open decision. Verify the supported sort options directly against the existing `sortOptions` and backend `GameSortField` during implementation rather than treating mockup labels as prerequisites.
 
@@ -64,12 +63,12 @@ Purpose: move current filtering controls into the drawer while preserving curren
 
 Tasks:
 
-- [ ] Implement the default accordion state: Group & Requirements expanded; Game Type and Theme & Setting collapsed. Preserve selections when sections collapse or the drawer reopens.
-- [ ] Migrate current Players, Complexity/Weight, mechanics, and categories controls into the drawer, keeping changes immediately applied without a Show Games button.
-- [ ] Rename the user-facing Weight control to Complexity and align thresholds with the specification. Resolve the existing boundary mismatch (`crud.py` currently uses beginner `<= 2`, midweight `> 2 and < 4`, heavy `>= 4`) before changing labels or comparisons to the specified Light `< 2`, Medium `2–4` inclusive, Heavy `> 4`.
-- [ ] Implement active-filter accounting, prioritized maximum-three chips, `+N more`, whole-chip touch targets, and section-selection counts. Keep sort, search, library scope, and recommendation state distinct from filter chips; Clear All clears only filter constraints.
-- [ ] Preserve URL state for all existing filters; do not encode drawer visibility or transient accordion state in URL parameters.
-- [ ] Add or adjust one focused flow test only where filter state or URL serialization changes: cover restoration of a meaningful filter selection and recommendation-mode disabling if affected. Verify chip prioritization, collapse/reopen presentation, and touch behavior manually rather than adding a test for each control.
+- [x] Implement the default accordion state: Group & Requirements expanded; Game Type and Theme & Setting collapsed. Preserve selections when sections collapse or the drawer reopens.
+- [x] Migrate current Players, Complexity/Weight, mechanics, and categories controls into the drawer, keeping changes immediately applied without a Show Games button.
+- [x] Rename the user-facing Weight control to Complexity and align thresholds with the specification. Resolve the existing boundary mismatch (`crud.py` currently uses beginner `<= 2`, midweight `> 2 and < 4`, heavy `>= 4`) before changing labels or comparisons to the specified Light `< 2`, Medium `2–4` inclusive, Heavy `> 4`.
+- [x] Implement active-filter accounting, prioritized maximum-three chips, `+N more`, whole-chip touch targets, and section-selection counts. Keep sort, search, library scope, and recommendation state distinct from filter chips; Clear All clears only filter constraints.
+- [x] Preserve URL state for all existing filters; do not encode drawer visibility or transient accordion state in URL parameters.
+- [x] Add or adjust one focused flow test only where filter state or URL serialization changes: cover restoration of a meaningful filter selection and recommendation-mode disabling if affected. Verify chip prioritization, collapse/reopen presentation, and touch behavior manually rather than adding a test for each control.
 
 Completion conditions: all currently supported filters work from the drawer with unchanged backend semantics, active selections are discoverable/removable on touch, and existing deep links continue to restore their state.
 
@@ -79,13 +78,15 @@ Purpose: add only the new hard constraints and unified user-facing taxonomy that
 
 Tasks:
 
-- [ ] Convert the approved decisions into an explicit frontend/backend contract: maximum play time, minimum age, game style, cooperative, featured/full Game Type and Theme selections, OR within each Game Type/Theme group, AND across independent groups, and the separately agreed Complexity multi-selection semantics.
-- [ ] Extend the `GET /api/games/` query parameters and the corresponding `backend/app/main.py`, CRUD function, cache-key construction, and API tests. Apply all selected constraints with AND across independent filter groups; implement the decided OR/AND semantics within multi-select taxonomy groups.
-- [ ] Use existing `BoardGame` fields and relation tables where possible: `max_playtime`, `min_age`, `average_weight`, `family_games_rank`, `party_games_rank`, category membership, and mechanic membership. Exclude null/zero playtime or age when those constraints are active as specified.
-- [ ] Implement the Game Style mappings exactly after approval: family rank, children category membership, and party rank/category union. Add cooperative mechanic matching without presenting absence as “Competitive.” Review the complete BGG crosswalk during this stage and flag ambiguous classifications for developer review rather than silently resolving them.
-- [ ] Implement player `9+` and Recommended/Best behavior using existing suggested-player semantics: Allowed matches support at least one count of nine or more; Recommended and Best match the corresponding level at any count of nine or more. Verify how imported rows represent these cases and avoid a new model field unless the existing data cannot support the agreed behavior.
-- [ ] Add or extend filter-option API support for full searchable mechanics/categories and any server-side user-facing crosswalk needed to avoid shipping an unmaintainable hard-coded taxonomy. Keep option payloads stable and cacheable.
-- [ ] Add focused backend API/CRUD coverage for the new contract's boundary and combination semantics, unknown-value handling, pagination totals, and cache-key separation when caching changes. Combine related cases where practical. Add one frontend flow check for serialization/restored URL state only if the new parameters require it.
+- [x] Convert the approved hard-filter decisions into an explicit frontend/backend contract: maximum play time, minimum age, game style, cooperative, OR within each Game Type/Theme group, AND across independent groups, and the separately agreed Complexity multi-selection semantics.
+- [x] Define the remaining featured/full Game Type and Theme selection contract after the BGG crosswalk decisions are approved.
+- [x] Extend the `GET /api/games/` query parameters and the corresponding `backend/app/main.py`, CRUD function, cache-key construction, and API tests. Apply all selected constraints with AND across independent filter groups; implement the decided OR/AND semantics within multi-select taxonomy groups.
+- [x] Use existing `BoardGame` fields and relation tables where possible: `max_playtime`, `min_age`, `average_weight`, `family_games_rank`, `party_games_rank`, category membership, and mechanic membership. Exclude null/zero playtime or age when those constraints are active as specified.
+- [x] Implement the approved Game Style mappings: family rank, children category membership, and party rank/category union. Add cooperative mechanic matching without presenting absence as “Competitive.”
+- [x] Review the complete BGG crosswalk and flag ambiguous classifications for developer review rather than silently resolving them; the approved contract is recorded in [`docs/core/filter-taxonomy-contract.md`](../core/filter-taxonomy-contract.md).
+- [x] Implement player `9+` and Recommended/Best behavior using existing suggested-player semantics: Allowed matches support at least one count of nine or more; Recommended and Best match the corresponding level at any count of nine or more. Verify how imported rows represent these cases and avoid a new model field unless the existing data cannot support the agreed behavior.
+- [x] Add or extend filter-option API support for full searchable mechanics/categories and any server-side user-facing crosswalk needed to avoid shipping an unmaintainable hard-coded taxonomy. Keep option payloads stable and cacheable.
+- [x] Add focused backend API/CRUD coverage for the new contract's boundary and combination semantics, unknown-value handling, pagination totals, and cache-key separation when caching changes. Combine related cases where practical. Add one frontend flow check for serialization/restored URL state only if the new parameters require it.
 
 Completion conditions: every implemented drawer control maps to a documented API parameter and deterministic hard constraint; invalid/unknown options fail safely or are ignored according to an explicit contract; backend tests demonstrate no cross-filter leakage.
 
@@ -95,10 +96,10 @@ Purpose: make the expanded lists useful to casual attendees without duplicating 
 
 Tasks:
 
-- [ ] Add the ten approved featured Game Types and Themes, keeping Set Collection in the full Game Type list and keeping Medieval/World War II and Zombies/Horror separate.
-- [ ] Add inline Show All expansion and search for each list, retaining selections while collapsed. Ensure technical/non-featured options remain available in the complete list.
-- [ ] Apply the approved friendly-label crosswalk and only add short explanations/tooltips where the terminology needs them. Base explanations on verified BGG definitions rather than name similarity.
-- [ ] Perform a manual keyboard and narrow-device smoke check for focus, touch targets, drawer scrolling, accordion behavior, chip removal, and overflow. Add an automated test only if a non-obvious interaction cannot be checked reliably by inspection.
+- [x] Add the ten approved featured Game Types and Themes, keeping Set Collection in the full Game Type list and keeping Medieval/World War II and Zombies/Horror separate.
+- [x] Add inline Show All expansion and search for each list, retaining selections while collapsed. Ensure technical/non-featured options remain available in the complete list.
+- [x] Apply the approved friendly-label crosswalk and only add short explanations/tooltips where the terminology needs them. Base explanations on verified BGG definitions rather than name similarity.
+- [x] Perform a manual keyboard and narrow-device smoke check for focus, touch targets, drawer scrolling, accordion behavior, chip removal, and overflow. Add an automated test only if a non-obvious interaction cannot be checked reliably by inspection.
 
 Completion conditions: featured and full lists share one selection state and one backend mapping, selections survive collapse/reopen, and accessibility checks cover the interactive drawer controls.
 
@@ -142,4 +143,4 @@ No recommendation endpoint or recommender model change is required by the curren
 
 ## Open questions requiring developer decisions
 
-The implementation should not silently decide the following: the complete BGG crosswalk and option ownership, or tooltip wording/accessibility acceptance. These remain open in `docs/active/ui-redesign.md` and should be resolved before their dependent taxonomy and accessibility work begins. Header navigation and responsive treatment are decided; recommendation-mode filtering remains unchanged; and sort choices should be verified from the existing code.
+The implementation should not silently decide the following: tooltip wording/accessibility acceptance. The complete BGG crosswalk and option ownership are approved in [`docs/core/filter-taxonomy-contract.md`](../core/filter-taxonomy-contract.md). Header navigation and responsive treatment are decided; recommendation-mode filtering remains unchanged; and sort choices should be verified from the existing code.

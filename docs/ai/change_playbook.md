@@ -8,7 +8,10 @@
 ## During Editing
 1. Keep changes small and single-purpose.
 2. Remove dead code from prior iterations.
-3. Add/adjust tests for behavioral changes.
+3. Add or adjust tests only when the change affects a critical system boundary,
+   security/data-integrity rule, API contract, or non-obvious state transition.
+   Prefer one representative smoke test; do not add tests for every control,
+   option, label, or permutation.
 4. Keep logs sanitized (no secrets/tokens/passwords).
 
 ## Schema Change Checklist

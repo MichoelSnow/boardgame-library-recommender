@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchCategories, fetchMechanics } from '../api/filters';
+import { fetchCategories, fetchFilterTaxonomy, fetchMechanics } from '../api/filters';
 import {
   fetchCatalogState,
   fetchGameDetails,
@@ -25,6 +25,13 @@ export const useCategoriesQuery = () =>
     staleTime: 24 * 60 * 60 * 1000,
   });
 
+export const useFilterTaxonomyQuery = () =>
+  useQuery({
+    queryKey: ['filter_taxonomy'],
+    queryFn: fetchFilterTaxonomy,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
 export const useGamesQuery = ({
   gamesPerPage,
   currentPage,
@@ -36,7 +43,13 @@ export const useGamesQuery = ({
   selectedArtists,
   selectedMechanicIds,
   selectedCategoryIds,
+  selectedGameTypeIds,
+  selectedThemeIds,
   weight,
+  maxPlaytime = null,
+  minAge = null,
+  gameStyle = 'any',
+  cooperative = false,
   isRecommendation,
 }) =>
   useQuery({
@@ -48,7 +61,13 @@ export const useGamesQuery = ({
       selectedArtists,
       selectedMechanicIds,
       selectedCategoryIds,
+      selectedGameTypeIds,
+      selectedThemeIds,
       weight,
+      maxPlaytime,
+      minAge,
+      gameStyle,
+      cooperative,
       sortBy,
       currentPage,
       libraryOnly,
@@ -86,6 +105,14 @@ export const useGamesQuery = ({
         params.categories = selectedCategoryIds.join(',');
       }
 
+      if (selectedGameTypeIds.length > 0) {
+        params.game_types = selectedGameTypeIds.join(',');
+      }
+
+      if (selectedThemeIds.length > 0) {
+        params.themes = selectedThemeIds.join(',');
+      }
+
       const activeWeights = Object.entries(weight)
         .filter(([, checked]) => checked)
         .map(([key]) => key);
@@ -93,6 +120,11 @@ export const useGamesQuery = ({
       if (activeWeights.length > 0) {
         params.weight = activeWeights.join(',');
       }
+
+      if (maxPlaytime !== null) params.max_playtime = maxPlaytime;
+      if (minAge !== null) params.min_age = minAge;
+      if (gameStyle && gameStyle !== 'any') params.game_style = gameStyle;
+      if (cooperative) params.cooperative = true;
 
       return fetchGames(params);
     },

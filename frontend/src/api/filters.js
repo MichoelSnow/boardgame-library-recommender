@@ -9,3 +9,8 @@ export const fetchCategories = async () => {
   const response = await apiClient.get('/categories/');
   return response.data;
 };
+
+export const fetchFilterTaxonomy = async () => {
+  const response = await apiClient.get('/filter-taxonomy/');
+  return response.data;
+};

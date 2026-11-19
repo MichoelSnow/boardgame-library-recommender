@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 
 
@@ -64,6 +64,21 @@ class MechanicBase(BaseModel):
     boardgamemechanic_name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TaxonomySource(BaseModel):
+    type: Literal["category", "mechanic"]
+    id: int
+    name: str
+
+
+class TaxonomyOption(BaseModel):
+    option_id: str
+    label: str
+    group: Literal["game_type", "theme"]
+    featured: bool
+    sources: List[TaxonomySource]
+    explanation: Optional[str] = None
 
 
 class PublisherBase(BaseModel):

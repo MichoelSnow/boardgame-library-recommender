@@ -35,6 +35,8 @@ import { decodeGameDescription } from '../utils/textEncoding';
 import { useGameRecommendationsQuery } from '../hooks/useGameListQueries';
 
 const DEFAULT_IMAGE_BG_COLOR = '#f5f5f5';
+const STYLE_CATEGORY_IDS = { party: 1030, children: 1041 };
+const COOPERATIVE_MECHANIC_ID = 2023;
 
 const extractAccentColor = (img) => {
   const canvas = document.createElement('canvas');
@@ -94,6 +96,11 @@ const GameDetails = ({
   selectedArtistIds = [],
   selectedMechanicIds = [],
   selectedCategoryIds = [],
+  taxonomyOptions = [],
+  selectedGameTypeIds = [],
+  selectedThemeIds = [],
+  selectedGameStyle = 'any',
+  cooperativeSelected = false,
 }) => {
   const [bgColor, setBgColor] = useState(DEFAULT_IMAGE_BG_COLOR);
   const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
@@ -187,6 +194,78 @@ const GameDetails = ({
     };
   }, [game?.suggested_players]);
 
+  const taxonomySourceMap = React.useMemo(() => {
+    const sourceMap = new Map();
+    taxonomyOptions.forEach((option) => {
+      (option.sources || []).forEach((source) => {
+        sourceMap.set(`${source.type}:${source.id}`, option);
+      });
+    });
+    return sourceMap;
+  }, [taxonomyOptions]);
+
+  const taxonomyDetails = React.useMemo(() => {
+    const gameTypes = [];
+    const themes = [];
+    const unmappedMechanics = [];
+    const unmappedCategories = [];
+    const matchedOptionIds = new Set();
+
+    const addTaxonomySources = (items, sourceType, unmappedItems) => {
+      (items || []).forEach((item) => {
+        const sourceId = sourceType === 'mechanic'
+          ? item.boardgamemechanic_id
+          : item.boardgamecategory_id;
+        const option = taxonomySourceMap.get(`${sourceType}:${sourceId}`);
+        if (!option) {
+          const isIndependentSource = sourceType === 'mechanic'
+            ? sourceId === COOPERATIVE_MECHANIC_ID
+            : Object.values(STYLE_CATEGORY_IDS).includes(sourceId);
+          if (isIndependentSource) {
+            return;
+          }
+          unmappedItems.push(item);
+          return;
+        }
+        if (matchedOptionIds.has(option.option_id)) {
+          return;
+        }
+        matchedOptionIds.add(option.option_id);
+        if (option.group === 'game_type') {
+          gameTypes.push(option);
+        } else {
+          themes.push(option);
+        }
+      });
+    };
+
+    addTaxonomySources(game?.mechanics, 'mechanic', unmappedMechanics);
+    addTaxonomySources(game?.categories, 'category', unmappedCategories);
+
+    const categoryIds = new Set((game?.categories || []).map((category) => category.boardgamecategory_id));
+    const styles = [];
+    if (game?.family_games_rank != null) {
+      styles.push({ id: 'family', label: 'Family Games' });
+    }
+    if (categoryIds.has(STYLE_CATEGORY_IDS.children)) {
+      styles.push({ id: 'children', label: "Children's Games" });
+    }
+    if (game?.party_games_rank != null || categoryIds.has(STYLE_CATEGORY_IDS.party)) {
+      styles.push({ id: 'party', label: 'Party Games' });
+    }
+
+    return {
+      gameTypes,
+      themes,
+      unmappedMechanics,
+      unmappedCategories,
+      styles,
+      cooperative: (game?.mechanics || []).some(
+        (mechanic) => mechanic.boardgamemechanic_id === COOPERATIVE_MECHANIC_ID
+      ),
+    };
+  }, [game, taxonomySourceMap]);
+
   if (!game) return null;
 
   const handleLikeClick = (e) => {
@@ -262,6 +341,75 @@ const GameDetails = ({
                         backgroundColor: 'action.hover',
                       },
                 } : undefined}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderTaxonomyList = (options, label) => {
+    if (!options || options.length === 0) return null;
+    const selectedIds = new Set(
+      label === 'Game Types' ? selectedGameTypeIds : selectedThemeIds
+    );
+
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {label} (click to filter)
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {options.map((option) => {
+            const isSelected = selectedIds.has(option.option_id);
+            return (
+              <Chip
+                key={option.option_id}
+                label={option.label}
+                size="small"
+                color={isSelected ? 'primary' : 'default'}
+                variant={isSelected ? 'filled' : 'outlined'}
+                onClick={() => onFilter('taxonomy', option.option_id, option.label)}
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': isSelected
+                    ? { backgroundColor: 'primary.dark' }
+                    : { backgroundColor: 'action.hover' },
+                }}
+              />
+            );
+          })}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderIndependentList = (items, label, type, selectedValue) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          {label} (click to filter)
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {items.map((item) => {
+            const isSelected = selectedValue === item.id;
+            return (
+              <Chip
+                key={item.id}
+                label={item.label}
+                size="small"
+                color={isSelected ? 'primary' : 'default'}
+                variant={isSelected ? 'filled' : 'outlined'}
+                onClick={() => onFilter(type, item.id, item.label)}
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': isSelected
+                    ? { backgroundColor: 'primary.dark' }
+                    : { backgroundColor: 'action.hover' },
+                }}
               />
             );
           })}
@@ -501,8 +649,52 @@ const GameDetails = ({
             <Grid size={{ xs: 12, md: 6 }}>
               {renderList(game.designers, 'Designers', 'designer')}
               {renderList(game.artists, 'Artists', 'artist')}
-              {renderList(game.mechanics, 'Mechanics', 'mechanic')}
-              {renderList(game.categories, 'Categories', 'category')}
+              {taxonomyOptions.length > 0 ? (
+                <>
+                  {renderTaxonomyList(taxonomyDetails.gameTypes, 'Game Types')}
+                  {renderTaxonomyList(taxonomyDetails.themes, 'Theme & Setting')}
+                  {renderList(taxonomyDetails.unmappedMechanics, 'Other Mechanics', 'mechanic')}
+                  {renderList(taxonomyDetails.unmappedCategories, 'Other Categories', 'category')}
+                </>
+              ) : (
+                <>
+                  {renderList(
+                    (game.mechanics || []).filter(
+                      (mechanic) => mechanic.boardgamemechanic_id !== COOPERATIVE_MECHANIC_ID
+                    ),
+                    'Mechanics',
+                    'mechanic'
+                  )}
+                  {renderList(
+                    (game.categories || []).filter(
+                      (category) => !Object.values(STYLE_CATEGORY_IDS).includes(category.boardgamecategory_id)
+                    ),
+                    'Categories',
+                    'category'
+                  )}
+                </>
+              )}
+              {renderIndependentList(taxonomyDetails.styles, 'Game Style', 'style', selectedGameStyle)}
+              {taxonomyDetails.cooperative && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Cooperative (click to filter)
+                  </Typography>
+                  <Chip
+                    label="Cooperative games only"
+                    size="small"
+                    color={cooperativeSelected ? 'primary' : 'default'}
+                    variant={cooperativeSelected ? 'filled' : 'outlined'}
+                    onClick={() => onFilter('cooperative', true, 'Cooperative games only')}
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': cooperativeSelected
+                        ? { backgroundColor: 'primary.dark' }
+                        : { backgroundColor: 'action.hover' },
+                    }}
+                  />
+                </Box>
+              )}
               {renderList(game.publishers, 'Publishers', 'publisher')}
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>

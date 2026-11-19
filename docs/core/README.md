@@ -17,6 +17,8 @@ Evergreen human-readable docs for operating and maintaining this project.
   - convention-specific runtime and image operations.
 - `ownership_and_slos.md`
   - contract ownership model and service-level targets.
+- `filter-taxonomy-contract.md`
+  - canonical BGG category/mechanic crosswalk and filter option contract.
 
 ## Lifecycle Rules
 - Keep these docs concise and current.

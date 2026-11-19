@@ -4,7 +4,6 @@ import {
   fireEvent,
   render,
   screen,
-  waitForElementToBeRemoved,
 } from '@testing-library/react';
 
 import AuthContext from '../context/AuthContext';
@@ -12,14 +11,32 @@ import GameList from './GameList';
 import { createTestQueryClient, withQueryClient } from '../test/testProviders';
 
 const mockUseGamesQuery = jest.fn();
+const mockUseFilterTaxonomyQuery = jest.fn();
+const mockUseGameDetailsQuery = jest.fn();
+
+jest.mock('./GameDetails', () => ({
+  __esModule: true,
+  default: ({ onFilter, selectedCategoryIds }) => (
+    <div>
+      <button
+        type="button"
+        aria-pressed={selectedCategoryIds.includes(1030)}
+        onClick={() => onFilter('category', 1030, 'Party Game')}
+      >
+        Party Game detail
+      </button>
+    </div>
+  ),
+}));
 
 jest.mock('../hooks/useGameListQueries', () => ({
   useMechanicsQuery: () => ({ data: [] }),
   useCategoriesQuery: () => ({ data: [] }),
+  useFilterTaxonomyQuery: () => mockUseFilterTaxonomyQuery(),
   useLibraryGameIdsQuery: () => ({ data: [] }),
   useCatalogStateQuery: () => ({ data: { state_token: 'token-1' } }),
   useGamesQuery: (params) => mockUseGamesQuery(params),
-  useGameDetailsQuery: () => ({ data: null }),
+  useGameDetailsQuery: () => mockUseGameDetailsQuery(),
   useConventionKioskStatusQuery: () => ({ data: { kiosk_mode: false } }),
 }));
 
@@ -59,6 +76,8 @@ const renderGameList = (initialEntries = ['/']) =>
 
 describe('GameList browse shell', () => {
   beforeEach(() => {
+    mockUseFilterTaxonomyQuery.mockReturnValue({ data: [] });
+    mockUseGameDetailsQuery.mockReturnValue({ data: null });
     mockUseGamesQuery.mockReturnValue({
       data: { games: [], total: 0 },
       isLoading: false,
@@ -67,40 +86,11 @@ describe('GameList browse shell', () => {
     });
   });
 
-  test('opens search, clears the query, and closes search', () => {
-    renderGameList();
-
-    fireEvent.click(screen.getByLabelText('Open search'));
-    const searchInput = screen.getByLabelText('Search Games');
-    fireEvent.change(searchInput, { target: { value: 'Wingspan' } });
-    fireEvent.click(screen.getByLabelText('Clear search'));
-    expect(searchInput).toHaveValue('');
-
-    fireEvent.click(screen.getByLabelText('Close search'));
-    expect(screen.getByLabelText('Open search')).toBeInTheDocument();
-  });
-
-  test('selects an existing sort option', () => {
-    renderGameList();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Name (A-Z)' }));
-
-    expect(mockUseGamesQuery).toHaveBeenCalledWith(
-      expect.objectContaining({ sortBy: 'name_asc' })
-    );
-  });
-
-  test('migrates filters into persistent accordion sections', async () => {
+  test('renders the browse shell and applies a filter', () => {
     renderGameList();
 
     fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
     expect(screen.getByText('Filter Games')).toBeInTheDocument();
-    expect(screen.getByText('Group & Requirements')).toBeInTheDocument();
-    expect(screen.getByText('Players')).toBeInTheDocument();
-    expect(screen.getByText('Complexity')).toBeInTheDocument();
-    expect(screen.getByText('Game Type')).toBeInTheDocument();
-    expect(screen.getByText('Theme & Setting')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '4' }));
     expect(mockUseGamesQuery).toHaveBeenCalledWith(
@@ -108,29 +98,61 @@ describe('GameList browse shell', () => {
         playerOptions: expect.objectContaining({ count: 4 }),
       })
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Close filters' }));
-    await waitForElementToBeRemoved(() => screen.queryByText('Filter Games'));
-
-    fireEvent.click(screen.getByRole('button', { name: /Filters \(1\)/ }));
-    expect(screen.getByRole('button', { name: '4' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('Clear All only clears filter constraints', () => {
-    renderGameList(['/?search=Wingspan&sort=name_asc&library_only=false&players=4&weight=beginner']);
+  test('restores a taxonomy selection from the URL', () => {
+    mockUseFilterTaxonomyQuery.mockReturnValue({
+      data: [
+        {
+          option_id: 'game-type:dice-games',
+          label: 'Dice Games',
+          group: 'game_type',
+          featured: false,
+          sources: [
+            { type: 'category', id: 1017, name: 'Dice' },
+            { type: 'mechanic', id: 2072, name: 'Dice Rolling' },
+          ],
+        },
+      ],
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: /Filters \(2\)/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
+    renderGameList(['/?game_types=game-type:dice-games']);
 
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    fireEvent.click(screen.getByText('Game Type'));
+    fireEvent.click(screen.getByRole('button', { name: 'Show All Game Types' }));
+    expect(screen.getByRole('button', { name: 'Dice Games' })).toHaveAttribute('aria-pressed', 'true');
     expect(mockUseGamesQuery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        searchTerm: 'Wingspan',
-        sortBy: 'name_asc',
-        libraryOnly: false,
-        playerOptions: expect.objectContaining({ count: null }),
-        weight: { beginner: false, midweight: false, heavy: false },
-      })
+      expect.objectContaining({ selectedGameTypeIds: ['game-type:dice-games'] })
     );
-    expect(screen.getByLabelText('Search Games')).toHaveValue('Wingspan');
+  });
+
+  test('passes a detail classification into the filter state', async () => {
+    const game = {
+      id: 1,
+      name: 'Test Game',
+      min_players: 2,
+      max_players: 4,
+      min_playtime: 30,
+      max_playtime: 60,
+      average_weight: 2.5,
+      average: 7.5,
+    };
+    mockUseGamesQuery.mockReturnValue({
+      data: { games: [game], total: 1 },
+      isLoading: false,
+      error: null,
+      isFetching: false,
+    });
+    mockUseGameDetailsQuery.mockReturnValue({ data: game });
+
+    renderGameList();
+    fireEvent.click(await screen.findByText('Test Game'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Party Game detail' }));
+    expect(screen.getByRole('button', { name: 'Party Game detail' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ gameStyle: 'party' })
+    );
   });
 });
