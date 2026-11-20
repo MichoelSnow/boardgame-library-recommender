@@ -12,7 +12,13 @@ CATEGORY_OPTIONS: dict[int, tuple[str, str, str, bool, str | None]] = {
     1001: ("theme:political", "Political", "theme", False, None),
     1002: ("game-type:card-games", "Card Games", "game_type", False, None),
     1008: ("theme:nautical", "Nautical", "theme", False, None),
-    1009: ("game-type:abstract-strategy", "Abstract Strategy", "game_type", False, None),
+    1009: (
+        "game-type:abstract-strategy",
+        "Abstract Strategy",
+        "game_type",
+        False,
+        None,
+    ),
     1010: ("theme:fantasy", "Fantasy", "theme", True, None),
     1011: ("theme:transportation", "Transportation", "theme", False, None),
     1013: ("theme:farming", "Farming", "theme", False, None),
@@ -40,8 +46,20 @@ CATEGORY_OPTIONS: dict[int, tuple[str, str, str, bool, str | None]] = {
     1038: ("theme:sports", "Sports", "theme", False, None),
     1039: ("game-type:deduction", "Deduction", "game_type", True, None),
     1040: ("theme:mystery", "Mystery", "theme", True, None),
-    1042: ("game-type:category-1042", "Expansion for Base-game", "game_type", False, None),
-    1044: ("game-type:collectible-components", "Collectible Components", "game_type", False, None),
+    1042: (
+        "game-type:category-1042",
+        "Expansion for Base-game",
+        "game_type",
+        False,
+        None,
+    ),
+    1044: (
+        "game-type:collectible-components",
+        "Collectible Components",
+        "game_type",
+        False,
+        None,
+    ),
     1045: ("game-type:memory", "Memory", "game_type", False, None),
     1046: ("game-type:fighting", "Fighting", "game_type", False, None),
     1047: ("game-type:miniatures", "Miniatures", "game_type", False, None),
@@ -58,13 +76,31 @@ CATEGORY_OPTIONS: dict[int, tuple[str, str, str, bool, str | None]] = {
     1069: ("theme:modern-warfare", "Modern Warfare", "theme", False, None),
     1070: ("theme:renaissance", "Renaissance", "theme", False, None),
     1072: ("game-type:electronic", "Electronic Games", "game_type", False, None),
-    1075: ("theme:american-revolutionary-war", "American Revolutionary War", "theme", False, None),
+    1075: (
+        "theme:american-revolutionary-war",
+        "American Revolutionary War",
+        "theme",
+        False,
+        None,
+    ),
     1079: ("theme:humor", "Humor", "theme", False, None),
     1081: ("theme:spies-secret-agents", "Spies / Secret Agents", "theme", False, None),
     1082: ("theme:mythology", "Mythology", "theme", True, None),
     1084: ("theme:environmental", "Environmental", "theme", False, None),
-    1086: ("game-type:territory-building", "Territory Building", "game_type", False, None),
-    1088: ("theme:industry-manufacturing", "Industry / Manufacturing", "theme", False, None),
+    1086: (
+        "game-type:territory-building",
+        "Territory Building",
+        "game_type",
+        False,
+        None,
+    ),
+    1088: (
+        "theme:industry-manufacturing",
+        "Industry / Manufacturing",
+        "theme",
+        False,
+        None,
+    ),
     1089: ("theme:animals", "Animals", "theme", True, None),
     1090: ("theme:pirates", "Pirates", "theme", False, None),
     1091: ("theme:korean-war", "Korean War", "theme", False, None),
@@ -91,7 +127,13 @@ CATEGORY_OPTIONS: dict[int, tuple[str, str, str, bool, str | None]] = {
     2710: ("theme:post-napoleonic", "Post-Napoleonic", "theme", False, None),
     2725: ("theme:pike-and-shot", "Pike and Shot", "theme", False, None),
     2726: ("theme:age-of-reason", "Age of Reason", "theme", False, None),
-    3129: ("game-type:category-3129", "Third-party Expansion", "game_type", False, None),
+    3129: (
+        "game-type:category-3129",
+        "Third-party Expansion",
+        "game_type",
+        False,
+        None,
+    ),
 }
 
 
@@ -106,14 +148,24 @@ MECHANIC_OPTIONS: dict[int, tuple[str, str, bool, str | None]] = {
     2009: ("game-type:trick-taking", "Trick-taking", True, None),
     2012: ("game-type:auction-bidding", "Auction & Bidding", False, None),
     2014: ("game-type:bluffing", "Bluffing", True, None),
-    2018: ("game-type:campaign-battle-card-driven", "Campaign / Battle Card Driven", False, None),
+    2018: (
+        "game-type:campaign-battle-card-driven",
+        "Campaign / Battle Card Driven",
+        False,
+        None,
+    ),
     2041: ("game-type:drafting", "Drafting", False, None),
     2047: ("game-type:memory", "Memory", False, None),
     2072: ("game-type:dice-games", "Dice Games", False, None),
     2082: ("game-type:worker-placement", "Worker Placement", True, None),
     2661: ("game-type:push-your-luck", "Push Your Luck", True, None),
     2664: ("game-type:deck-building", "Deck Building", True, None),
-    2822: ("game-type:scenario-mission-campaign", "Scenario / Mission / Campaign", False, None),
+    2822: (
+        "game-type:scenario-mission-campaign",
+        "Scenario / Mission / Campaign",
+        False,
+        None,
+    ),
     2827: ("game-type:auction-bidding", "Auction & Bidding", False, None),
     2831: ("game-type:real-time", "Real-time", False, None),
     2860: ("game-type:dexterity", "Dexterity", True, None),
@@ -127,8 +179,26 @@ MECHANIC_OPTIONS: dict[int, tuple[str, str, bool, str | None]] = {
     3113: ("game-type:word-games", "Word Games", True, None),
 }
 
-for _mechanic_id in (2918, 2919, 2920, 2922, 2923, 2924, 2926, 2927, 2928, 2930, 2931, 2932):
-    MECHANIC_OPTIONS[_mechanic_id] = ("game-type:auction-bidding", "Auction & Bidding", False, None)
+for _mechanic_id in (
+    2918,
+    2919,
+    2920,
+    2922,
+    2923,
+    2924,
+    2926,
+    2927,
+    2928,
+    2930,
+    2931,
+    2932,
+):
+    MECHANIC_OPTIONS[_mechanic_id] = (
+        "game-type:auction-bidding",
+        "Auction & Bidding",
+        False,
+        None,
+    )
 
 
 def _add_source(

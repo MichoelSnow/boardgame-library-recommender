@@ -1240,9 +1240,7 @@ async def list_games(
     limit: int = Query(24, ge=1, le=100),
     sort_by: GameSortField = "rank",
     search: Optional[str] = None,
-    players: Optional[str] = Query(
-        None, pattern=r"^(?:[1-9]|1[0-2]|9plus)$"
-    ),
+    players: Optional[str] = Query(None, pattern=r"^(?:[1-9]|1[0-2]|9plus)$"),
     designer_id: Optional[str] = None,
     artist_id: Optional[str] = None,
     recommendations: Optional[str] = None,
@@ -1318,11 +1316,14 @@ async def get_recommendation_status(response: Response):
 
 
 @app.get(
-    "/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut]
+    "/api/recommendations/{game_id}",
+    response_model=List[schemas.RecommendationGameOut],
+    response_model_exclude_unset=True,
 )
 @app.get(
     "/api/recommendations/{game_id}/",
     response_model=List[schemas.RecommendationGameOut],
+    response_model_exclude_unset=True,
 )  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,

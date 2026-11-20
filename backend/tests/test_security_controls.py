@@ -19,7 +19,9 @@ def clear_rate_limiter():
 @pytest.fixture
 async def api_client():
     transport = httpx.ASGITransport(app=main.app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
         yield client
 
 
@@ -40,8 +42,12 @@ async def test_auth_rate_limit_is_enforced(monkeypatch, api_client):
     monkeypatch.setattr(main.crud, "authenticate_user", lambda *_args, **_kwargs: None)
 
     for _ in range(2):
-        response = await api_client.post("/api/token", data={"username": "u", "password": "bad"})
+        response = await api_client.post(
+            "/api/token", data={"username": "u", "password": "bad"}
+        )
         assert response.status_code == 401
 
-    limited = await api_client.post("/api/token", data={"username": "u", "password": "bad"})
+    limited = await api_client.post(
+        "/api/token", data={"username": "u", "password": "bad"}
+    )
     assert limited.status_code == 429

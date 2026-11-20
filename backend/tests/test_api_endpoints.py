@@ -23,7 +23,9 @@ def override_main_db_dependency():
 @pytest.fixture
 async def api_client():
     transport = httpx.ASGITransport(app=main.app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
         yield client
 
 
@@ -33,7 +35,18 @@ async def test_games_endpoint_preserves_core_query_contract(monkeypatch, api_cli
 
     def mock_get_games(**kwargs):
         captured.update(kwargs)
-        return ([{"id": 1, "name": "Alpha", "mechanics": [], "categories": [], "suggested_players": []}], 1)
+        return (
+            [
+                {
+                    "id": 1,
+                    "name": "Alpha",
+                    "mechanics": [],
+                    "categories": [],
+                    "suggested_players": [],
+                }
+            ],
+            1,
+        )
 
     monkeypatch.setattr(main.crud, "get_games", mock_get_games)
     response = await api_client.get(
@@ -77,7 +90,9 @@ async def test_recommendations_endpoint_preserves_payload_and_status_headers(
     monkeypatch.setattr(
         main.crud,
         "get_recommendations",
-        lambda **_kwargs: [{"id": 2, "name": "Recommended Game", "recommendation_score": 0.9}],
+        lambda **_kwargs: [
+            {"id": 2, "name": "Recommended Game", "recommendation_score": 0.9}
+        ],
     )
 
     response = await api_client.get("/api/recommendations/1")
@@ -91,7 +106,9 @@ async def test_recommendations_endpoint_preserves_payload_and_status_headers(
 
 
 @pytest.mark.anyio
-async def test_filter_taxonomy_endpoint_returns_stable_option_contract(monkeypatch, api_client):
+async def test_filter_taxonomy_endpoint_returns_stable_option_contract(
+    monkeypatch, api_client
+):
     monkeypatch.setattr(
         main.taxonomy,
         "get_taxonomy_options",
@@ -122,7 +139,9 @@ async def test_authentication_accepts_valid_credentials_and_rejects_invalid(
     monkeypatch, api_client
 ):
     monkeypatch.setattr(main.crud, "authenticate_user", lambda db, u, p: None)
-    invalid = await api_client.post("/api/token", data={"username": "u", "password": "bad"})
+    invalid = await api_client.post(
+        "/api/token", data={"username": "u", "password": "bad"}
+    )
     assert invalid.status_code == 401
 
     monkeypatch.setattr(
@@ -130,8 +149,12 @@ async def test_authentication_accepts_valid_credentials_and_rejects_invalid(
         "authenticate_user",
         lambda db, u, p: SimpleNamespace(username="u"),
     )
-    monkeypatch.setattr(security, "create_access_token", lambda data, expires_delta=None: "token123")
-    valid = await api_client.post("/api/token", data={"username": "u", "password": "ok"})
+    monkeypatch.setattr(
+        security, "create_access_token", lambda data, expires_delta=None: "token123"
+    )
+    valid = await api_client.post(
+        "/api/token", data={"username": "u", "password": "ok"}
+    )
     assert valid.status_code == 200
     assert valid.json()["access_token"] == "token123"
 
@@ -144,6 +167,8 @@ async def test_authenticated_and_admin_routes_reject_unauthorized_users(api_clie
     admin_users = await api_client.get("/api/admin/users")
     assert admin_users.status_code == 401
 
-    main.app.dependency_overrides[security.get_current_active_user] = _override_current_user
+    main.app.dependency_overrides[security.get_current_active_user] = (
+        _override_current_user
+    )
     forbidden = await api_client.get("/api/admin/users")
     assert forbidden.status_code == 403

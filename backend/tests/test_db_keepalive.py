@@ -7,16 +7,19 @@ from backend.app.db_keepalive import (
 
 
 def test_should_enable_db_keepalive_for_postgres_by_default():
-    assert should_enable_db_keepalive(
-        "postgresql+psycopg2://u:p@localhost/db", {}
-    ) is True
+    assert (
+        should_enable_db_keepalive("postgresql+psycopg2://u:p@localhost/db", {}) is True
+    )
 
 
 def test_should_enable_db_keepalive_respects_explicit_disable():
-    assert should_enable_db_keepalive(
-        "postgresql+psycopg2://u:p@localhost/db",
-        {"DB_KEEPALIVE_ENABLED": "false"},
-    ) is False
+    assert (
+        should_enable_db_keepalive(
+            "postgresql+psycopg2://u:p@localhost/db",
+            {"DB_KEEPALIVE_ENABLED": "false"},
+        )
+        is False
+    )
 
 
 def test_resolve_keepalive_interval_rejects_invalid_values():

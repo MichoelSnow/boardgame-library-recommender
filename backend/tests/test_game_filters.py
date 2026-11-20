@@ -61,17 +61,25 @@ def db_session():
         ),
     ]
     games[0].mechanics = [
-        models.Mechanic(boardgamemechanic_id=1, boardgamemechanic_name="Cooperative Game"),
+        models.Mechanic(
+            boardgamemechanic_id=1, boardgamemechanic_name="Cooperative Game"
+        ),
         models.Mechanic(boardgamemechanic_id=2, boardgamemechanic_name="Deduction"),
-        models.Mechanic(boardgamemechanic_id=3002, boardgamemechanic_name="Deduction Mechanic"),
+        models.Mechanic(
+            boardgamemechanic_id=3002, boardgamemechanic_name="Deduction Mechanic"
+        ),
         models.Mechanic(boardgamemechanic_id=3113, boardgamemechanic_name="Spelling"),
     ]
     games[1].mechanics = [
         models.Mechanic(boardgamemechanic_id=2, boardgamemechanic_name="Deduction"),
     ]
     games[2].mechanics = [
-        models.Mechanic(boardgamemechanic_id=1, boardgamemechanic_name="Cooperative Game"),
-        models.Mechanic(boardgamemechanic_id=2072, boardgamemechanic_name="Dice Rolling"),
+        models.Mechanic(
+            boardgamemechanic_id=1, boardgamemechanic_name="Cooperative Game"
+        ),
+        models.Mechanic(
+            boardgamemechanic_id=2072, boardgamemechanic_name="Dice Rolling"
+        ),
     ]
     games[3].mechanics = [
         models.Mechanic(boardgamemechanic_id=2876, boardgamemechanic_name="Race"),
@@ -84,7 +92,9 @@ def db_session():
         models.Category(boardgamecategory_id=1031, boardgamecategory_name="Racing"),
     ]
     games[2].categories = [
-        models.Category(boardgamecategory_id=9, boardgamecategory_name="Children's Game"),
+        models.Category(
+            boardgamecategory_id=9, boardgamecategory_name="Children's Game"
+        ),
         models.Category(boardgamecategory_id=1010, boardgamecategory_name="Fantasy"),
     ]
     games[3].categories = [
@@ -123,9 +133,7 @@ def _game_ids(result):
 
 
 def test_expanded_game_filters_use_or_within_groups_and_and_across_groups(db_session):
-    mechanics_ids, _ = _game_ids(
-        crud.get_games(db_session, limit=20, mechanics="1,2")
-    )
+    mechanics_ids, _ = _game_ids(crud.get_games(db_session, limit=20, mechanics="1,2"))
     categories_ids, _ = _game_ids(
         crud.get_games(db_session, limit=20, categories="7,8")
     )
@@ -143,9 +151,16 @@ def test_expanded_game_filters_use_or_within_groups_and_and_across_groups(db_ses
     assert categories_ids == [1, 2, 4]
     assert combined_ids == [1]
 
-    assert _game_ids(crud.get_games(db_session, limit=20, game_style="family"))[0] == [1]
-    assert _game_ids(crud.get_games(db_session, limit=20, game_style="children"))[0] == [3]
-    assert _game_ids(crud.get_games(db_session, limit=20, game_style="party"))[0] == [1, 2]
+    assert _game_ids(crud.get_games(db_session, limit=20, game_style="family"))[0] == [
+        1
+    ]
+    assert _game_ids(crud.get_games(db_session, limit=20, game_style="children"))[
+        0
+    ] == [3]
+    assert _game_ids(crud.get_games(db_session, limit=20, game_style="party"))[0] == [
+        1,
+        2,
+    ]
 
     age_and_time_ids, _ = _game_ids(
         crud.get_games(db_session, limit=20, max_playtime=45, min_age=10)
@@ -199,7 +214,9 @@ def test_nine_plus_recommendations_pagination_and_cache_keys(db_session):
     assert base_key != crud._build_total_cache_key(**{**key_args, "cooperative": True})
 
 
-def test_taxonomy_filters_expand_merged_sources_and_preserve_distinct_options(db_session):
+def test_taxonomy_filters_expand_merged_sources_and_preserve_distinct_options(
+    db_session,
+):
     deduction_ids, _ = _game_ids(
         crud.get_games(db_session, limit=20, game_types="game-type:deduction")
     )
