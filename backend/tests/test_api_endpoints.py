@@ -71,6 +71,26 @@ async def test_games_endpoint_preserves_core_query_contract(monkeypatch, api_cli
 
 
 @pytest.mark.anyio
+async def test_recommendations_endpoint_preserves_payload_and_status_headers(
+    monkeypatch, api_client
+):
+    monkeypatch.setattr(
+        main.crud,
+        "get_recommendations",
+        lambda **_kwargs: [{"id": 2, "name": "Recommended Game", "recommendation_score": 0.9}],
+    )
+
+    response = await api_client.get("/api/recommendations/1")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"id": 2, "name": "Recommended Game", "recommendation_score": 0.9}
+    ]
+    assert "X-Recommendations-Available" in response.headers
+    assert "X-Recommendations-State" in response.headers
+
+
+@pytest.mark.anyio
 async def test_filter_taxonomy_endpoint_returns_stable_option_contract(monkeypatch, api_client):
     monkeypatch.setattr(
         main.taxonomy,

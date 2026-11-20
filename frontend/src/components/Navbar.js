@@ -18,7 +18,7 @@ import {
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import FeedbackIcon from '@mui/icons-material/Feedback';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -77,7 +77,6 @@ function Navbar() {
               onClick={() => setHelpOpen(true)}
               startIcon={<HelpOutlineIcon />}
               sx={{ mr: 2, textTransform: 'none' }}
-              data-tour="help-button"
             >
               <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
                 How to Use This Site
@@ -90,7 +89,7 @@ function Navbar() {
               <Button
                 color="inherit"
                 onClick={() => setSuggestionsOpen(true)}
-                startIcon={<FeedbackIcon />}
+                startIcon={<RateReviewOutlinedIcon />}
                 sx={{ mr: 2, textTransform: 'none' }}
               >
                 <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
@@ -136,7 +135,12 @@ function Navbar() {
             </Button>
           )}
         </Box>
-        <IconButton color="inherit" aria-label="Open navigation menu" onClick={() => setMenuOpen(true)}>
+        <IconButton
+          color="inherit"
+          aria-label="Open navigation menu"
+          onClick={() => setMenuOpen(true)}
+          data-tour="navigation-menu"
+        >
           <MenuIcon />
         </IconButton>
       </Toolbar>
@@ -152,7 +156,7 @@ function Navbar() {
             {user && (
               <ListItem disablePadding>
                 <ListItemButton onClick={() => { closeMenu(); setSuggestionsOpen(true); }}>
-                  <FeedbackIcon sx={{ mr: 2 }} />
+                  <RateReviewOutlinedIcon sx={{ mr: 2 }} />
                   <ListItemText primary="Suggestions" />
                 </ListItemButton>
               </ListItem>

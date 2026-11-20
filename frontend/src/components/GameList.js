@@ -418,7 +418,7 @@ const BrowseHeader = ({
     <Typography variant="h6" component="h1" noWrap>
       PAX Game Library
     </Typography>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} data-tour="search-control">
       {searchOpen ? (
         <TextField
           autoFocus
@@ -484,6 +484,7 @@ const BrowseToolbar = ({
         disabled={isRecommendation}
         aria-haspopup="menu"
         aria-expanded={Boolean(sortMenuAnchorEl)}
+        data-tour="sort-control"
       >
         {sortButtonLabel}
       </Button>
@@ -491,7 +492,7 @@ const BrowseToolbar = ({
         variant="outlined"
         onClick={onOpenFilters}
         disabled={isRecommendation}
-        data-tour="player-filter"
+        data-tour="filter-drawer"
       >
         Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
       </Button>
@@ -1006,6 +1007,9 @@ const FilterDrawer = ({
             </Box>
           </AccordionSummary>
           <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Select multiple to match games with any selected type.
+            </Typography>
             {renderTaxonomyControls(gameTypeOptions, selectedGameTypes, 'gameType', 'Game Types')}
           </AccordionDetails>
         </Accordion>
@@ -1024,6 +1028,9 @@ const FilterDrawer = ({
             </Box>
           </AccordionSummary>
           <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Select multiple to match games with any selected option.
+            </Typography>
             {renderTaxonomyControls(themeOptions, selectedThemes, 'theme', 'Themes')}
           </AccordionDetails>
         </Accordion>
