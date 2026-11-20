@@ -11,13 +11,13 @@ and corresponding implementation review.
 
 **Sources reviewed:**
 
-- [Active UI redesign specification](../active/ui-redesign.md), especially the taxonomy sections and remaining presentation decisions.
+- [Archived UI redesign specification](../archive/ui-redesign/ui-redesign.md), especially the taxonomy sections and presentation decisions.
 - The local catalog snapshot at `backend/database/boardgames.db`.
 - `backend/app/models.py`, which stores BGG source IDs in `boardgamemechanic_id` and `boardgamecategory_id`.
 - The current option endpoints in `backend/app/main.py` and `backend/app/crud.py`.
 - BGG's [category reference](https://boardgamegeek.com/wiki/page/Category) and [mechanics reference](https://boardgamegeek.com/wiki/page/mechanics) for meaning checks.
 
-This document records the approved crosswalk and option contract. It is the implementation reference for the UI redesign taxonomy; the active specification links here for the complete source inventory.
+This document records the approved crosswalk and option contract. It is the current implementation reference for the UI redesign taxonomy; the archived specification provides the historical UX context.
 
 ## Review boundary
 
@@ -453,12 +453,12 @@ No source-to-group or merge decision remains unapproved. The following are prese
 - [x] Resolve Auction, Dice, Dexterity, Word Games, Campaign / Scenario, and category placement decisions.
 - [x] Confirm that uncommon, technical, format, and sensitive classifications remain searchable in the full list, except for the separately approved Solo exclusion and independent-control duplicates.
 - [x] Approve the option response shape and taxonomy query parameter names before implementation.
-- [x] Implement and verify the server-provided crosswalk and UI behavior with focused backend/frontend checks. Manual responsive/accessibility review remains in the implementation plan.
+- [x] Implement and verify the server-provided crosswalk and UI behavior with focused backend/frontend checks. Manual responsive/accessibility review was completed during the redesign handoff.
 
 ## References
 
-- [UI redesign specification](../active/ui-redesign.md)
-- [UI redesign implementation plan](../plans/ui-redesign-implementation-plan.md)
+- [Archived UI redesign specification](../archive/ui-redesign/ui-redesign.md)
+- [Archived UI redesign implementation plan](../archive/ui-redesign/ui-redesign-implementation-plan.md)
 - [BGG Category reference](https://boardgamegeek.com/wiki/page/Category)
 - [BGG mechanics reference](https://boardgamegeek.com/wiki/page/mechanics)
 - [BGG game entry classification overview](https://boardgamegeek.com/wiki/page/game_entry)

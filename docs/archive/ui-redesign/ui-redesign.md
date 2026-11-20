@@ -1,6 +1,6 @@
 # Board Game Library Recommender — UI Redesign Specification
 
-**Status:** Living design specification; partial, not implementation-ready in its entirety  
+**Status:** Archived design specification; implementation complete  
 **Last updated:** 2026-11-19
 **Project:** [boardgame-library-recommender](https://github.com/MichoelSnow/boardgame-library-recommender)
 
@@ -233,10 +233,10 @@ Show the following **10 featured themes**:
 
 User feedback established a deliberate distinction:
 
-- Selecting a category/mechanic tag **from game details**: navigate back to the game list, filter by the selected tag, and clear prior text-search keywords.
+- Selecting any filterable tag **from game details**—including mechanics, categories, themes/game types, styles, cooperative, designers, and artists—navigates back to the game list, applies the selected filter, and clears prior text-search keywords.
 - Selecting the equivalent option **while browsing the game list**: retain the current browsing/filter context rather than forcibly resetting it.
 
-Selecting a category or mechanic tag immediately returns to the game list, adds the selected filter without duplicating existing selections, preserves all other active filters, clears text search, and applies the updated filters automatically.
+Selecting any filterable detail tag immediately returns to the game list, adds the selected filter without duplicating existing selections, preserves all other active filters, clears text search, and applies the updated filters automatically. Non-filter actions such as similar-game navigation retain their existing behavior.
 
 ### Recommendations
 
@@ -249,13 +249,17 @@ Do not exclude expansions by default, add an expansion filter, or otherwise chan
 ## Maintenance and decisions still open
 
 1. Future changes to the approved BGG crosswalk, duplicate handling, or full-list labels require an explicit update to the [Filter Taxonomy Contract](../core/filter-taxonomy-contract.md) and corresponding implementation review.
-2. Final tooltip/help text for technical game types and overall accessibility review.
+2. No tooltip, info icon, or explanatory copy is required for technical game types in this redesign. Any future accessibility review is general maintenance rather than an open redesign decision.
 
 These remaining decisions do not block the approved taxonomy implementation. Existing recommendation-mode filtering behavior is preserved and is not an open decision for this redesign.
 
-## Working process
+### Implementation verification
 
-This is a **living design specification**: record agreed UX decisions and unresolved behavior. It is **not** an implementation roadmap or a request to build everything at once.
+Stage 5 regression verification is complete. Focused tests for the changed browse and details-navigation behavior passed, and the implementation was manually reviewed on a narrow phone and convention-size tablet, including library/kiosk scope, drawer dismissal and back behavior, no-results states, pagination, and recommendation-mode transitions. No additional UX decisions were required by that review.
+
+## Historical working process
+
+This was a **living design specification**: it recorded agreed UX decisions and unresolved behavior. It was **not** an implementation roadmap or a request to build everything at once.
 
 Recommended workflow:
 
@@ -264,4 +268,4 @@ Recommended workflow:
 3. Give the repository coding agent a **small, separately scoped implementation task** that cites the relevant sections here.
 4. Review the result on a narrow phone viewport and convention-size tablet viewport before moving to the next task.
 
-**Immediate next activity:** Perform the planned narrow-device keyboard, touch-target, drawer-scrolling, accordion, and chip-removal smoke review. Record any accessibility or tooltip decisions before the redesign is considered fully complete.
+**Retirement note:** The implementation, focused regression checks, and planned narrow-device review are complete. Future changes should update the current canonical documentation rather than this archived initiative record.

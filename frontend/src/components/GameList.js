@@ -537,6 +537,27 @@ const FilterDrawer = ({
   const [taxonomySearch, setTaxonomySearch] = useState({ gameType: '', theme: '' });
   const [draft, setDraft] = useState(() => buildFilterDraft(filterValues));
 
+  const filterAccordionSx = {
+    mb: 1,
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: 1,
+    overflow: 'hidden',
+    '&:before': {
+      display: 'none',
+    },
+    '&.Mui-expanded': {
+      backgroundColor: 'action.hover',
+    },
+  };
+
+  const filterAccordionSummarySx = {
+    '&.Mui-expanded': {
+      borderBottom: 1,
+      borderColor: 'divider',
+    },
+  };
+
   const updateDraft = (updater) => {
     setDraft((previous) => {
       const next = updater(previous);
@@ -890,7 +911,7 @@ const FilterDrawer = ({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, flexShrink: 0 }}>
         <Typography variant="h6">Filter Games</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Button onClick={handleClearAll} size="small">Clear All</Button>
           <IconButton aria-label="Close filters" onClick={onClose}><CloseIcon /></IconButton>
         </Box>
@@ -911,11 +932,12 @@ const FilterDrawer = ({
         )}
         <Accordion
           disableGutters
+          sx={filterAccordionSx}
           expanded={expandedSections.has('group')}
           onChange={handleSectionChange('group')}
           disabled={isRecommendation}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
               <Typography sx={{ fontWeight: 600 }}>Group &amp; Requirements</Typography>
               {renderSelectionCount(groupSelectionCount)}
@@ -972,11 +994,12 @@ const FilterDrawer = ({
 
         <Accordion
           disableGutters
+          sx={filterAccordionSx}
           expanded={expandedSections.has('gameType')}
           onChange={handleSectionChange('gameType')}
           disabled={isRecommendation}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
               <Typography sx={{ fontWeight: 600 }}>Game Type</Typography>
               {renderSelectionCount(gameTypeSelectionCount)}
@@ -989,11 +1012,12 @@ const FilterDrawer = ({
 
         <Accordion
           disableGutters
+          sx={filterAccordionSx}
           expanded={expandedSections.has('theme')}
           onChange={handleSectionChange('theme')}
           disabled={isRecommendation}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
               <Typography sx={{ fontWeight: 600 }}>Theme &amp; Setting</Typography>
               {renderSelectionCount(themeSelectionCount)}
@@ -1121,9 +1145,9 @@ const GameList = () => {
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [selectedGamePreview, setSelectedGamePreview] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [sortBy, setSortBy] = useState(
-    VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank'
-  );
+  const initialCatalogSort = VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank';
+  const [sortBy, setSortBy] = useState(initialCatalogSort);
+  const catalogSortRef = useRef(initialCatalogSort);
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 24;
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
@@ -1333,7 +1357,7 @@ const GameList = () => {
       nextSearchParams.delete('search');
     }
 
-    if (sortBy !== 'rank') {
+    if (!isRecommendation && sortBy !== 'rank') {
       nextSearchParams.set('sort', sortBy);
     } else {
       nextSearchParams.delete('sort');
@@ -1432,6 +1456,7 @@ const GameList = () => {
     minAge,
     gameStyle,
     cooperative,
+    isRecommendation,
   ]);
 
   useEffect(() => {
@@ -1649,6 +1674,7 @@ const GameList = () => {
   const closeSortMenu = () => setSortMenuAnchorEl(null);
 
   const selectSort = (value) => {
+    catalogSortRef.current = value;
     setSortBy(value);
     closeSortMenu();
   };
@@ -1733,12 +1759,23 @@ const GameList = () => {
     setDetailsOpen(true);
   };
 
-  const handleTaxonomyToggle = (option) => {
+  const closeGameDetails = () => {
+    setDetailsOpen(false);
+    setSelectedGameId(null);
+    setSelectedGamePreview(null);
+  };
+
+  const navigateFromDetailsToFilteredList = () => {
+    setInputValue('');
+    setSearchTerm('');
+    closeGameDetails();
+  };
+
+  const selectTaxonomyOption = (option) => {
     const setSelection = option.group === 'game_type' ? setSelectedGameTypes : setSelectedThemes;
     setSelection((previous) => {
-      const isSelected = previous.some((item) => item.option_id === option.option_id);
-      return isSelected
-        ? previous.filter((item) => item.option_id !== option.option_id)
+      return previous.some((item) => item.option_id === option.option_id)
+        ? previous
         : [...previous, option];
     });
 
@@ -1766,71 +1803,82 @@ const GameList = () => {
     } else if (type === 'taxonomy') {
       const taxonomyOption = taxonomyOptions.find((option) => option.option_id === id);
       if (taxonomyOption) {
-        handleTaxonomyToggle(taxonomyOption);
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
       }
     } else if (type === 'style') {
-      setGameStyle((previous) => (previous === id ? 'any' : id));
+      setGameStyle(id);
+      navigateFromDetailsToFilteredList();
     } else if (type === 'cooperative') {
-      setCooperative((previous) => !previous);
+      setCooperative(true);
+      navigateFromDetailsToFilteredList();
     } else if (type === 'designer') {
       setSelectedDesigners(prev => {
         const exists = prev.some(d => d.boardgamedesigner_id === id);
         if (exists) {
-          return prev.filter(d => d.boardgamedesigner_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamedesigner_id: id, boardgamedesigner_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'artist') {
       setSelectedArtists(prev => {
         const exists = prev.some(a => a.boardgameartist_id === id);
         if (exists) {
-          return prev.filter(a => a.boardgameartist_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgameartist_id: id, boardgameartist_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'mechanic') {
       if (id === COOPERATIVE_MECHANIC_ID) {
-        setCooperative((previous) => !previous);
+        setCooperative(true);
+        navigateFromDetailsToFilteredList();
         return;
       }
       const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
         (source) => source.type === 'mechanic' && source.id === id
       ));
       if (taxonomyOption) {
-        handleTaxonomyToggle(taxonomyOption);
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
         return;
       }
       setSelectedMechanics(prev => {
         const exists = prev.some(m => m.boardgamemechanic_id === id);
         if (exists) {
-          return prev.filter(m => m.boardgamemechanic_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamemechanic_id: id, boardgamemechanic_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'category') {
       const style = Object.entries(STYLE_CATEGORY_IDS).find(([, categoryId]) => categoryId === id)?.[0];
       if (style) {
-        setGameStyle((previous) => (previous === style ? 'any' : style));
+        setGameStyle(style);
+        navigateFromDetailsToFilteredList();
         return;
       }
       const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
         (source) => source.type === 'category' && source.id === id
       ));
       if (taxonomyOption) {
-        handleTaxonomyToggle(taxonomyOption);
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
         return;
       }
       setSelectedCategories(prev => {
         const exists = prev.some(c => c.boardgamecategory_id === id);
         if (exists) {
-          return prev.filter(c => c.boardgamecategory_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamecategory_id: id, boardgamecategory_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     }
   };
 
@@ -2025,6 +2073,9 @@ const GameList = () => {
                         onChange={(e) => {
                           const nextChecked = e.target.checked;
                           setShowingRecommendations(nextChecked);
+                          if (!nextChecked) {
+                            setSortBy(catalogSortRef.current);
+                          }
                         }}
                         data-tour="show-recommendations-toggle"
                       />
@@ -2130,11 +2181,7 @@ const GameList = () => {
           <GameDetails
             game={selectedGame || selectedGamePreview}
             open={detailsOpen}
-            onClose={() => {
-              setDetailsOpen(false);
-              setSelectedGameId(null);
-              setSelectedGamePreview(null);
-            }}
+            onClose={closeGameDetails}
             onLike={likeGame}
             onDislike={dislikeGame}
             likedGames={likedGames}

@@ -180,7 +180,7 @@ describe('GameList browse shell', () => {
     fireEvent.click(await screen.findByText('Test Game'));
 
     fireEvent.click(screen.getByRole('button', { name: 'Party Game detail' }));
-    expect(screen.getByRole('button', { name: 'Party Game detail' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Party Game detail' })).not.toBeInTheDocument();
     expect(mockUseGamesQuery).toHaveBeenCalledWith(
       expect.objectContaining({ gameStyle: 'party' })
     );

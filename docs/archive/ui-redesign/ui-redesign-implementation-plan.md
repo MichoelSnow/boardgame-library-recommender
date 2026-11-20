@@ -1,6 +1,6 @@
 # UI Redesign Implementation Plan
 
-This plan is based on the living specification in [`docs/active/ui-redesign.md`](active/ui-redesign.md). The specification remains authoritative for UX decisions; this document describes a practical implementation sequence and calls out work that cannot begin safely until open design decisions are resolved.
+This historical plan was based on the archived specification in [`ui-redesign.md`](ui-redesign.md). The specification was authoritative for UX decisions; this document describes the implementation sequence used to complete the redesign.
 
 ## Current architecture assessment
 
@@ -25,9 +25,9 @@ The maintained test suite is intentionally small. Frontend coverage is concentra
 
 ## Prerequisites and decisions before implementation
 
-The following decision still materially affects later user-visible behavior and should be resolved before the corresponding phase. Finalized behavior is recorded in the specification. Only decisions needed by the current stage should block implementation:
+The following decision materially affected user-visible behavior during implementation. Finalized behavior is recorded in the archived specification:
 
-1. Final tooltip/help text and accessibility acceptance details; defer wording and the full accessibility review to the relevant implementation stage.
+1. No tooltip/help text or explanatory copy was required for technical game types; manual narrow-device review was completed during Stage 5.
 
 The header navigation and responsive layout decision is recorded in the living specification and is ready for Stage 1. Preserve the existing recommendation-mode filtering behavior; it is not an open decision. Verify the supported sort options directly against the existing `sortOptions` and backend `GameSortField` during implementation rather than treating mockup labels as prerequisites.
 
@@ -109,11 +109,11 @@ Purpose: reconcile the redesign with existing navigation and confirm preserved f
 
 Tasks:
 
-- [ ] Update `GameDetails` tag callbacks and `GameList` navigation/state handling so detail-originated category/mechanic selection immediately returns to the list, adds the selected filter without duplicating it, preserves all other active filters, clears search, and applies the updated filters automatically.
-- [ ] Verify sort behavior against all current backend-supported values, including default rank and name/rank variants; ensure recommendation sorting remains separate and unchanged.
-- [ ] After explicit execution authorization, run only the focused tests for changed behavior and record failures. Full-suite tests, lint, and CI remain optional handoff checks rather than mandatory per-stage work.
-- [ ] Review the result on a narrow phone and convention tablet, including kiosk/library scope, filter drawer dismissal/back behavior, no-results states, pagination, and recommendation-mode transition.
-- [ ] Update the canonical documentation or the living specification if implementation decisions resolve currently open items; do not duplicate the specification’s full taxonomy in code comments or a second policy document.
+- [x] Update `GameDetails` tag callbacks and `GameList` navigation/state handling so any filterable detail tag immediately returns to the list, adds the selected filter without duplicating it, preserves all other active filters, clears search, and applies the updated filters automatically. Non-filter actions such as similar-game navigation retain their existing behavior.
+- [x] Verify sort behavior against all current backend-supported values, including default rank and name/rank variants; ensure recommendation sorting remains separate and unchanged.
+- [x] After explicit execution authorization, run only the focused tests for changed behavior and record failures. The focused tests passed; full-suite tests, lint, and CI remain optional handoff checks rather than mandatory per-stage work.
+- [x] Review the result on a narrow phone and convention tablet, including kiosk/library scope, filter drawer dismissal/back behavior, no-results states, pagination, and recommendation-mode transition.
+- [x] Update the canonical documentation or the living specification if implementation decisions resolve currently open items; do not duplicate the specification’s full taxonomy in code comments or a second policy document.
 
 Completion conditions: essential browse, details, search, sort, library, filtering, and recommendation workflows have focused regression coverage where their behavior changed; the agreed open decisions are recorded; implementation can ship as one focused PR unless a concrete dependency failure later justifies splitting it.
 
