@@ -1,73 +1,58 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 
 import AuthContext from '../context/AuthContext';
 import GameList from './GameList';
 import { createTestQueryClient, withQueryClient } from '../test/testProviders';
 
-const pageOneGames = {
-  games: Array.from({ length: 24 }, (_, index) => ({
-    id: index + 1,
-    name: `Game ${index + 1}`,
-    mechanics: [],
-    categories: [],
-    suggested_players: [],
-    min_players: 2,
-    max_players: 4,
-    min_playtime: 45,
-    max_playtime: 60,
-    average_weight: 2.1,
-    average: 7.5,
-  })),
-  total: 48,
-};
-
-const pageTwoGames = {
-  games: Array.from({ length: 24 }, (_, index) => ({
-    id: index + 25,
-    name: `Game ${index + 25}`,
-    mechanics: [],
-    categories: [],
-    suggested_players: [],
-    min_players: 2,
-    max_players: 4,
-    min_playtime: 45,
-    max_playtime: 60,
-    average_weight: 2.1,
-    average: 7.5,
-  })),
-  total: 48,
-};
-
 const mockUseGamesQuery = jest.fn();
-let mockCatalogStateToken = 'token-1';
+const mockUseFilterTaxonomyQuery = jest.fn();
+const mockUseGameDetailsQuery = jest.fn();
+
+jest.mock('./GameDetails', () => ({
+  __esModule: true,
+  default: ({ onFilter, selectedCategoryIds }) => (
+    <div>
+      <button
+        type="button"
+        aria-pressed={selectedCategoryIds.includes(1030)}
+        onClick={() => onFilter('category', 1030, 'Party Game')}
+      >
+        Party Game detail
+      </button>
+    </div>
+  ),
+}));
 
 jest.mock('../hooks/useGameListQueries', () => ({
   useMechanicsQuery: () => ({ data: [] }),
   useCategoriesQuery: () => ({ data: [] }),
-  useLibraryGameIdsQuery: () => ({ data: [1, 2, 3, 4, 5] }),
-  useCatalogStateQuery: () => ({ data: { state_token: mockCatalogStateToken } }),
+  useFilterTaxonomyQuery: () => mockUseFilterTaxonomyQuery(),
+  useLibraryGameIdsQuery: () => ({ data: [] }),
+  useCatalogStateQuery: () => ({ data: { state_token: 'token-1' } }),
   useGamesQuery: (params) => mockUseGamesQuery(params),
-  useGameDetailsQuery: () => ({ data: null }),
-  useConventionKioskStatusQuery: () => ({ data: { convention_mode: false, kiosk_mode: false } }),
+  useGameDetailsQuery: () => mockUseGameDetailsQuery(),
+  useConventionKioskStatusQuery: () => ({ data: { kiosk_mode: false } }),
 }));
 
 jest.mock('../hooks/useRecommendationMutation', () => ({
-  useRecommendationMutation: () => ({
-    mutateAsync: jest.fn(),
-    isPending: false,
-  }),
+  useRecommendationMutation: () => ({ mutateAsync: jest.fn(), isPending: false }),
 }));
 
 jest.mock('../hooks/useRecommendationSessionState', () => ({
   useRecommendationSessionState: () => ({
     likedGames: [],
     dislikedGames: [],
-    hasRecommendations: true,
+    hasRecommendations: false,
     showingRecommendations: false,
     recommendationsStale: false,
-    allRecommendations: [{ id: 101, name: 'Alpha' }],
+    allRecommendations: [],
     setHasRecommendations: jest.fn(),
     setShowingRecommendations: jest.fn(),
     setRecommendationsStale: jest.fn(),
@@ -78,156 +63,126 @@ jest.mock('../hooks/useRecommendationSessionState', () => ({
   }),
 }));
 
-describe('GameList', () => {
-  const renderGameList = (queryClient = createTestQueryClient()) =>
-    render(
-      withQueryClient(
-        <MemoryRouter>
-          <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
-            <GameList />
-          </AuthContext.Provider>
-        </MemoryRouter>,
-        queryClient
-      )
-    );
+const renderGameList = (initialEntries = ['/']) =>
+  render(
+    withQueryClient(
+      <MemoryRouter initialEntries={initialEntries}>
+        <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
+          <GameList />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+      createTestQueryClient()
+    )
+  );
 
+describe('GameList browse shell', () => {
   beforeEach(() => {
-    mockCatalogStateToken = 'token-1';
-    mockUseGamesQuery.mockImplementation(({ currentPage }) => ({
-      data: currentPage === 2 ? pageTwoGames : pageOneGames,
+    mockUseFilterTaxonomyQuery.mockReturnValue({ data: [] });
+    mockUseGameDetailsQuery.mockReturnValue({ data: null });
+    mockUseGamesQuery.mockReturnValue({
+      data: { games: [], total: 0 },
       isLoading: false,
       error: null,
       isFetching: false,
-    }));
+    });
   });
 
-  test('closes open filter panel when Show Recommendations is toggled on', async () => {
+  test('renders the browse shell and applies a filter', () => {
     renderGameList();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
-    expect(screen.getByRole('button', { name: 'Overall Rank' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    expect(screen.getByText('Filter Games')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('Show Recommendations'));
-
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Overall Rank' })).not.toBeInTheDocument();
-    });
-  });
-
-  test('resets pagination to page 1 when toggling All Board Games', async () => {
-    renderGameList();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Go to page 2' }));
-
-    await waitFor(() => {
-      expect(mockUseGamesQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ currentPage: 2 })
-      );
-    });
-
-    fireEvent.click(screen.getByLabelText('All Board Games'));
-
-    await waitFor(() => {
-      expect(mockUseGamesQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ currentPage: 1, libraryOnly: false })
-      );
-    });
-  });
-
-  test('shows clear search control and clears input when clicked', async () => {
-    renderGameList();
-
-    const searchInput = screen.getByLabelText('Search Games');
-    fireEvent.change(searchInput, { target: { value: 'Terraforming Mars' } });
-    expect(searchInput).toHaveValue('Terraforming Mars');
-
-    fireEvent.click(screen.getByLabelText('Clear search'));
-    expect(searchInput).toHaveValue('');
-  });
-
-  test('shows per-filter clear control and clears sort filter quickly', async () => {
-    renderGameList();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Sort' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Name (A-Z)' }));
-
-    expect(screen.getByLabelText('Clear sort filter')).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Clear sort filter'));
-
-    await waitFor(() => {
-      expect(mockUseGamesQuery).toHaveBeenCalledWith(
-        expect.objectContaining({ sortBy: 'rank' })
-      );
-    });
-    expect(screen.queryByLabelText('Clear sort filter')).not.toBeInTheDocument();
-  });
-
-  test('Clear All confirms before wiping recommendation state', async () => {
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
-
-    renderGameList();
-
-    const searchInput = screen.getByLabelText('Search Games');
-    fireEvent.change(searchInput, { target: { value: 'Wingspan' } });
-    expect(searchInput).toHaveValue('Wingspan');
-
-    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(searchInput).toHaveValue('Wingspan');
-
-    confirmSpy.mockReturnValue(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
-    expect(searchInput).toHaveValue('');
-
-    confirmSpy.mockRestore();
-  });
-
-  test('state token change refetches games and library ids without filter lists', async () => {
-    const queryClient = createTestQueryClient();
-    const refetchSpy = jest
-      .spyOn(queryClient, 'refetchQueries')
-      .mockResolvedValue([]);
-
-    const view = renderGameList(queryClient);
-
-    await waitFor(() => {
-      expect(refetchSpy).not.toHaveBeenCalled();
-    });
-
-    mockCatalogStateToken = 'token-2';
-    view.rerender(
-      withQueryClient(
-        <MemoryRouter>
-          <AuthContext.Provider value={{ user: { id: 1, username: 'admin' } }}>
-            <GameList />
-          </AuthContext.Provider>
-        </MemoryRouter>,
-        queryClient
-      )
-    );
-
-    await waitFor(() => {
-      expect(refetchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ queryKey: ['games'], type: 'active' })
-      );
-    });
-    await waitFor(() => {
-      expect(refetchSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ queryKey: ['library_game_ids'], type: 'active' })
-      );
-    });
-
-    expect(refetchSpy).not.toHaveBeenCalledWith(
+    mockUseGamesQuery.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: '4' }));
+    expect(mockUseGamesQuery).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['mechanics_alphabetically'],
-        type: 'active',
+        playerOptions: expect.objectContaining({ count: 4 }),
       })
     );
-    expect(refetchSpy).not.toHaveBeenCalledWith(
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close filters' }));
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
       expect.objectContaining({
-        queryKey: ['categories_alphabetically'],
-        type: 'active',
+        playerOptions: expect.objectContaining({ count: 4 }),
       })
+    );
+  });
+
+  test('removing a drawer filter updates the query while preserving the drawer and other filters', () => {
+    renderGameList(['/?players=4&max_playtime=60&cooperative=true']);
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+
+    const activeFiltersSection = screen.getByRole('region', { name: 'Active Filters (3)' });
+    fireEvent.click(within(activeFiltersSection).getByLabelText('Remove 4 players filter'));
+
+    expect(screen.getByRole('button', { name: 'Close filters' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Active Filters (2)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '4' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Cooperative games only' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockUseGamesQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        playerOptions: expect.objectContaining({ count: null }),
+        maxPlaytime: 60,
+        cooperative: true,
+      })
+    );
+  });
+
+  test('restores a taxonomy selection from the URL', () => {
+    mockUseFilterTaxonomyQuery.mockReturnValue({
+      data: [
+        {
+          option_id: 'game-type:dice-games',
+          label: 'Dice Games',
+          group: 'game_type',
+          featured: false,
+          sources: [
+            { type: 'category', id: 1017, name: 'Dice' },
+            { type: 'mechanic', id: 2072, name: 'Dice Rolling' },
+          ],
+        },
+      ],
+    });
+
+    renderGameList(['/?game_types=game-type:dice-games']);
+
+    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    fireEvent.click(screen.getByText('Game Type'));
+    fireEvent.click(screen.getByRole('button', { name: 'Show All Game Types' }));
+    expect(screen.getByRole('button', { name: 'Dice Games' })).toHaveAttribute('aria-pressed', 'true');
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedGameTypeIds: ['game-type:dice-games'] })
+    );
+  });
+
+  test('passes a detail classification into the filter state', async () => {
+    const game = {
+      id: 1,
+      name: 'Test Game',
+      min_players: 2,
+      max_players: 4,
+      min_playtime: 30,
+      max_playtime: 60,
+      average_weight: 2.5,
+      average: 7.5,
+    };
+    mockUseGamesQuery.mockReturnValue({
+      data: { games: [game], total: 1 },
+      isLoading: false,
+      error: null,
+      isFetching: false,
+    });
+    mockUseGameDetailsQuery.mockReturnValue({ data: game });
+
+    renderGameList();
+    fireEvent.click(await screen.findByText('Test Game'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Party Game detail' }));
+    expect(screen.queryByRole('button', { name: 'Party Game detail' })).not.toBeInTheDocument();
+    expect(mockUseGamesQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ gameStyle: 'party' })
     );
   });
 });

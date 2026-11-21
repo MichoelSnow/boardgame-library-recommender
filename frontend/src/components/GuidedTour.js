@@ -15,79 +15,91 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 const buildTourSteps = (libraryName = '') => {
   const libraryNamePrefix = libraryName ? `${libraryName} ` : '';
   return [
-  {
-    id: 'welcome',
-    title: `Welcome to the ${libraryNamePrefix}Board Game Catalog!`,
-    content: 'This quick tour will show you the key features. Perfect for guests who want to jump right in!',
-    target: null,
-    position: 'center'
-  },
-   {
-    id: 'library-indicator',
-    title: 'Library Game Indicator',
-    content: 'Look for the book icon on game cards - it shows which games are available in the library. Games without this icon are not in the library.',
-    target: '[data-tour="game-card"]:first-child',
-    position: 'top',
-    highlight: '[data-tour="like-buttons"]'
-  }, 
-  {
-    id: 'library-toggle',
-    title: 'All Board Games Toggle',
-    content: `By default, you see only ${libraryNamePrefix}library games. Toggle this on to include all board games for broader recommendations.`,
-    target: '[data-tour="library-toggle"]',
-    position: 'bottom'
-  },
-  {
-    id: 'like-buttons',
-    title: 'Like & Dislike Games',
-    content: 'Use the thumbs up and thumbs down buttons to like/dislike games in order to generate recommendations.  You can like or dislike as many games as you want, even games not in the library',
-    target: '[data-tour="game-card"]:first-child',
-    position: 'top',
-    highlight: '[data-tour="like-buttons"]'
-  },
-  {
-    id: 'recommend-button',
-    title: 'Get Recommendations',
-    content: 'After liking/disliking games, click this button to get recommendations based on your preferences.',
-    target: '[data-tour="recommend-button"]',
-    position: 'top'
-  },
-  {
-    id: 'recommendation-workflow',
-    title: 'Updating & Viewing Recommendations',
-    content: 'After your first recommendations: 1) Like/dislike more games to enable "Refresh Recommendations", then 2) Use the "Show Recommendations" toggle to switch between recommended games and full library.',
-    target: '[data-tour="refresh-recommendations-button"]',
-    position: 'top',
-    important: true
-  },
-  {
-    id: 'show-recommendations-toggle',
-    title: 'Show Recommendations Toggle',
-    content: 'This toggle appears after getting recommendations. Turn it on to see only your recommended games, or off to browse the full library with your recommendations saved.',
-    target: '[data-tour="show-recommendations-toggle"]',
-    position: 'top'
-  },
-  {
-    id: 'player-filter',
-    title: 'Player Count Filter',
-    content: 'Set this to your group size. You can also specify if that count should be "Recommended" or "Best" rather than just "Allowed".',
-    target: '[data-tour="player-filter"]',
-    position: 'bottom'
-  },
-  {
-    id: 'game-details',
-    title: 'Game Details',
-    content: 'Click any game card to see detailed information. You can click on mechanics, categories, and designers to filter for similar games.',
-    target: '[data-tour="game-card"]:first-child',
-    position: 'top'
-  },
-  {
-    id: 'help-button',
-    title: 'Need More Help?',
-    content: 'Click the help button in the top bar anytime for detailed instructions. Your preferences persist during your active session and reset when the session ends.',
-    target: '[data-tour="help-button"]',
-    position: 'bottom'
-  }
+    {
+      id: 'welcome',
+      title: `Welcome to the ${libraryNamePrefix}Board Game Catalog!`,
+      content: 'This quick tour highlights the main ways to search, filter, browse, and get recommendations.',
+      target: null,
+      position: 'center',
+    },
+    {
+      id: 'search',
+      title: 'Search Games',
+      content: 'Select the search icon to open the game-name search field. The single X clears the text when a search is entered and closes the field when it is empty.',
+      target: '[data-tour="search-control"]',
+      position: 'bottom',
+    },
+    {
+      id: 'sort',
+      title: 'Sort Games',
+      content: 'Use Sort to change the order of the catalog. Your selected sort remains separate from filters and recommendations.',
+      target: '[data-tour="sort-control"]',
+      position: 'bottom',
+    },
+    {
+      id: 'filters',
+      title: 'Filter Games',
+      content: 'Open Filters to choose players and requirements, Game Type, and Theme & Setting. Multiple choices within Game Type or Theme & Setting match any selected option; different filter groups narrow results together.',
+      target: '[data-tour="filter-drawer"]',
+      position: 'bottom',
+    },
+    {
+      id: 'library-indicator',
+      title: 'Library Game Indicator',
+      content: 'Look for the book icon on game cards to see which games are available in the library. Games without this icon are outside the current library collection.',
+      target: '[data-tour="game-card"]:first-child',
+      position: 'top',
+    },
+    {
+      id: 'library-toggle',
+      title: 'All Board Games',
+      content: `The catalog starts with ${libraryNamePrefix}library games. Turn on All Board Games to include games outside the collection for browsing and recommendations.`,
+      target: '[data-tour="library-toggle"]',
+      position: 'bottom',
+    },
+    {
+      id: 'like-buttons',
+      title: 'Like & Dislike Games',
+      content: 'Use the thumbs up and thumbs down buttons to record your preferences. You can rate games even when they are outside the library.',
+      target: '[data-tour="game-card"]:first-child',
+      position: 'top',
+    },
+    {
+      id: 'recommend-button',
+      title: 'Get Recommendations',
+      content: 'After rating at least one game, select Recommend Games to create recommendations based on your preferences.',
+      target: '[data-tour="recommend-button"]',
+      position: 'top',
+    },
+    {
+      id: 'recommendation-workflow',
+      title: 'Update Recommendations',
+      content: 'After your first recommendations, rate more games and select Refresh Recommendations when you want an updated result.',
+      target: '[data-tour="refresh-recommendations-button"]',
+      position: 'top',
+      important: true,
+    },
+    {
+      id: 'show-recommendations-toggle',
+      title: 'Show Recommendations',
+      content: 'Use this toggle to switch between recommended games and the regular catalog. Your recommendations remain saved while you browse.',
+      target: '[data-tour="show-recommendations-toggle"]',
+      position: 'top',
+    },
+    {
+      id: 'game-details',
+      title: 'Game Details & Filtering',
+      content: 'Select a game card for details. Filterable tags such as designers, artists, game types, themes and settings close the details view and apply that filter to the list.',
+      target: '[data-tour="game-card"]:first-child',
+      position: 'top',
+    },
+    {
+      id: 'navigation-menu',
+      title: 'More Help',
+      content: 'Open the navigation menu and choose Help / Tour whenever you want to revisit these instructions. Your session preferences reset when the session ends.',
+      target: '[data-tour="navigation-menu"]',
+      position: 'bottom',
+    },
   ];
 };
 
@@ -110,8 +122,8 @@ const GuidedTour = ({ isOpen, onClose, currentMode = 'browse', libraryName = '' 
     const stepInfo = tourSteps[currentStep];
     if (stepInfo?.target) {
       const element = document.querySelector(stepInfo.target);
+      setHighlightedElement(element || null);
       if (element) {
-        setHighlightedElement(element);
         // Scroll element into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }

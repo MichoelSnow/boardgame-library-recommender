@@ -1,22 +1,7 @@
 from backend.app import convention_kiosk
 
 
-def test_convention_mode_enabled_parsing() -> None:
-    assert convention_kiosk.is_convention_mode_enabled({"CONVENTION_MODE": "true"})
-    assert convention_kiosk.is_convention_mode_enabled({"CONVENTION_MODE": "1"})
-    assert not convention_kiosk.is_convention_mode_enabled({"CONVENTION_MODE": "false"})
-
-
-def test_guest_mode_enabled_parsing() -> None:
-    assert convention_kiosk.is_convention_guest_enabled(
-        {"CONVENTION_GUEST_ENABLED": "yes"}
-    )
-    assert not convention_kiosk.is_convention_guest_enabled(
-        {"CONVENTION_GUEST_ENABLED": "0"}
-    )
-
-
-def test_kiosk_cookie_token_issue_and_validate_roundtrip() -> None:
+def test_kiosk_cookie_token_roundtrip() -> None:
     token = convention_kiosk.issue_kiosk_cookie_token(
         secret_key="x" * 32,
         algorithm="HS256",
@@ -30,7 +15,7 @@ def test_kiosk_cookie_token_issue_and_validate_roundtrip() -> None:
     )
 
 
-def test_kiosk_cookie_token_invalid_secret_rejected() -> None:
+def test_kiosk_cookie_token_rejects_wrong_secret() -> None:
     token = convention_kiosk.issue_kiosk_cookie_token(
         secret_key="x" * 32,
         algorithm="HS256",

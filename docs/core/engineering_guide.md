@@ -25,28 +25,42 @@ _Last updated: 2025-12-29_
 - Avoid silent fallbacks for critical systems (auth, DB, recommendations); use explicit degraded-mode behavior with clear logs and alerts.
 
 ## Testing Strategy
+
+The automated test suite is a minimum critical-system safety net, not an
+exhaustive checklist of every feature, control, label, or permutation. Add a
+test only when a failure would indicate that a critical system is unavailable,
+that a contract is broken, that data integrity or security is at risk, or that
+a non-obvious state transition regressed.
+
+Prefer one representative smoke test or vertical flow for a related system.
+Do not add separate tests for every filter option, taxonomy mapping, button,
+copy variation, responsive breakpoint, drawer animation, or framework
+primitive. Verify presentation and device-specific behavior through manual
+inspection unless automation is necessary to establish a critical system
+boundary. Existing coverage should be removed or combined when it becomes
+redundant; a new feature does not automatically justify a new test.
+
 Web Frontend (React)
 - Unit/component tests: Jest + React Testing Library.
 - API mocking: MSW.
-- E2E: Playwright or Cypress for 2-4 critical flows (run on main or nightly).
+- E2E: Playwright or Cypress only for the smallest number of critical
+  end-to-end flows needed to prove the site works (run on main or nightly).
 
-Recommended web frontend test coverage
-- Authentication flow (login, logout, protected routes).
-- Filtering and search state behavior.
-- Recommendation workflow (liked/disliked games, recommendation refresh/toggle).
-- Empty states, loading states, and API error handling.
+Minimum web frontend system coverage, when applicable
+- Application boot and one representative browse/list flow.
+- One frontend-to-backend query or API contract flow.
+- Authentication/protected-route behavior only when the change affects it.
+- Recommendation behavior only when the change affects the recommendation system.
 
 Backend (FastAPI)
 - Unit + API tests: pytest + httpx.
 - Schema validation: pydantic models on requests/responses.
 - OpenAPI snapshot tests to detect breaking changes.
 
-Recommended backend test coverage
-- Invalid inputs and missing required fields.
-- Empty results and relevance threshold behavior.
-- Partial failures (DB unavailable, timeouts).
-- Idempotency/retry behavior for write paths where retries are expected.
-- Timeout and error-path behavior for external calls and long-running operations.
+Minimum backend system coverage, when applicable
+- One basic API/database path proving the service can return valid data.
+- Contract, security, or data-integrity boundaries affected by the change.
+- Failure-path tests only for critical degraded behavior introduced or changed.
 
 Ingestion (Python)
 - Unit tests for parsing, normalization, chunking.

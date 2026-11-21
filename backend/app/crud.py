@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import exists, func, insert, select
 from sqlalchemy.sql import or_, and_
-from . import models, schemas, security
+from . import models, schemas, security, taxonomy
 from typing import Any, List, Optional
 import logging
 import secrets
@@ -50,13 +50,19 @@ def clear_total_count_cache() -> None:
 def _build_total_cache_key(
     *,
     search: Optional[str],
-    players: Optional[int],
+    players: Optional[str],
     designer_id: Optional[str],
     artist_id: Optional[str],
     recommendations: Optional[str],
     weight: Optional[str],
     mechanics: Optional[str],
     categories: Optional[str],
+    game_types: Optional[str] = None,
+    themes: Optional[str] = None,
+    max_playtime: Optional[int],
+    min_age: Optional[int],
+    game_style: Optional[str],
+    cooperative: Optional[bool],
     library_only: Optional[bool],
     runtime_library_version: Optional[str] = None,
 ) -> tuple[Any, ...]:
@@ -69,6 +75,12 @@ def _build_total_cache_key(
         weight,
         mechanics,
         categories,
+        game_types,
+        themes,
+        max_playtime,
+        min_age,
+        game_style,
+        cooperative,
         bool(library_only),
         runtime_library_version,
     )
@@ -119,13 +131,19 @@ def get_games(
     limit: int = 24,
     sort_by: Optional[str] = "rank",
     search: Optional[str] = None,
-    players: Optional[int] = None,
+    players: Optional[str] = None,
     designer_id: Optional[str] = None,
     artist_id: Optional[str] = None,
     recommendations: Optional[str] = None,
     weight: Optional[str] = None,
     mechanics: Optional[str] = None,
     categories: Optional[str] = None,
+    game_types: Optional[str] = None,
+    themes: Optional[str] = None,
+    max_playtime: Optional[int] = None,
+    min_age: Optional[int] = None,
+    game_style: Optional[str] = None,
+    cooperative: Optional[bool] = None,
     library_only: Optional[bool] = False,
 ):
     try:
@@ -151,20 +169,59 @@ def get_games(
             search_term = f"%{search}%"
             query = query.filter(models.BoardGame.name.ilike(search_term))
 
+        if max_playtime is not None:
+            query = query.filter(
+                models.BoardGame.max_playtime.isnot(None),
+                models.BoardGame.max_playtime > 0,
+                models.BoardGame.max_playtime <= max_playtime,
+            )
+
+        if min_age is not None:
+            query = query.filter(
+                models.BoardGame.min_age.isnot(None),
+                models.BoardGame.min_age > 0,
+                models.BoardGame.min_age <= min_age,
+            )
+
+        if game_style == "family":
+            query = query.filter(models.BoardGame.family_games_rank.isnot(None))
+        elif game_style == "children":
+            query = query.filter(
+                models.BoardGame.categories.any(
+                    models.Category.boardgamecategory_name == "Children's Game"
+                )
+            )
+        elif game_style == "party":
+            query = query.filter(
+                or_(
+                    models.BoardGame.party_games_rank.isnot(None),
+                    models.BoardGame.categories.any(
+                        models.Category.boardgamecategory_name == "Party Game"
+                    ),
+                )
+            )
+
+        if cooperative:
+            query = query.filter(
+                models.BoardGame.mechanics.any(
+                    models.Mechanic.boardgamemechanic_name == "Cooperative Game"
+                )
+            )
+
         if weight:
             weight_list = weight.split(",")
             weight_conditions = []
             if "beginner" in weight_list:
-                weight_conditions.append(models.BoardGame.average_weight <= 2.0)
+                weight_conditions.append(models.BoardGame.average_weight < 2.0)
             if "midweight" in weight_list:
                 weight_conditions.append(
                     and_(
-                        models.BoardGame.average_weight > 2.0,
-                        models.BoardGame.average_weight < 4.0,
+                        models.BoardGame.average_weight >= 2.0,
+                        models.BoardGame.average_weight <= 4.0,
                     )
                 )
             if "heavy" in weight_list:
-                weight_conditions.append(models.BoardGame.average_weight >= 4.0)
+                weight_conditions.append(models.BoardGame.average_weight > 4.0)
 
             if weight_conditions:
                 query = query.filter(or_(*weight_conditions))
@@ -210,18 +267,11 @@ def get_games(
         if mechanics:
             try:
                 mechanic_ids = [int(m_id) for m_id in mechanics.split(",")]
-                subquery = (
-                    select(models.BoardGame.id)
-                    .join(models.BoardGame.mechanics)
-                    .filter(models.Mechanic.boardgamemechanic_id.in_(mechanic_ids))
-                    .group_by(models.BoardGame.id)
-                    .having(
-                        func.count(models.Mechanic.boardgamemechanic_id)
-                        == len(mechanic_ids)
+                query = query.filter(
+                    models.BoardGame.mechanics.any(
+                        models.Mechanic.boardgamemechanic_id.in_(mechanic_ids)
                     )
-                    .subquery()
                 )
-                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying mechanics filter: {str(e)}")
                 # Continue without mechanics filter if it fails
@@ -229,29 +279,52 @@ def get_games(
         if categories:
             try:
                 category_ids = [int(c_id) for c_id in categories.split(",")]
-                subquery = (
-                    select(models.BoardGame.id)
-                    .join(models.BoardGame.categories)
-                    .filter(models.Category.boardgamecategory_id.in_(category_ids))
-                    .group_by(models.BoardGame.id)
-                    .having(
-                        func.count(models.Category.boardgamecategory_id)
-                        == len(category_ids)
+                query = query.filter(
+                    models.BoardGame.categories.any(
+                        models.Category.boardgamecategory_id.in_(category_ids)
                     )
-                    .subquery()
                 )
-                query = query.filter(models.BoardGame.id.in_(subquery))
             except Exception as e:
                 logger.warning(f"Error applying categories filter: {str(e)}")
                 # Continue without categories filter if it fails
+
+        for selected_options, group in ((game_types, "game_type"), (themes, "theme")):
+            if not selected_options:
+                continue
+            try:
+                category_ids, mechanic_ids = taxonomy.get_taxonomy_source_ids(
+                    db, selected_options, group
+                )
+                source_conditions = []
+                if category_ids:
+                    source_conditions.append(
+                        models.BoardGame.categories.any(
+                            models.Category.boardgamecategory_id.in_(category_ids)
+                        )
+                    )
+                if mechanic_ids:
+                    source_conditions.append(
+                        models.BoardGame.mechanics.any(
+                            models.Mechanic.boardgamemechanic_id.in_(mechanic_ids)
+                        )
+                    )
+                if source_conditions:
+                    query = query.filter(or_(*source_conditions))
+            except Exception as e:
+                logger.warning("Error applying %s taxonomy filter: %s", group, e)
+                # Continue without the taxonomy filter if it cannot be resolved.
 
         if recommendations:
             try:
                 rec_list = recommendations.split(",")
                 # Need to join with suggested_players table for recommendations filter
                 query = query.join(models.BoardGame.suggested_players)
-                if players:
-                    query = query.filter(models.SuggestedPlayer.player_count == players)
+                if players == "9plus":
+                    query = query.filter(models.SuggestedPlayer.player_count >= 9)
+                elif players:
+                    query = query.filter(
+                        models.SuggestedPlayer.player_count == int(players)
+                    )
                 if "best" in rec_list:
                     query = query.filter(
                         models.SuggestedPlayer.recommendation_level == "best"
@@ -265,13 +338,21 @@ def get_games(
                 # Continue without recommendations filter if it fails
         elif players:
             try:
-                # Use min_players and max_players from games table instead of suggested_players
-                query = query.filter(
-                    and_(
-                        models.BoardGame.min_players <= players,
-                        models.BoardGame.max_players >= players,
+                if players == "9plus":
+                    query = query.filter(
+                        models.BoardGame.suggested_players.any(
+                            models.SuggestedPlayer.player_count >= 9
+                        )
                     )
-                )
+                else:
+                    player_count = int(players)
+                    # Use min_players and max_players from games table instead of suggested_players
+                    query = query.filter(
+                        and_(
+                            models.BoardGame.min_players <= player_count,
+                            models.BoardGame.max_players >= player_count,
+                        )
+                    )
             except Exception as e:
                 logger.warning(f"Error applying players filter: {str(e)}")
                 # Continue without players filter if it fails
@@ -317,6 +398,12 @@ def get_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
+            game_types=game_types,
+            themes=themes,
+            max_playtime=max_playtime,
+            min_age=min_age,
+            game_style=game_style,
+            cooperative=cooperative,
             library_only=library_only,
             runtime_library_version=runtime_library_version,
         )

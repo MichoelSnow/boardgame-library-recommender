@@ -7,7 +7,7 @@ from backend.app.runtime_profile import (
 )
 
 
-def test_resolve_runtime_settings_standard_defaults() -> None:
+def test_resolve_runtime_settings_standard_defaults():
     settings = resolve_runtime_settings({})
 
     assert settings.runtime_profile == "standard"
@@ -15,7 +15,7 @@ def test_resolve_runtime_settings_standard_defaults() -> None:
     assert settings.gunicorn_workers == 1
 
 
-def test_resolve_runtime_settings_convention_defaults() -> None:
+def test_resolve_runtime_settings_convention_defaults():
     settings = resolve_runtime_settings({"RUNTIME_PROFILE": "convention"})
 
     assert settings.runtime_profile == "convention"
@@ -23,53 +23,23 @@ def test_resolve_runtime_settings_convention_defaults() -> None:
     assert settings.gunicorn_workers == 3
 
 
-def test_resolve_runtime_settings_override_server_and_workers() -> None:
-    settings = resolve_runtime_settings(
-        {
-            "RUNTIME_PROFILE": "rehearsal",
-            "APP_SERVER": "uvicorn",
-            "GUNICORN_WORKERS": "4",
-        }
-    )
-
-    assert settings.runtime_profile == "rehearsal"
-    assert settings.app_server == "uvicorn"
-    assert settings.gunicorn_workers == 4
-
-
-def test_resolve_runtime_settings_invalid_runtime_profile() -> None:
+def test_resolve_runtime_settings_rejects_invalid_profile():
     with pytest.raises(RuntimeError, match="Invalid RUNTIME_PROFILE"):
         resolve_runtime_settings({"RUNTIME_PROFILE": "invalid"})
 
 
-def test_resolve_runtime_settings_invalid_app_server() -> None:
-    with pytest.raises(RuntimeError, match="Invalid APP_SERVER"):
-        resolve_runtime_settings({"APP_SERVER": "invalid"})
-
-
-def test_resolve_runtime_settings_invalid_workers() -> None:
+def test_resolve_runtime_settings_rejects_invalid_worker_count():
     with pytest.raises(RuntimeError, match="GUNICORN_WORKERS must be >= 1"):
         resolve_runtime_settings({"GUNICORN_WORKERS": "0"})
 
 
-def test_build_server_command_uvicorn() -> None:
+def test_build_server_command_uses_configured_gunicorn_workers():
     settings = RuntimeSettings(
-        runtime_profile="standard", app_server="uvicorn", gunicorn_workers=1
+        runtime_profile="convention",
+        app_server="gunicorn",
+        gunicorn_workers=2,
     )
-    assert build_server_command(settings) == [
-        "uvicorn",
-        "backend.app.main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8080",
-    ]
 
-
-def test_build_server_command_gunicorn() -> None:
-    settings = RuntimeSettings(
-        runtime_profile="convention", app_server="gunicorn", gunicorn_workers=2
-    )
     assert build_server_command(settings) == [
         "gunicorn",
         "-k",

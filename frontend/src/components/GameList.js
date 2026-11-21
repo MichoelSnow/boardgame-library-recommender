@@ -26,16 +26,21 @@ import {
   Switch,
   Tooltip,
   IconButton,
+  Drawer,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
+  Popover,
+  MenuItem,
+  MenuList,
 } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
-import PeopleIcon from '@mui/icons-material/People';
-import PsychologyAltOutlinedIcon from '@mui/icons-material/PsychologyAltOutlined';
 import SortIcon from '@mui/icons-material/Sort';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GameDetails from './GameDetails';
 import GameCard from './GameCard';
-import ConstructionIcon from '@mui/icons-material/Construction';
-import CategoryIcon from '@mui/icons-material/Category';
 import CloseIcon from '@mui/icons-material/Close';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LikedGamesDialog from './LikedGamesDialog';
@@ -49,6 +54,7 @@ import {
   useConventionKioskStatusQuery,
   useGameDetailsQuery,
   useGamesQuery,
+  useFilterTaxonomyQuery,
   useMechanicsQuery,
   useLibraryGameIdsQuery,
 } from '../hooks/useGameListQueries';
@@ -88,11 +94,25 @@ const sortOptions = [
 //   return option ? option.label : 'Rank';
 // };
 
-// Generate player count options (1-12)
-const playerCountOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+const playerCountOptions = Array.from({ length: 8 }, (_, i) => i + 1);
+const PLAYER_COUNT_NINE_PLUS = '9plus';
+const playtimeOptions = [15, 30, 45, 60, 90, 120, 180, 240];
+const ageOptions = [5, 6, 8, 10, 12, 14];
+const gameStyleOptions = [
+  { value: 'any', label: 'Any' },
+  { value: 'family', label: 'Family Games' },
+  { value: 'children', label: "Children's Games" },
+  { value: 'party', label: 'Party Games' },
+];
+const formatPlaytimeLabel = (minutes) =>
+  minutes >= 120 ? `${minutes / 60} hours` : `${minutes} min`;
 
 const VALID_PLAYER_RECOMMENDATIONS = new Set(['allowed', 'recommended', 'best']);
 const VALID_SORT_OPTIONS = new Set(sortOptions.map((option) => option.value));
+const VALID_GAME_STYLES = new Set(gameStyleOptions.map((option) => option.value));
+const STYLE_CATEGORY_IDS = { party: 1030, children: 1041 };
+const COOPERATIVE_MECHANIC_ID = 2023;
+const FILTER_DRAWER_HISTORY_KEY = '__gameListFilterDrawer';
 
 const parseIntegerParam = (value) => {
   if (!value) {
@@ -102,6 +122,18 @@ const parseIntegerParam = (value) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
 };
+
+const parsePlayerCountParam = (value) => {
+  if (value === PLAYER_COUNT_NINE_PLUS) {
+    return value;
+  }
+
+  const parsed = parseIntegerParam(value);
+  return parsed !== null && parsed >= 1 && parsed <= 12 ? parsed : null;
+};
+
+const parseChoiceParam = (value, validChoices, fallback) =>
+  validChoices.has(value) ? value : fallback;
 
 const parseBooleanParam = (value, fallback) => {
   if (value === 'true') {
@@ -124,11 +156,233 @@ const parseCsvIntegers = (value) => {
     .filter((item) => !Number.isNaN(item));
 };
 
+const parseCsvStrings = (value) => (value || '')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean);
+
 const buildPlaceholderSelection = (ids, idKey, nameKey) =>
   ids.map((id) => ({
     [idKey]: id,
     [nameKey]: '',
   }));
+
+const buildTaxonomyPlaceholders = (ids) => ids.map((option_id) => ({
+  option_id,
+  label: option_id,
+  group: option_id.startsWith('theme:') ? 'theme' : 'game_type',
+  featured: false,
+  sources: [],
+}));
+
+const buildFilterDraft = ({
+  playerOptions,
+  weight,
+  selectedDesigners,
+  selectedArtists,
+  selectedMechanics,
+  selectedCategories,
+  selectedGameTypes,
+  selectedThemes,
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+}) => ({
+  playerOptions: { ...playerOptions },
+  weight: { ...weight },
+  selectedDesigners: [...selectedDesigners],
+  selectedArtists: [...selectedArtists],
+  selectedMechanics: [...selectedMechanics],
+  selectedCategories: [...selectedCategories],
+  selectedGameTypes: [...selectedGameTypes],
+  selectedThemes: [...selectedThemes],
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+});
+
+const buildEmptyFilterDraft = () => ({
+  playerOptions: { count: null, recommendation: 'allowed' },
+  weight: { beginner: false, midweight: false, heavy: false },
+  selectedDesigners: [],
+  selectedArtists: [],
+  selectedMechanics: [],
+  selectedCategories: [],
+  selectedGameTypes: [],
+  selectedThemes: [],
+  maxPlaytime: null,
+  minAge: null,
+  gameStyle: 'any',
+  cooperative: false,
+});
+
+const complexityLabels = {
+  beginner: 'Complexity: Light',
+  midweight: 'Complexity: Medium',
+  heavy: 'Complexity: Heavy',
+};
+
+const buildActiveFilterChips = ({
+  playerOptions,
+  weight,
+  selectedDesigners,
+  selectedArtists,
+  selectedMechanics,
+  selectedCategories,
+  selectedGameTypes,
+  selectedThemes,
+  maxPlaytime,
+  minAge,
+  gameStyle,
+  cooperative,
+}) => [
+  ...(playerOptions.count !== null
+    ? [{
+        key: 'players',
+        label: `${playerOptions.count === PLAYER_COUNT_NINE_PLUS ? '9+' : playerOptions.count} players${playerOptions.recommendation !== 'allowed' ? ` · ${playerOptions.recommendation[0].toUpperCase()}${playerOptions.recommendation.slice(1)}` : ''}`,
+        type: 'players',
+        id: null,
+      }]
+    : []),
+  ...(maxPlaytime !== null
+    ? [{
+        key: 'max-playtime',
+        label: `Up to ${formatPlaytimeLabel(maxPlaytime)}`,
+        type: 'max_playtime',
+        id: null,
+      }]
+    : []),
+  ...(minAge !== null
+    ? [{
+        key: 'min-age',
+        label: `Age ${minAge}+`,
+        type: 'min_age',
+        id: null,
+      }]
+    : []),
+  ...Object.entries(weight)
+    .filter(([, selected]) => selected)
+    .map(([key]) => ({
+      key: `weight-${key}`,
+      label: complexityLabels[key],
+      type: 'weight',
+      id: key,
+    })),
+  ...(gameStyle !== 'any'
+    ? [{
+        key: 'game-style',
+        label: gameStyleOptions.find((option) => option.value === gameStyle)?.label || gameStyle,
+        type: 'game_style',
+        id: null,
+      }]
+    : []),
+  ...(cooperative
+    ? [{
+        key: 'cooperative',
+        label: 'Cooperative',
+        type: 'cooperative',
+        id: null,
+      }]
+    : []),
+  ...selectedGameTypes.map((option) => ({
+    key: `game-type-${option.option_id}`,
+    label: `Game Type: ${option.label}`,
+    type: 'game_type',
+    id: option.option_id,
+  })),
+  ...selectedThemes.map((option) => ({
+    key: `theme-${option.option_id}`,
+    label: `Theme: ${option.label}`,
+    type: 'theme',
+    id: option.option_id,
+  })),
+  ...selectedMechanics.map((mechanic) => ({
+    key: `mechanic-${mechanic.boardgamemechanic_id}`,
+    label: `Mechanic: ${mechanic.boardgamemechanic_name || mechanic.boardgamemechanic_id}`,
+    type: 'mechanic',
+    id: mechanic.boardgamemechanic_id,
+  })),
+  ...selectedCategories.map((category) => ({
+    key: `category-${category.boardgamecategory_id}`,
+    label: `Category: ${category.boardgamecategory_name || category.boardgamecategory_id}`,
+    type: 'category',
+    id: category.boardgamecategory_id,
+  })),
+  ...selectedDesigners.map((designer) => ({
+    key: `designer-${designer.boardgamedesigner_id}`,
+    label: `Designer: ${designer.boardgamedesigner_name}`,
+    type: 'designer',
+    id: designer.boardgamedesigner_id,
+  })),
+  ...selectedArtists.map((artist) => ({
+    key: `artist-${artist.boardgameartist_id}`,
+    label: `Artist: ${artist.boardgameartist_name}`,
+    type: 'artist',
+    id: artist.boardgameartist_id,
+  })),
+];
+
+const removeFilterFromDraft = (draft, type, id) => {
+  if (type === 'players') {
+    return { ...draft, playerOptions: { count: null, recommendation: 'allowed' } };
+  }
+  if (type === 'weight') {
+    return { ...draft, weight: { ...draft.weight, [id]: false } };
+  }
+  if (type === 'max_playtime') {
+    return { ...draft, maxPlaytime: null };
+  }
+  if (type === 'min_age') {
+    return { ...draft, minAge: null };
+  }
+  if (type === 'game_style') {
+    return { ...draft, gameStyle: 'any' };
+  }
+  if (type === 'cooperative') {
+    return { ...draft, cooperative: false };
+  }
+  if (type === 'designer') {
+    return {
+      ...draft,
+      selectedDesigners: draft.selectedDesigners.filter((designer) => designer.boardgamedesigner_id !== id),
+    };
+  }
+  if (type === 'artist') {
+    return {
+      ...draft,
+      selectedArtists: draft.selectedArtists.filter((artist) => artist.boardgameartist_id !== id),
+    };
+  }
+  if (type === 'mechanic') {
+    return {
+      ...draft,
+      selectedMechanics: draft.selectedMechanics.filter((mechanic) => mechanic.boardgamemechanic_id !== id),
+    };
+  }
+  if (type === 'category') {
+    return {
+      ...draft,
+      selectedCategories: draft.selectedCategories.filter((category) => category.boardgamecategory_id !== id),
+    };
+  }
+  if (type === 'game_type') {
+    return {
+      ...draft,
+      selectedGameTypes: draft.selectedGameTypes.filter((option) => option.option_id !== id),
+    };
+  }
+  if (type === 'theme') {
+    return {
+      ...draft,
+      selectedThemes: draft.selectedThemes.filter((option) => option.option_id !== id),
+    };
+  }
+  return draft;
+};
+
+const EMPTY_GAMES_RESPONSE = { games: [], total: 0 };
 
 // Memoized GameCardSkeleton component
 const GameCardSkeleton = memo(() => (
@@ -142,10 +396,692 @@ const GameCardSkeleton = memo(() => (
   </Card>
 ));
 
+const BrowseHeader = ({
+  searchOpen,
+  inputValue,
+  isRecommendation,
+  onSearchChange,
+  onClearSearch,
+  onCloseSearch,
+  onOpenSearch,
+}) => (
+  <Box
+    component="header"
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      minHeight: 56,
+      gap: 1,
+    }}
+  >
+    <Typography variant="h6" component="h1" noWrap>
+      PAX Game Library
+    </Typography>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} data-tour="search-control">
+      {searchOpen ? (
+        <TextField
+          autoFocus
+          size="small"
+          label="Search Games"
+          value={inputValue}
+          onChange={onSearchChange}
+          disabled={isRecommendation}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              onCloseSearch();
+            }
+          }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title={inputValue ? 'Clear search' : 'Close search'}>
+                  <IconButton
+                    aria-label={inputValue ? 'Clear search' : 'Close search'}
+                    size="small"
+                    onClick={inputValue ? onClearSearch : onCloseSearch}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </InputAdornment>
+            ),
+          }}
+        />
+      ) : (
+        <Tooltip title={isRecommendation ? 'Search is disabled in recommendation mode' : 'Search games'}>
+          <span>
+            <IconButton aria-label="Open search" onClick={onOpenSearch} disabled={isRecommendation}>
+              <SearchIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
+    </Box>
+  </Box>
+);
+
+const BrowseToolbar = ({
+  isRecommendation,
+  sortBy,
+  sortButtonLabel,
+  sortMenuAnchorEl,
+  activeFilterCount,
+  libraryOnly,
+  onOpenSort,
+  onCloseSort,
+  onSelectSort,
+  onOpenFilters,
+  onToggleLibrary,
+}) => (
+  <>
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
+      <Button
+        variant="contained"
+        startIcon={<SortIcon />}
+        onClick={onOpenSort}
+        disabled={isRecommendation}
+        aria-haspopup="menu"
+        aria-expanded={Boolean(sortMenuAnchorEl)}
+        data-tour="sort-control"
+      >
+        {sortButtonLabel}
+      </Button>
+      <Button
+        variant="outlined"
+        onClick={onOpenFilters}
+        disabled={isRecommendation}
+        data-tour="filter-drawer"
+      >
+        Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
+      </Button>
+      <Tooltip title="Show non-library games for recommendations and information">
+        <FormControlLabel
+          control={<Switch checked={!libraryOnly} onChange={onToggleLibrary} />}
+          label="All Board Games"
+          sx={{ ml: 'auto', mr: 0 }}
+          data-tour="library-toggle"
+        />
+      </Tooltip>
+    </Stack>
+
+    <Popover
+      open={Boolean(sortMenuAnchorEl)}
+      anchorEl={sortMenuAnchorEl}
+      onClose={onCloseSort}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+    >
+      <MenuList aria-label="Sort games">
+        {sortOptions.map((option) => (
+          <MenuItem key={option.value} selected={sortBy === option.value} onClick={() => onSelectSort(option.value)}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </MenuList>
+    </Popover>
+  </>
+);
+
+const FilterDrawer = ({
+  open,
+  onClose,
+  isRecommendation,
+  filterValues,
+  draftRef,
+  onCommitDraft,
+  gameTypeOptions,
+  themeOptions,
+}) => {
+  const [expandedSections, setExpandedSections] = useState(() => new Set(['group']));
+  const [showAll, setShowAll] = useState({ gameType: false, theme: false });
+  const [taxonomySearch, setTaxonomySearch] = useState({ gameType: '', theme: '' });
+  const [draft, setDraft] = useState(() => buildFilterDraft(filterValues));
+
+  const filterAccordionSx = {
+    mb: 1,
+    border: 1,
+    borderColor: 'divider',
+    borderRadius: 1,
+    overflow: 'hidden',
+    '&:before': {
+      display: 'none',
+    },
+    '&.Mui-expanded': {
+      backgroundColor: 'action.hover',
+    },
+  };
+
+  const filterAccordionSummarySx = {
+    '&.Mui-expanded': {
+      borderBottom: 1,
+      borderColor: 'divider',
+    },
+  };
+
+  const updateDraft = (updater) => {
+    setDraft((previous) => {
+      const next = updater(previous);
+      draftRef.current = next;
+      return next;
+    });
+  };
+
+  const {
+    playerOptions,
+    maxPlaytime,
+    minAge,
+    weight,
+    gameStyle,
+    cooperative,
+    selectedGameTypes,
+    selectedThemes,
+  } = draft;
+
+  const groupSelectionCount =
+    (playerOptions.count !== null ? 1 : 0) +
+    (maxPlaytime !== null ? 1 : 0) +
+    (minAge !== null ? 1 : 0) +
+    Object.values(weight).filter(Boolean).length +
+    (gameStyle !== 'any' ? 1 : 0) +
+    (cooperative ? 1 : 0);
+  const gameTypeSelectionCount = selectedGameTypes.length + draft.selectedMechanics.length;
+  const themeSelectionCount = selectedThemes.length + draft.selectedCategories.length;
+  const activeFilterChips = buildActiveFilterChips(draft);
+
+  const handleClearAll = () => updateDraft(() => buildEmptyFilterDraft());
+
+  const handleRemoveFilter = (type, id) => {
+    const nextDraft = removeFilterFromDraft(draft, type, id);
+    setDraft(nextDraft);
+    draftRef.current = nextDraft;
+    onCommitDraft(nextDraft);
+  };
+
+  const handlePlayerCountChange = (_event, newCount) => updateDraft((previous) => ({
+    ...previous,
+    playerOptions: {
+      ...previous.playerOptions,
+      count: newCount,
+    },
+  }));
+
+  const handlePlayerRecChange = (_event, newRec) => {
+    if (newRec !== null) {
+      updateDraft((previous) => ({
+        ...previous,
+        playerOptions: {
+          ...previous.playerOptions,
+          recommendation: newRec,
+        },
+      }));
+    }
+  };
+
+  const handleWeightToggle = (weightKey) => updateDraft((previous) => ({
+    ...previous,
+    weight: {
+      ...previous.weight,
+      [weightKey]: !previous.weight[weightKey],
+    },
+  }));
+
+  const handleMaxPlaytimeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    maxPlaytime: value,
+  }));
+
+  const handleMinAgeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    minAge: value,
+  }));
+
+  const handleGameStyleChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    gameStyle: value,
+  }));
+
+  const handleCooperativeChange = (value) => updateDraft((previous) => ({
+    ...previous,
+    cooperative: value,
+  }));
+
+  const handleTaxonomyToggle = (option) => {
+    const mechanicIds = new Set(
+      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
+    );
+    const categoryIds = new Set(
+      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
+    );
+    updateDraft((previous) => {
+      const selectionKey = option.group === 'game_type' ? 'selectedGameTypes' : 'selectedThemes';
+      const isSelected = previous[selectionKey].some(
+        (item) => item.option_id === option.option_id
+      );
+      return {
+        ...previous,
+        [selectionKey]: isSelected
+          ? previous[selectionKey].filter((item) => item.option_id !== option.option_id)
+          : [...previous[selectionKey], option],
+        selectedMechanics: mechanicIds.size > 0
+          ? previous.selectedMechanics.filter(
+            (item) => !mechanicIds.has(item.boardgamemechanic_id)
+          )
+          : previous.selectedMechanics,
+        selectedCategories: categoryIds.size > 0
+          ? previous.selectedCategories.filter(
+            (item) => !categoryIds.has(item.boardgamecategory_id)
+          )
+          : previous.selectedCategories,
+      };
+    });
+  };
+
+  const handleSectionChange = (section) => (_event, isExpanded) => {
+    setExpandedSections((previous) => {
+      const next = new Set(previous);
+      if (isExpanded) {
+        next.add(section);
+      } else {
+        next.delete(section);
+      }
+      return next;
+    });
+  };
+
+  const handleTaxonomyViewToggle = (sectionKey) => {
+    if (showAll[sectionKey]) {
+      setTaxonomySearch((previous) => ({
+        ...previous,
+        [sectionKey]: '',
+      }));
+    }
+    setShowAll((previous) => ({
+      ...previous,
+      [sectionKey]: !previous[sectionKey],
+    }));
+  };
+
+  const renderSelectionCount = (count) => (
+    count > 0 ? (
+      <Chip
+        label={count}
+        size="small"
+        color="primary"
+        aria-label={`${count} selected`}
+        sx={{ ml: 1, minWidth: 28 }}
+      />
+    ) : null
+  );
+
+  const renderPlayerControls = () => (
+    <Stack spacing={1.5}>
+      <Typography variant="body2" color="text.secondary">
+        How many people are playing?
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Button
+          variant={playerOptions.count === null ? 'contained' : 'outlined'}
+          onClick={() => handlePlayerCountChange(null, null)}
+          size="small"
+          disabled={isRecommendation}
+          aria-pressed={playerOptions.count === null}
+        >
+          Any
+        </Button>
+        {playerCountOptions.map((count) => (
+          <Button
+            key={count}
+            variant={playerOptions.count === count ? 'contained' : 'outlined'}
+            onClick={() => handlePlayerCountChange(null, count)}
+            size="small"
+            disabled={isRecommendation}
+            aria-pressed={playerOptions.count === count}
+          >
+            {count}
+          </Button>
+        ))}
+        <Button
+          variant={playerOptions.count === PLAYER_COUNT_NINE_PLUS ? 'contained' : 'outlined'}
+          onClick={() => handlePlayerCountChange(null, PLAYER_COUNT_NINE_PLUS)}
+          size="small"
+          disabled={isRecommendation}
+          aria-pressed={playerOptions.count === PLAYER_COUNT_NINE_PLUS}
+        >
+          9+
+        </Button>
+      </Box>
+      {playerOptions.count !== null && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {['allowed', 'recommended', 'best'].map((recommendation) => (
+            <Button
+              key={recommendation}
+              size="small"
+              variant={playerOptions.recommendation === recommendation ? 'contained' : 'outlined'}
+              onClick={() => handlePlayerRecChange(null, recommendation)}
+              disabled={isRecommendation}
+              aria-pressed={playerOptions.recommendation === recommendation}
+            >
+              {recommendation[0].toUpperCase() + recommendation.slice(1)}
+            </Button>
+          ))}
+        </Box>
+      )}
+    </Stack>
+  );
+
+  const renderComplexityControls = () => (
+    <Stack spacing={1}>
+      <Typography variant="body2" color="text.secondary">
+        Select one or more complexity levels.
+      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        <Button
+          size="small"
+          variant={weight.beginner ? 'contained' : 'outlined'}
+          onClick={() => handleWeightToggle('beginner')}
+          disabled={isRecommendation}
+          aria-pressed={weight.beginner}
+        >
+          Light (&lt; 2)
+        </Button>
+        <Button
+          size="small"
+          variant={weight.midweight ? 'contained' : 'outlined'}
+          onClick={() => handleWeightToggle('midweight')}
+          disabled={isRecommendation}
+          aria-pressed={weight.midweight}
+        >
+          Medium (2–4)
+        </Button>
+        <Button
+          size="small"
+          variant={weight.heavy ? 'contained' : 'outlined'}
+          onClick={() => handleWeightToggle('heavy')}
+          disabled={isRecommendation}
+          aria-pressed={weight.heavy}
+        >
+          Heavy (&gt; 4)
+        </Button>
+      </Box>
+    </Stack>
+  );
+
+  const renderSingleSelectButtons = (options, value, onChange, formatLabel = (option) => option) => (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Button
+        size="small"
+        variant={value === null ? 'contained' : 'outlined'}
+        onClick={() => onChange(null)}
+        disabled={isRecommendation}
+        aria-pressed={value === null}
+      >
+        Any
+      </Button>
+      {options.map((option) => (
+        <Button
+          key={option}
+          size="small"
+          variant={value === option ? 'contained' : 'outlined'}
+          onClick={() => onChange(option)}
+          disabled={isRecommendation}
+          aria-pressed={value === option}
+        >
+          {formatLabel(option)}
+        </Button>
+      ))}
+    </Box>
+  );
+
+  const renderTaxonomyControls = (options, selected, sectionKey, sectionLabel) => {
+    const query = taxonomySearch[sectionKey].trim().toLowerCase();
+    const visibleOptions = (showAll[sectionKey] ? options : options.filter((option) => option.featured))
+      .filter((option) => {
+        if (!query) return true;
+        const sourceNames = option.sources.map((source) => source.name).join(' ');
+        return `${option.label} ${sourceNames}`.toLowerCase().includes(query);
+      });
+    const selectedIds = new Set(selected.map((option) => option.option_id));
+
+    return (
+      <Stack spacing={1.5}>
+        {showAll[sectionKey] && (
+          <TextField
+            size="small"
+            fullWidth
+            label={`Search ${sectionLabel}`}
+            value={taxonomySearch[sectionKey]}
+            onChange={(event) => setTaxonomySearch((previous) => ({
+              ...previous,
+              [sectionKey]: event.target.value,
+            }))}
+            inputProps={{ 'aria-label': `Search ${sectionLabel}` }}
+          />
+        )}
+        <Grid container spacing={1}>
+          {visibleOptions.map((option) => (
+            <Grid size={{ xs: 6, sm: 4 }} key={option.option_id}>
+              <Button
+                fullWidth
+                variant={selectedIds.has(option.option_id) ? 'contained' : 'outlined'}
+                onClick={() => handleTaxonomyToggle(option)}
+                size="small"
+                disabled={isRecommendation}
+                aria-pressed={selectedIds.has(option.option_id)}
+                sx={{
+                  textAlign: 'center',
+                  minHeight: 44,
+                  height: '100%',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.2,
+                  p: 1,
+                }}
+              >
+                {option.label}
+              </Button>
+            </Grid>
+          ))}
+        </Grid>
+        <Button
+          size="small"
+          variant="text"
+          onClick={() => handleTaxonomyViewToggle(sectionKey)}
+          disabled={isRecommendation}
+        >
+          {showAll[sectionKey] ? `Show Featured ${sectionLabel}` : `Show All ${sectionLabel}`}
+        </Button>
+      </Stack>
+    );
+  };
+
+  return (
+    <Drawer
+      anchor="left"
+      open={open}
+      onClose={onClose}
+      PaperProps={{
+        sx: {
+          width: { xs: '90vw', sm: 420 },
+          maxWidth: '100vw',
+          display: 'flex',
+          flexDirection: 'column',
+        },
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, flexShrink: 0 }}>
+        <Typography variant="h6">Filter Games</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Button onClick={handleClearAll} size="small">Clear All</Button>
+          <IconButton aria-label="Close filters" onClick={onClose}><CloseIcon /></IconButton>
+        </Box>
+      </Box>
+      <Divider />
+      <Box sx={{ overflowY: 'auto', flex: 1, p: 1 }}>
+        {activeFilterChips.length > 0 && (
+          <Box component="section" aria-labelledby="active-filters-heading" sx={{ px: 1, pt: 1 }}>
+            <Typography id="active-filters-heading" variant="subtitle2" sx={{ mb: 1 }}>
+              Active Filters ({activeFilterChips.length})
+            </Typography>
+            <ActiveFilterChips
+              chips={activeFilterChips}
+              onRemove={handleRemoveFilter}
+              maxVisible={null}
+            />
+          </Box>
+        )}
+        <Accordion
+          disableGutters
+          sx={filterAccordionSx}
+          expanded={expandedSections.has('group')}
+          onChange={handleSectionChange('group')}
+          disabled={isRecommendation}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <Typography sx={{ fontWeight: 600 }}>Group &amp; Requirements</Typography>
+              {renderSelectionCount(groupSelectionCount)}
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Players</Typography>
+                {renderPlayerControls()}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Complexity</Typography>
+                {renderComplexityControls()}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Maximum Play Time</Typography>
+                {renderSingleSelectButtons(playtimeOptions, maxPlaytime, handleMaxPlaytimeChange, formatPlaytimeLabel)}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Minimum Age</Typography>
+                {renderSingleSelectButtons(ageOptions, minAge, handleMinAgeChange, (option) => `${option}+`)}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Game Style</Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {gameStyleOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      size="small"
+                      variant={gameStyle === option.value ? 'contained' : 'outlined'}
+                      onClick={() => handleGameStyleChange(option.value)}
+                      disabled={isRecommendation}
+                      aria-pressed={gameStyle === option.value}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+              <Button
+                size="small"
+                variant={cooperative ? 'contained' : 'outlined'}
+                onClick={() => handleCooperativeChange(!cooperative)}
+                disabled={isRecommendation}
+                aria-pressed={cooperative}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Cooperative games only
+              </Button>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          disableGutters
+          sx={filterAccordionSx}
+          expanded={expandedSections.has('gameType')}
+          onChange={handleSectionChange('gameType')}
+          disabled={isRecommendation}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <Typography sx={{ fontWeight: 600 }}>Game Type</Typography>
+              {renderSelectionCount(gameTypeSelectionCount)}
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Select multiple to match games with any selected type.
+            </Typography>
+            {renderTaxonomyControls(gameTypeOptions, selectedGameTypes, 'gameType', 'Game Types')}
+          </AccordionDetails>
+        </Accordion>
+
+        <Accordion
+          disableGutters
+          sx={filterAccordionSx}
+          expanded={expandedSections.has('theme')}
+          onChange={handleSectionChange('theme')}
+          disabled={isRecommendation}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={filterAccordionSummarySx}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <Typography sx={{ fontWeight: 600 }}>Theme &amp; Setting</Typography>
+              {renderSelectionCount(themeSelectionCount)}
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              Select multiple to match games with any selected option.
+            </Typography>
+            {renderTaxonomyControls(themeOptions, selectedThemes, 'theme', 'Themes')}
+          </AccordionDetails>
+        </Accordion>
+      </Box>
+    </Drawer>
+  );
+};
+
+const ActiveFilterChips = ({ chips, onRemove, onShowMore, maxVisible = 3 }) => {
+  if (chips.length === 0) {
+    return null;
+  }
+
+  const visibleChips = maxVisible === null ? chips : chips.slice(0, maxVisible);
+  const hiddenCount = maxVisible === null ? 0 : chips.length - visibleChips.length;
+
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 1 }}>
+      {visibleChips.map((chip) => (
+        <Chip
+          key={chip.key}
+          label={chip.label}
+          onClick={() => onRemove(chip.type, chip.id)}
+          onDelete={() => onRemove(chip.type, chip.id)}
+          deleteIcon={<CloseIcon fontSize="small" />}
+          aria-label={`Remove ${chip.label} filter`}
+          color="primary"
+          clickable
+          sx={{
+            minHeight: 44,
+            '& .MuiChip-deleteIcon': { fontSize: '1.2rem' },
+          }}
+        />
+      ))}
+      {hiddenCount > 0 && (
+        <Button
+          variant="text"
+          onClick={onShowMore}
+          sx={{ minHeight: 44, whiteSpace: 'nowrap' }}
+        >
+          +{hiddenCount} more
+        </Button>
+      )}
+    </Box>
+  );
+};
+
 const GameList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSearchValue = searchParams.get('search') || '';
-  const initialPlayerCount = parseIntegerParam(searchParams.get('players'));
+  const initialPlayerCount = parsePlayerCountParam(searchParams.get('players'));
   const initialPlayerRecommendation = searchParams.get('player_rec');
   const initialWeightValues = new Set(
     (searchParams.get('weight') || '')
@@ -155,6 +1091,22 @@ const GameList = () => {
   );
   const initialMechanicIds = parseCsvIntegers(searchParams.get('mechanics'));
   const initialCategoryIds = parseCsvIntegers(searchParams.get('categories'));
+  const initialGameTypeIds = parseCsvStrings(searchParams.get('game_types'));
+  const initialThemeIds = parseCsvStrings(searchParams.get('themes'));
+  const initialMaxPlaytimeValue = parseIntegerParam(searchParams.get('max_playtime'));
+  const initialMaxPlaytime = playtimeOptions.includes(initialMaxPlaytimeValue)
+    ? initialMaxPlaytimeValue
+    : null;
+  const initialMinAgeValue = parseIntegerParam(searchParams.get('min_age'));
+  const initialMinAge = ageOptions.includes(initialMinAgeValue)
+    ? initialMinAgeValue
+    : null;
+  const initialGameStyle = parseChoiceParam(
+    searchParams.get('game_style'),
+    VALID_GAME_STYLES,
+    'any'
+  );
+  const initialCooperative = searchParams.get('cooperative') === 'true';
   const initialSortBy = searchParams.get('sort');
   const initialLibraryOnly = parseBooleanParam(searchParams.get('library_only'), true);
 
@@ -187,15 +1139,28 @@ const GameList = () => {
       'boardgamecategory_name'
     )
   );
+  const [selectedGameTypes, setSelectedGameTypes] = useState(
+    buildTaxonomyPlaceholders(initialGameTypeIds)
+  );
+  const [selectedThemes, setSelectedThemes] = useState(
+    buildTaxonomyPlaceholders(initialThemeIds)
+  );
+  const [maxPlaytime, setMaxPlaytime] = useState(initialMaxPlaytime);
+  const [minAge, setMinAge] = useState(initialMinAge);
+  const [gameStyle, setGameStyle] = useState(initialGameStyle);
+  const [cooperative, setCooperative] = useState(initialCooperative);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [selectedGamePreview, setSelectedGamePreview] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [sortBy, setSortBy] = useState(
-    VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank'
-  );
+  const initialCatalogSort = VALID_SORT_OPTIONS.has(initialSortBy) ? initialSortBy : 'rank';
+  const [sortBy, setSortBy] = useState(initialCatalogSort);
+  const catalogSortRef = useRef(initialCatalogSort);
   const [currentPage, setCurrentPage] = useState(1);
   const gamesPerPage = 24;
-  const [activeFilter, setActiveFilter] = useState(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const filterDraftRef = useRef(null);
+  const [searchOpen, setSearchOpen] = useState(Boolean(initialSearchValue));
+  const [sortMenuAnchorEl, setSortMenuAnchorEl] = useState(null);
 
   const { user } = useContext(AuthContext);
   const queryClient = useQueryClient();
@@ -211,7 +1176,6 @@ const GameList = () => {
   const isConventionKiosk = Boolean(kioskStatus?.kiosk_mode);
   const {
     libraryOnly,
-    setLibraryOnly,
     showNonLibraryNotification,
     setShowNonLibraryNotification,
     toggleAllBoardGames,
@@ -229,7 +1193,6 @@ const GameList = () => {
     setAllRecommendations,
     likeGame,
     dislikeGame,
-    resetRecommendationState,
   } = useRecommendationSessionState({ user });
   const selectedMechanicIds = selectedMechanics.map(
     (item) => item.boardgamemechanic_id
@@ -237,15 +1200,36 @@ const GameList = () => {
   const selectedCategoryIds = selectedCategories.map(
     (item) => item.boardgamecategory_id
   );
+  const selectedTaxonomyMechanicIds = selectedGameTypes
+    .concat(selectedThemes)
+    .flatMap((option) => option.sources
+      .filter((source) => source.type === 'mechanic')
+      .map((source) => source.id));
+  const selectedTaxonomyCategoryIds = selectedGameTypes
+    .concat(selectedThemes)
+    .flatMap((option) => option.sources
+      .filter((source) => source.type === 'category')
+      .map((source) => source.id));
+  const selectedDetailMechanicIds = [...new Set(selectedMechanicIds
+    .concat(selectedTaxonomyMechanicIds)
+    .concat(cooperative ? [COOPERATIVE_MECHANIC_ID] : []))];
+  const selectedDetailCategoryIds = [...new Set(selectedCategoryIds
+    .concat(selectedTaxonomyCategoryIds)
+    .concat(gameStyle in STYLE_CATEGORY_IDS ? [STYLE_CATEGORY_IDS[gameStyle]] : []))];
   const recommendationMutation = useRecommendationMutation();
   const isRecommendationLoading = recommendationMutation.isPending;
 
   const { data: popularMechanics = [] } = useMechanicsQuery();
   const { data: popularCategories = [] } = useCategoriesQuery();
+  const { data: taxonomyOptions = [] } = useFilterTaxonomyQuery();
+  const gameTypeOptions = taxonomyOptions.filter((option) => option.group === 'game_type');
+  const themeOptions = taxonomyOptions.filter((option) => option.group === 'theme');
+  const selectedGameTypeIds = selectedGameTypes.map((option) => option.option_id);
+  const selectedThemeIds = selectedThemes.map((option) => option.option_id);
   const { data: libraryGameIds = [] } = useLibraryGameIdsQuery();
 
   const {
-    data: response = { games: [], total: 0 },
+    data: response = EMPTY_GAMES_RESPONSE,
     isLoading,
     error,
   } = useGamesQuery({
@@ -259,7 +1243,13 @@ const GameList = () => {
     selectedArtists,
     selectedMechanicIds,
     selectedCategoryIds,
+    selectedGameTypeIds,
+    selectedThemeIds,
     weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
     isRecommendation,
   });
 
@@ -277,7 +1267,8 @@ const GameList = () => {
       if (includeFilters) {
         querySpecs.push(
           { queryKey: ['mechanics_alphabetically'], type: 'active' },
-          { queryKey: ['categories_alphabetically'], type: 'active' }
+          { queryKey: ['categories_alphabetically'], type: 'active' },
+          { queryKey: ['filter_taxonomy'], type: 'active' }
         );
       }
       await Promise.all(querySpecs.map((querySpec) => queryClient.refetchQueries(querySpec)));
@@ -334,7 +1325,6 @@ const GameList = () => {
       setCurrentPage(1);
       setIsRecommendation(true);
       setSortBy('recommendation_score');
-      setActiveFilter(null);
       
       // Update new recommendation states
       setHasRecommendations(true);
@@ -346,62 +1336,6 @@ const GameList = () => {
         message: 'Unable to generate recommendations right now.',
       });
       console.error('Failed to fetch recommendations:', err);
-    }
-  };
-
-  const handleToggleFilter = (filter) => {
-    setActiveFilter(prev => (prev === filter ? null : filter));
-  };
-
-  const handleResetFilters = () => {
-    setInputValue('');
-    setSearchTerm('');
-    setPlayerOptions({ count: null, recommendation: 'allowed' });
-    setWeight({ beginner: false, midweight: false, heavy: false });
-    setSelectedMechanics([]);
-    setSelectedCategories([]);
-    setSelectedDesigners([]);
-    setSelectedArtists([]);
-    setSortBy('rank');
-    setActiveFilter(null);
-    setCurrentPage(1);
-    setIsRecommendation(false);
-    setLibraryOnly(true);
-    
-    // Reset recommendation states
-    resetRecommendationState();
-    setRecommendationNotice(null);
-  };
-
-  const handleClearAll = () => {
-    const hasRecommendationState =
-      hasRecommendations ||
-      allRecommendations.length > 0 ||
-      likedGames.length > 0 ||
-      dislikedGames.length > 0;
-
-    if (hasRecommendationState) {
-      const confirmed = window.confirm(
-        'Clear All will also remove liked/disliked games and reset recommendations. Continue?'
-      );
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    handleResetFilters();
-  };
-
-  const handlePlayerCountChange = (event, newCount) => {
-    setPlayerOptions(prev => ({
-      ...prev,
-      count: newCount,
-    }));
-  };
-
-  const handlePlayerRecChange = (event, newRec) => {
-    if (newRec !== null) {
-      setPlayerOptions(prev => ({ ...prev, recommendation: newRec }));
     }
   };
 
@@ -430,7 +1364,7 @@ const GameList = () => {
       nextSearchParams.delete('search');
     }
 
-    if (sortBy !== 'rank') {
+    if (!isRecommendation && sortBy !== 'rank') {
       nextSearchParams.set('sort', sortBy);
     } else {
       nextSearchParams.delete('sort');
@@ -471,6 +1405,42 @@ const GameList = () => {
       nextSearchParams.delete('categories');
     }
 
+    if (selectedGameTypeIds.length > 0) {
+      nextSearchParams.set('game_types', selectedGameTypeIds.join(','));
+    } else {
+      nextSearchParams.delete('game_types');
+    }
+
+    if (selectedThemeIds.length > 0) {
+      nextSearchParams.set('themes', selectedThemeIds.join(','));
+    } else {
+      nextSearchParams.delete('themes');
+    }
+
+    if (maxPlaytime !== null) {
+      nextSearchParams.set('max_playtime', String(maxPlaytime));
+    } else {
+      nextSearchParams.delete('max_playtime');
+    }
+
+    if (minAge !== null) {
+      nextSearchParams.set('min_age', String(minAge));
+    } else {
+      nextSearchParams.delete('min_age');
+    }
+
+    if (gameStyle !== 'any') {
+      nextSearchParams.set('game_style', gameStyle);
+    } else {
+      nextSearchParams.delete('game_style');
+    }
+
+    if (cooperative) {
+      nextSearchParams.set('cooperative', 'true');
+    } else {
+      nextSearchParams.delete('cooperative');
+    }
+
     nextSearchParams.delete('page');
 
     if (nextSearchParams.toString() === searchParams.toString()) {
@@ -483,12 +1453,17 @@ const GameList = () => {
     searchParams,
     searchTerm,
     selectedCategoryIds,
-    selectedCategories,
     selectedMechanicIds,
-    selectedMechanics,
+    selectedGameTypeIds,
+    selectedThemeIds,
     setSearchParams,
     sortBy,
     weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
+    isRecommendation,
   ]);
 
   useEffect(() => {
@@ -540,6 +1515,75 @@ const GameList = () => {
   }, [popularCategories, selectedCategories.length]);
 
   useEffect(() => {
+    if (!taxonomyOptions.length) {
+      return;
+    }
+
+    const optionsById = new Map(taxonomyOptions.map((option) => [option.option_id, option]));
+    const sourceOptions = new Map();
+    taxonomyOptions.forEach((option) => option.sources.forEach((source) => {
+      sourceOptions.set(`${source.type}:${source.id}`, option);
+    }));
+
+    setSelectedGameTypes((previous) => {
+      let changed = false;
+      const next = previous.map((option) => {
+        const resolved = optionsById.get(option.option_id);
+        if (resolved && resolved !== option) {
+          changed = true;
+          return resolved;
+        }
+        return option;
+      });
+      return changed ? next : previous;
+    });
+    setSelectedThemes((previous) => {
+      let changed = false;
+      const next = previous.map((option) => {
+        const resolved = optionsById.get(option.option_id);
+        if (resolved && resolved !== option) {
+          changed = true;
+          return resolved;
+        }
+        return option;
+      });
+      return changed ? next : previous;
+    });
+
+    const promoteLegacySources = (sourceType, selected, setLegacy) => {
+      const promoted = [];
+      const unresolved = [];
+      selected.forEach((source) => {
+        const option = sourceOptions.get(`${sourceType}:${source[sourceType === 'mechanic' ? 'boardgamemechanic_id' : 'boardgamecategory_id']}`);
+        if (option) {
+          promoted.push(option);
+        } else {
+          unresolved.push(source);
+        }
+      });
+      if (promoted.length > 0) {
+        const setters = {
+          game_type: setSelectedGameTypes,
+          theme: setSelectedThemes,
+        };
+        promoted.forEach((option) => setters[option.group]((previous) => {
+          const byId = new Map(previous.map((item) => [item.option_id, item]));
+          byId.set(option.option_id, option);
+          return Array.from(byId.values());
+        }));
+      }
+      if (unresolved.length !== selected.length) {
+        setLegacy(unresolved);
+      }
+    };
+
+    promoteLegacySources('mechanic', selectedMechanics, setSelectedMechanics);
+    promoteLegacySources('category', selectedCategories, setSelectedCategories);
+    // This effect intentionally runs only when the server contract becomes available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taxonomyOptions]);
+
+  useEffect(() => {
     if (!isRecommendation && response?.games) {
       setGameList(response.games);
       setTotalGames(response.total);
@@ -580,136 +1624,140 @@ const GameList = () => {
   const isSortFiltered = sortBy !== 'rank';
   const sortButtonLabel = isSortFiltered ? (sortOptions.find(opt => opt.value === sortBy)?.label || 'Sort') : 'Sort';
 
-  const isPlayersFiltered = playerOptions.count !== null;
-  const playerButtonLabel = (() => {
-    if (!isPlayersFiltered) return 'Players';
-    let label = `${playerOptions.count}`;
-    if (playerOptions.count === playerCountOptions.length) label += '+';
-    label += ` Player${playerOptions.count > 1 ? 's' : ''}`;
-    if (playerOptions.recommendation && playerOptions.recommendation !== 'allowed') {
-      label += ` (${playerOptions.recommendation.charAt(0).toUpperCase() + playerOptions.recommendation.slice(1)})`;
-    }
-    return label;
-  })();
+  const activeFilterChips = buildActiveFilterChips({
+    playerOptions,
+    weight,
+    selectedDesigners,
+    selectedArtists,
+    selectedMechanics,
+    selectedCategories,
+    selectedGameTypes,
+    selectedThemes,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
+  });
+  const activeFilterCount = activeFilterChips.length;
 
-  const activeWeightLabels = Object.entries(weight)
-    .filter(([, checked]) => checked)
-    .map(([key]) => {
-      if (key === 'beginner') return 'Beginner';
-      if (key === 'midweight') return 'Midweight';
-      if (key === 'heavy') return 'Heavy';
-      return '';
+  const closeSearch = () => {
+    setInputValue('');
+    setSearchTerm('');
+    setSearchOpen(false);
+  };
+
+  const applyFilterDraft = useCallback((filterDraft) => {
+    setPlayerOptions(filterDraft.playerOptions);
+    setWeight(filterDraft.weight);
+    setSelectedDesigners(filterDraft.selectedDesigners);
+    setSelectedArtists(filterDraft.selectedArtists);
+    setSelectedMechanics(filterDraft.selectedMechanics);
+    setSelectedCategories(filterDraft.selectedCategories);
+    setSelectedGameTypes(filterDraft.selectedGameTypes);
+    setSelectedThemes(filterDraft.selectedThemes);
+    setMaxPlaytime(filterDraft.maxPlaytime);
+    setMinAge(filterDraft.minAge);
+    setGameStyle(filterDraft.gameStyle);
+    setCooperative(filterDraft.cooperative);
+    setCurrentPage(1);
+  }, []);
+
+  const commitFilterDraft = useCallback(() => {
+    const filterDraft = filterDraftRef.current;
+    if (!filterDraft) {
+      return;
+    }
+
+    applyFilterDraft(filterDraft);
+    filterDraftRef.current = null;
+  }, [applyFilterDraft]);
+
+  const openSortMenu = (event) => {
+    if (!isRecommendation) {
+      setSortMenuAnchorEl(event.currentTarget);
+    }
+  };
+
+  const closeSortMenu = () => setSortMenuAnchorEl(null);
+
+  const selectSort = (value) => {
+    catalogSortRef.current = value;
+    setSortBy(value);
+    closeSortMenu();
+  };
+
+  const openFilterDrawer = () => {
+    if (filterDrawerOpen) {
+      return;
+    }
+
+    filterDraftRef.current = buildFilterDraft({
+      playerOptions,
+      weight,
+      selectedDesigners,
+      selectedArtists,
+      selectedMechanics,
+      selectedCategories,
+      selectedGameTypes,
+      selectedThemes,
+      maxPlaytime,
+      minAge,
+      gameStyle,
+      cooperative,
     });
-  const isWeightFiltered = activeWeightLabels.length > 0;
-  const weightButtonLabel = isWeightFiltered ? activeWeightLabels.join(', ') : 'Weight';
+    window.history.pushState(
+      { ...(window.history.state || {}), [FILTER_DRAWER_HISTORY_KEY]: true },
+      '',
+      `${window.location.pathname}${window.location.search}${window.location.hash}`
+    );
+    setFilterDrawerOpen(true);
+  };
 
-  const isMechanicsFiltered = selectedMechanics.length > 0;
-  const mechanicsButtonLabel = isMechanicsFiltered ? selectedMechanics.map(m => m.boardgamemechanic_name).join(', ') : 'Mechanics';
+  const closeFilterDrawer = () => {
+    if (!filterDrawerOpen) {
+      return;
+    }
 
-  const isCategoriesFiltered = selectedCategories.length > 0;
-  const categoriesButtonLabel = isCategoriesFiltered ? selectedCategories.map(c => c.boardgamecategory_name).join(', ') : 'Categories';
-
-  const clearSortFilter = () => {
-    setSortBy('rank');
-    if (activeFilter === 'sort') {
-      setActiveFilter(null);
+    commitFilterDraft();
+    setFilterDrawerOpen(false);
+    if (window.history.state?.[FILTER_DRAWER_HISTORY_KEY]) {
+      window.history.back();
     }
   };
 
-  const clearPlayersFilter = () => {
-    setPlayerOptions({ count: null, recommendation: 'allowed' });
-    if (activeFilter === 'players') {
-      setActiveFilter(null);
-    }
-  };
+  useEffect(() => {
+    const handlePopState = () => {
+      commitFilterDraft();
+      setFilterDrawerOpen(false);
+    };
 
-  const clearWeightFilter = () => {
-    setWeight({ beginner: false, midweight: false, heavy: false });
-    if (activeFilter === 'weight') {
-      setActiveFilter(null);
-    }
-  };
-
-  const clearMechanicsFilter = () => {
-    setSelectedMechanics([]);
-    if (activeFilter === 'mechanics') {
-      setActiveFilter(null);
-    }
-  };
-
-  const clearCategoriesFilter = () => {
-    setSelectedCategories([]);
-    if (activeFilter === 'categories') {
-      setActiveFilter(null);
-    }
-  };
-
-  const renderFilterButton = ({
-    label,
-    variant,
-    onToggle,
-    startIcon,
-    disabled,
-    showClear = false,
-    onClear,
-    clearAriaLabel,
-    dataTour,
-  }) => (
-    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-      <Button
-        variant={variant}
-        onClick={onToggle}
-        startIcon={startIcon}
-        disabled={disabled}
-        sx={{
-          textTransform: 'none',
-          pr: showClear ? 3 : undefined,
-        }}
-        data-tour={dataTour}
-      >
-        {label}
-      </Button>
-      {showClear && onClear && (
-        <IconButton
-          aria-label={clearAriaLabel}
-          size="small"
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClear();
-          }}
-          onMouseDown={(event) => {
-            event.stopPropagation();
-          }}
-          disabled={disabled}
-          sx={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            transform: 'translate(40%, -40%)',
-            p: 0.2,
-            zIndex: 1,
-            color: '#000000',
-            backgroundColor: '#ffffff',
-            border: (theme) => `1px solid ${theme.palette.secondary.main}`,
-            '&:hover': {
-              backgroundColor: '#ffffff',
-            },
-          }}
-        >
-          <CloseIcon sx={{ fontSize: '0.85rem' }} />
-        </IconButton>
-      )}
-    </Box>
-  );
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [commitFilterDraft]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, playerOptions, selectedDesigners, selectedArtists, selectedMechanics, selectedCategories, weight, sortBy]);
+  }, [
+    searchTerm,
+    playerOptions,
+    selectedDesigners,
+    selectedArtists,
+    selectedMechanics,
+    selectedCategories,
+    selectedGameTypes,
+    selectedThemes,
+    weight,
+    maxPlaytime,
+    minAge,
+    gameStyle,
+    cooperative,
+    sortBy,
+  ]);
 
   const handlePageChange = (event, newPage) => {
     setCurrentPage(newPage);
+    window.scrollTo(0, 0);
   };
 
   const handleGameClick = (game) => {
@@ -718,50 +1766,143 @@ const GameList = () => {
     setDetailsOpen(true);
   };
 
+  const closeGameDetails = () => {
+    setDetailsOpen(false);
+    setSelectedGameId(null);
+    setSelectedGamePreview(null);
+  };
+
+  const navigateFromDetailsToFilteredList = () => {
+    setInputValue('');
+    setSearchTerm('');
+    closeGameDetails();
+  };
+
+  const selectTaxonomyOption = (option) => {
+    const setSelection = option.group === 'game_type' ? setSelectedGameTypes : setSelectedThemes;
+    setSelection((previous) => {
+      return previous.some((item) => item.option_id === option.option_id)
+        ? previous
+        : [...previous, option];
+    });
+
+    const mechanicIds = new Set(
+      option.sources.filter((source) => source.type === 'mechanic').map((source) => source.id)
+    );
+    const categoryIds = new Set(
+      option.sources.filter((source) => source.type === 'category').map((source) => source.id)
+    );
+    if (mechanicIds.size > 0) {
+      setSelectedMechanics((previous) => previous.filter(
+        (item) => !mechanicIds.has(item.boardgamemechanic_id)
+      ));
+    }
+    if (categoryIds.size > 0) {
+      setSelectedCategories((previous) => previous.filter(
+        (item) => !categoryIds.has(item.boardgamecategory_id)
+      ));
+    }
+  };
+
   const handleFilter = (type, id, name) => {
     if (type === 'game') {
       handleGameClick({ id });
+    } else if (type === 'taxonomy') {
+      const taxonomyOption = taxonomyOptions.find((option) => option.option_id === id);
+      if (taxonomyOption) {
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
+      }
+    } else if (type === 'style') {
+      setGameStyle(id);
+      navigateFromDetailsToFilteredList();
+    } else if (type === 'cooperative') {
+      setCooperative(true);
+      navigateFromDetailsToFilteredList();
     } else if (type === 'designer') {
       setSelectedDesigners(prev => {
         const exists = prev.some(d => d.boardgamedesigner_id === id);
         if (exists) {
-          return prev.filter(d => d.boardgamedesigner_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamedesigner_id: id, boardgamedesigner_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'artist') {
       setSelectedArtists(prev => {
         const exists = prev.some(a => a.boardgameartist_id === id);
         if (exists) {
-          return prev.filter(a => a.boardgameartist_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgameartist_id: id, boardgameartist_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'mechanic') {
+      if (id === COOPERATIVE_MECHANIC_ID) {
+        setCooperative(true);
+        navigateFromDetailsToFilteredList();
+        return;
+      }
+      const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
+        (source) => source.type === 'mechanic' && source.id === id
+      ));
+      if (taxonomyOption) {
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
+        return;
+      }
       setSelectedMechanics(prev => {
         const exists = prev.some(m => m.boardgamemechanic_id === id);
         if (exists) {
-          return prev.filter(m => m.boardgamemechanic_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamemechanic_id: id, boardgamemechanic_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     } else if (type === 'category') {
+      const style = Object.entries(STYLE_CATEGORY_IDS).find(([, categoryId]) => categoryId === id)?.[0];
+      if (style) {
+        setGameStyle(style);
+        navigateFromDetailsToFilteredList();
+        return;
+      }
+      const taxonomyOption = taxonomyOptions.find((option) => option.sources.some(
+        (source) => source.type === 'category' && source.id === id
+      ));
+      if (taxonomyOption) {
+        selectTaxonomyOption(taxonomyOption);
+        navigateFromDetailsToFilteredList();
+        return;
+      }
       setSelectedCategories(prev => {
         const exists = prev.some(c => c.boardgamecategory_id === id);
         if (exists) {
-          return prev.filter(c => c.boardgamecategory_id !== id);
+          return prev;
         } else {
           return [...prev, { boardgamecategory_id: id, boardgamecategory_name: name }];
         }
       });
+      navigateFromDetailsToFilteredList();
     }
   };
 
   const handleRemoveFilter = (type, id) => {
-    if (type === 'designer') {
+    if (type === 'players') {
+      setPlayerOptions({ count: null, recommendation: 'allowed' });
+    } else if (type === 'weight') {
+      setWeight((previous) => ({ ...previous, [id]: false }));
+    } else if (type === 'max_playtime') {
+      setMaxPlaytime(null);
+    } else if (type === 'min_age') {
+      setMinAge(null);
+    } else if (type === 'game_style') {
+      setGameStyle('any');
+    } else if (type === 'cooperative') {
+      setCooperative(false);
+    } else if (type === 'designer') {
       setSelectedDesigners(prev => prev.filter(d => d.boardgamedesigner_id !== id));
     } else if (type === 'artist') {
       setSelectedArtists(prev => prev.filter(a => a.boardgameartist_id !== id));
@@ -769,41 +1910,11 @@ const GameList = () => {
       setSelectedMechanics(prev => prev.filter(m => m.boardgamemechanic_id !== id));
     } else if (type === 'category') {
       setSelectedCategories(prev => prev.filter(c => c.boardgamecategory_id !== id));
+    } else if (type === 'game_type') {
+      setSelectedGameTypes(prev => prev.filter((option) => option.option_id !== id));
+    } else if (type === 'theme') {
+      setSelectedThemes(prev => prev.filter((option) => option.option_id !== id));
     }
-  };
-
-  const renderFilterChips = () => {
-    const chips = [];
-    
-    selectedDesigners.forEach(designer => {
-      chips.push(
-        <Chip
-          key={`designer-${designer.boardgamedesigner_id}`}
-          label={`Designer: ${designer.boardgamedesigner_name}`}
-          onDelete={() => handleRemoveFilter('designer', designer.boardgamedesigner_id)}
-          color="primary"
-          sx={{ m: 0.5 }}
-        />
-      );
-    });
-    
-    selectedArtists.forEach(artist => {
-      chips.push(
-        <Chip
-          key={`artist-${artist.boardgameartist_id}`}
-          label={`Artist: ${artist.boardgameartist_name}`}
-          onDelete={() => handleRemoveFilter('artist', artist.boardgameartist_id)}
-          color="primary"
-          sx={{ m: 0.5 }}
-        />
-      );
-    });
-
-    return chips.length > 0 ? (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-        {chips}
-      </Box>
-    ) : null;
   };
 
   const renderGameGrid = () => {
@@ -864,251 +1975,65 @@ const GameList = () => {
     <>
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Stack spacing={2} sx={{ mb: 2 }}>
-          {/* Search Input */}
-          <Tooltip 
-            title={isRecommendation ? "Search is disabled in recommendation mode. Untoggle 'Show Recommendations' to enable search." : "Search games by name"}
-            placement="top"
-          >
-            <TextField
-              label="Search Games"
-              variant="outlined"
-              value={inputValue}
-              onChange={handleSearchChange}
-              disabled={isRecommendation}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-                endAdornment: inputValue ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="Clear search"
-                      edge="end"
-                      size="small"
-                      onClick={() => {
-                        setInputValue('');
-                        setSearchTerm('');
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null,
-              }}
-            />
-          </Tooltip>
+          <BrowseHeader
+            searchOpen={searchOpen}
+            inputValue={inputValue}
+            isRecommendation={isRecommendation}
+            onSearchChange={handleSearchChange}
+            onClearSearch={() => { setInputValue(''); setSearchTerm(''); }}
+            onCloseSearch={closeSearch}
+            onOpenSearch={() => setSearchOpen(true)}
+          />
 
-          {/* Filter Bar */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', gap: 1 }}>
-            <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
-              <Tooltip title="Show non-library games for recommendations and information">
-                <FormControlLabel
-                  control={<Switch checked={!libraryOnly} onChange={(e) => {
-                    const showNonLibrary = e.target.checked;
-                    toggleAllBoardGames(showNonLibrary);
-                    setCurrentPage(1);
-                  }} />}
-                  label="All Board Games"
-                  sx={{ mr: 2 }}
-                  data-tour="library-toggle"
-                />
-              </Tooltip>
-              {renderFilterButton({
-                label: sortButtonLabel,
-                variant: isSortFiltered || activeFilter === 'sort' ? 'contained' : 'outlined',
-                onToggle: () => handleToggleFilter('sort'),
-                startIcon: <SortIcon />,
-                disabled: isRecommendation,
-                showClear: isSortFiltered,
-                onClear: clearSortFilter,
-                clearAriaLabel: 'Clear sort filter',
-              })}
-              {renderFilterButton({
-                label: playerButtonLabel,
-                variant: isPlayersFiltered || activeFilter === 'players' ? 'contained' : 'outlined',
-                onToggle: () => handleToggleFilter('players'),
-                startIcon: <PeopleIcon />,
-                disabled: isRecommendation,
-                showClear: isPlayersFiltered,
-                onClear: clearPlayersFilter,
-                clearAriaLabel: 'Clear players filter',
-                dataTour: 'player-filter',
-              })}
-              {renderFilterButton({
-                label: weightButtonLabel,
-                variant: isWeightFiltered || activeFilter === 'weight' ? 'contained' : 'outlined',
-                onToggle: () => handleToggleFilter('weight'),
-                startIcon: <PsychologyAltOutlinedIcon />,
-                disabled: isRecommendation,
-                showClear: isWeightFiltered,
-                onClear: clearWeightFilter,
-                clearAriaLabel: 'Clear weight filter',
-              })}
-              {renderFilterButton({
-                label: mechanicsButtonLabel,
-                variant: isMechanicsFiltered || activeFilter === 'mechanics' ? 'contained' : 'outlined',
-                onToggle: () => handleToggleFilter('mechanics'),
-                startIcon: <ConstructionIcon />,
-                disabled: isRecommendation,
-                showClear: isMechanicsFiltered,
-                onClear: clearMechanicsFilter,
-                clearAriaLabel: 'Clear mechanics filter',
-              })}
-              {renderFilterButton({
-                label: categoriesButtonLabel,
-                variant: isCategoriesFiltered || activeFilter === 'categories' ? 'contained' : 'outlined',
-                onToggle: () => handleToggleFilter('categories'),
-                startIcon: <CategoryIcon />,
-                disabled: isRecommendation,
-                showClear: isCategoriesFiltered,
-                onClear: clearCategoriesFilter,
-                clearAriaLabel: 'Clear categories filter',
-              })}
-            </Stack>
-            <Stack direction="row" spacing={1}>
-              <Button onClick={handleClearAll} size="small">
-                Clear All
-              </Button>
-            </Stack>
-          </Stack>
-          
-          {/* Active Filter Panel */}
-          {activeFilter && (
-            <>
-              {activeFilter === 'sort' && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {isRecommendation && (
-                    <Button
-                      variant={sortBy === 'recommendation_score' ? 'contained' : 'outlined'}
-                      onClick={() => setSortBy('recommendation_score')}
-                      size="small"
-                    >
-                      Relevance
-                    </Button>
-                  )}
-                  {sortOptions.map(option => (
-                    <Button
-                      key={option.value}
-                      variant={sortBy === option.value ? 'contained' : 'outlined'}
-                      onClick={() => setSortBy(option.value)}
-                      size="small"
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </Box>
-              )}
-              {activeFilter === 'players' && (
-                <Stack spacing={1} sx={{ gap: 1 }}>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    <Button
-                      variant={playerOptions.count === null ? 'contained' : 'outlined'}
-                      onClick={() => handlePlayerCountChange(null, null)}
-                      size="small"
-                    >
-                      Any
-                    </Button>
-                    {playerCountOptions.map(count => (
-                      <Button
-                        key={count}
-                        variant={playerOptions.count === count ? 'contained' : 'outlined'}
-                        onClick={() => handlePlayerCountChange(null, count)}
-                        size="small"
-                      >
-                        {count}
-                      </Button>
-                    ))}
-                  </Box>
-                  {playerOptions.count && (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      <Button size="small" variant={playerOptions.recommendation === 'allowed' ? 'contained' : 'outlined'} onClick={() => handlePlayerRecChange(null, 'allowed')}>Allowed</Button>
-                      <Button size="small" variant={playerOptions.recommendation === 'recommended' ? 'contained' : 'outlined'} onClick={() => handlePlayerRecChange(null, 'recommended')}>Recommended</Button>
-                      <Button size="small" variant={playerOptions.recommendation === 'best' ? 'contained' : 'outlined'} onClick={() => handlePlayerRecChange(null, 'best')}>Best</Button>
-                    </Box>
-                  )}
-                </Stack>
-              )}
-              {activeFilter === 'weight' && (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  <Button size="small" variant={weight.beginner ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, beginner: !w.beginner }))}>Beginner Friendly (≤ 2.0)</Button>
-                  <Button size="small" variant={weight.midweight ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, midweight: !w.midweight }))}>Midweight (2.0 - 4.0)</Button>
-                  <Button size="small" variant={weight.heavy ? 'contained' : 'outlined'} onClick={() => setWeight(w => ({ ...w, heavy: !w.heavy }))}>Heavy (≥ 4.0)</Button>
-                </Box>
-              )}
-              {activeFilter === 'mechanics' && (
-                <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
-                  <Grid container spacing={1}>
-                    {popularMechanics.map(mech => (
-                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={mech.boardgamemechanic_id}>
-                        <Button
-                          fullWidth
-                          variant={selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id) ? 'contained' : 'outlined'}
-                          onClick={() => {
-                            const isSelected = selectedMechanics.some(m => m.boardgamemechanic_id === mech.boardgamemechanic_id);
-                            if (isSelected) {
-                              setSelectedMechanics(selectedMechanics.filter(m => m.boardgamemechanic_id !== mech.boardgamemechanic_id));
-                            } else {
-                              setSelectedMechanics([...selectedMechanics, mech]);
-                            }
-                          }}
-                          size="small"
-                          sx={{ 
-                            textAlign: 'center', 
-                            height: '100%',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            fontSize: '0.8rem',
-                            lineHeight: 1.2,
-                            p: 1
-                          }}
-                        >
-                          {mech.boardgamemechanic_name}
-                        </Button>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              )}
-              {activeFilter === 'categories' && (
-                <Box sx={{ maxHeight: '400px', overflow: 'auto', pb: 1 }}>
-                  <Grid container spacing={1}>
-                    {popularCategories.map(cat => (
-                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={cat.boardgamecategory_id}>
-                        <Button
-                          fullWidth
-                          variant={selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id) ? 'contained' : 'outlined'}
-                          onClick={() => {
-                            const isSelected = selectedCategories.some(c => c.boardgamecategory_id === cat.boardgamecategory_id);
-                            if (isSelected) {
-                              setSelectedCategories(selectedCategories.filter(c => c.boardgamecategory_id !== cat.boardgamecategory_id));
-                            } else {
-                              setSelectedCategories([...selectedCategories, cat]);
-                            }
-                          }}
-                          size="small"
-                          sx={{ 
-                            textAlign: 'center', 
-                            height: '100%',
-                            display: 'flex',
-                            justifyContent: 'center',
-                            fontSize: '0.8rem',
-                            lineHeight: 1.2,
-                            p: 1
-                          }}
-                        >
-                          {cat.boardgamecategory_name}
-                        </Button>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </Box>
-              )}
-            </>
-          )}
+          <BrowseToolbar
+            isRecommendation={isRecommendation}
+            sortBy={sortBy}
+            sortButtonLabel={sortButtonLabel}
+            sortMenuAnchorEl={sortMenuAnchorEl}
+            activeFilterCount={activeFilterCount}
+            libraryOnly={libraryOnly}
+            onOpenSort={openSortMenu}
+            onCloseSort={closeSortMenu}
+            onSelectSort={selectSort}
+            onOpenFilters={openFilterDrawer}
+            onToggleLibrary={(event) => { toggleAllBoardGames(event.target.checked); setCurrentPage(1); }}
+          />
 
-          {/* Action Buttons and Filter Chips */}
+          <FilterDrawer
+            key={filterDrawerOpen ? 'open' : 'closed'}
+            open={filterDrawerOpen}
+            onClose={closeFilterDrawer}
+            isRecommendation={isRecommendation}
+            filterValues={buildFilterDraft({
+              playerOptions,
+              weight,
+              selectedDesigners,
+              selectedArtists,
+              selectedMechanics,
+              selectedCategories,
+              selectedGameTypes,
+              selectedThemes,
+              maxPlaytime,
+              minAge,
+              gameStyle,
+              cooperative,
+            })}
+            draftRef={filterDraftRef}
+            onCommitDraft={(nextDraft) => {
+              filterDraftRef.current = nextDraft;
+              applyFilterDraft(nextDraft);
+            }}
+            gameTypeOptions={gameTypeOptions}
+            themeOptions={themeOptions}
+          />
+
+          <ActiveFilterChips
+            chips={activeFilterChips}
+            onRemove={handleRemoveFilter}
+            onShowMore={openFilterDrawer}
+          />
+
+          {/* Recommendation actions */}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               {hasRecommendations ? (
                 <Tooltip title={recommendationsStale ? "Generate new recommendations based on your updated preferences" : "Recommendations are up to date with your current preferences"}>
@@ -1154,10 +2079,10 @@ const GameList = () => {
                         checked={showingRecommendations} 
                         onChange={(e) => {
                           const nextChecked = e.target.checked;
-                          if (nextChecked) {
-                            setActiveFilter(null);
-                          }
                           setShowingRecommendations(nextChecked);
+                          if (!nextChecked) {
+                            setSortBy(catalogSortRef.current);
+                          }
                         }}
                         data-tour="show-recommendations-toggle"
                       />
@@ -1167,7 +2092,6 @@ const GameList = () => {
                   />
                 </Tooltip>
               )}
-              {renderFilterChips()}
           </Box>
         </Stack>
 
@@ -1201,6 +2125,12 @@ const GameList = () => {
           </Alert>
         )}
 
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          {isRecommendation
+            ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
+            : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`}
+        </Typography>
+
         {renderGameGrid()}
 
         <Box sx={{ mt: 4 }}>
@@ -1224,11 +2154,6 @@ const GameList = () => {
                 width: { xs: '100%', md: 'auto' },
               }}
             >
-            <Typography variant="body2" color="text.secondary">
-              {isRecommendation
-                ? `${totalGames.toLocaleString()} recommendation${totalGames !== 1 ? 's' : ''}`
-                : `${totalGames.toLocaleString()} game${totalGames !== 1 ? 's' : ''} found`}
-            </Typography>
             <Pagination
               count={Math.ceil(totalGames / gamesPerPage)}
               page={currentPage}
@@ -1263,11 +2188,7 @@ const GameList = () => {
           <GameDetails
             game={selectedGame || selectedGamePreview}
             open={detailsOpen}
-            onClose={() => {
-              setDetailsOpen(false);
-              setSelectedGameId(null);
-              setSelectedGamePreview(null);
-            }}
+            onClose={closeGameDetails}
             onLike={likeGame}
             onDislike={dislikeGame}
             likedGames={likedGames}
@@ -1276,8 +2197,13 @@ const GameList = () => {
             isLibraryGame={libraryGameIds.includes((selectedGame || selectedGamePreview).id)}
             selectedDesignerIds={selectedDesigners.map((designer) => designer.boardgamedesigner_id)}
             selectedArtistIds={selectedArtists.map((artist) => artist.boardgameartist_id)}
-            selectedMechanicIds={selectedMechanicIds}
-            selectedCategoryIds={selectedCategoryIds}
+            selectedMechanicIds={selectedDetailMechanicIds}
+            selectedCategoryIds={selectedDetailCategoryIds}
+            taxonomyOptions={taxonomyOptions}
+            selectedGameTypeIds={selectedGameTypeIds}
+            selectedThemeIds={selectedThemeIds}
+            selectedGameStyle={gameStyle}
+            cooperativeSelected={cooperative}
             libraryGameIds={libraryGameIds}
           />
         )}

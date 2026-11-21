@@ -47,10 +47,6 @@ export const handlers = [
     const state = getMswState();
     state.lastGamesQuery = req.url.searchParams.toString();
 
-    if (req.url.searchParams.get('search') === 'trigger-error') {
-      return res(ctx.status(500), ctx.json({ detail: 'Server error' }));
-    }
-
     return res(
       ctx.status(200),
       ctx.json({
@@ -71,10 +67,6 @@ export const handlers = [
     }
     const state = getMswState();
     state.recommendationRequests.push(payload);
-
-    if ((payload.liked_games || []).includes(999)) {
-      return res(ctx.status(500), ctx.json({ detail: 'Recommendation failure' }));
-    }
 
     return res(
       ctx.status(200),

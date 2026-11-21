@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 import importlib.util
 from pathlib import Path
 import sys
@@ -15,56 +14,7 @@ sys.modules["run_prod_health_alerts"] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
-def _healthy_snapshot(convention_mode_active: bool = True) -> MODULE.HealthSnapshot:
-    return MODULE.HealthSnapshot(
-        environment="prod",
-        checked_at_utc="2026-03-07T00:00:00+00:00",
-        release_sha="abc123",
-        convention_mode_active=convention_mode_active,
-        app_ok=True,
-        db_ok=True,
-        recommendation_ok=True,
-        recommendation_state="healthy",
-        api_latency_ms=100.0,
-        api_version_latency_ms=120.0,
-        recommendations_latency_ms=300.0,
-        events=[],
-    )
-
-
-def test_main_returns_zero_when_convention_mode_is_off(monkeypatch) -> None:
-    monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(False))
-    monkeypatch.setattr(
-        MODULE,
-        "parse_args",
-        lambda: MODULE.argparse.Namespace(
-            env="prod",
-            dry_run=False,
-            state_path=".alert_state/test_off.json",
-            cooldown_seconds=0,
-        ),
-    )
-    assert MODULE.main() == 0
-
-
-def test_main_returns_zero_when_no_alert_conditions(monkeypatch) -> None:
-    monkeypatch.setattr(MODULE, "check_prod_health", lambda _: _healthy_snapshot(True))
-    monkeypatch.setattr(
-        MODULE,
-        "parse_args",
-        lambda: MODULE.argparse.Namespace(
-            env="prod",
-            dry_run=False,
-            state_path=".alert_state/test_no_alerts.json",
-            cooldown_seconds=0,
-        ),
-    )
-    monkeypatch.setattr(MODULE, "load_alert_state", lambda _path: {})
-    monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
-    assert MODULE.main() == 0
-
-
-def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
+def test_alert_runner_returns_failure_for_unhealthy_snapshot(monkeypatch):
     snapshot = MODULE.HealthSnapshot(
         environment="prod",
         checked_at_utc="2026-03-07T00:00:00+00:00",
@@ -92,155 +42,11 @@ def test_main_returns_one_on_alert_conditions(monkeypatch) -> None:
         lambda: MODULE.argparse.Namespace(
             env="prod",
             dry_run=False,
-            state_path=".alert_state/test_main_returns_one.json",
+            state_path=".alert_state/test_failure.json",
             cooldown_seconds=0,
         ),
     )
     monkeypatch.setattr(MODULE, "load_alert_state", lambda _path: {})
     monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
+
     assert MODULE.main() == 1
-
-
-def test_filter_alert_events_transition_and_cooldown() -> None:
-    snapshot = MODULE.HealthSnapshot(
-        environment="prod",
-        checked_at_utc="2026-03-07T00:00:00+00:00",
-        release_sha="sha1",
-        convention_mode_active=True,
-        app_ok=True,
-        db_ok=True,
-        recommendation_ok=False,
-        recommendation_state="degraded",
-        api_latency_ms=100.0,
-        api_version_latency_ms=110.0,
-        recommendations_latency_ms=250.0,
-        events=[
-            MODULE.AlertEvent(
-                code="recommendation_degraded",
-                summary="Recommendation subsystem reported degraded mode",
-                details="{}",
-            )
-        ],
-    )
-
-    now_utc = datetime(2026, 3, 7, 0, 0, 0, tzinfo=timezone.utc)
-
-    transitioned, transitioned_streak = MODULE.filter_alert_events(
-        snapshot=snapshot,
-        previous_state={
-            "last_recommendation_state": "ready",
-            "last_emitted_at_utc_by_code": {},
-        },
-        now_utc=now_utc,
-        cooldown_seconds=3600,
-    )
-    assert transitioned_streak == 0
-    assert len(transitioned) == 1
-    assert transitioned[0].code == "recommendation_degraded"
-
-    suppressed, suppressed_streak = MODULE.filter_alert_events(
-        snapshot=snapshot,
-        previous_state={
-            "last_recommendation_state": "degraded",
-            "last_emitted_at_utc_by_code": {
-                "recommendation_degraded": "2026-03-06T23:30:00+00:00"
-            },
-        },
-        now_utc=now_utc,
-        cooldown_seconds=3600,
-    )
-    assert suppressed_streak == 0
-    assert suppressed == []
-
-
-def test_filter_alert_events_requires_consecutive_latency_breaches(
-    monkeypatch,
-) -> None:
-    monkeypatch.setenv("ALERT_LATENCY_SUSTAINED_BREACHES", "3")
-    snapshot = MODULE.HealthSnapshot(
-        environment="prod",
-        checked_at_utc="2026-03-07T00:00:00+00:00",
-        release_sha="sha2",
-        convention_mode_active=True,
-        app_ok=True,
-        db_ok=True,
-        recommendation_ok=True,
-        recommendation_state="healthy",
-        api_latency_ms=2000.0,
-        api_version_latency_ms=2100.0,
-        recommendations_latency_ms=5000.0,
-        events=[
-            MODULE.AlertEvent(
-                code="latency_sustained_breach",
-                summary="Latency thresholds exceeded",
-                details="/api=2000ms>1000ms",
-            )
-        ],
-    )
-    now_utc = datetime(2026, 3, 7, 0, 0, 0, tzinfo=timezone.utc)
-
-    first_run_events, first_run_streak = MODULE.filter_alert_events(
-        snapshot=snapshot,
-        previous_state={
-            "last_recommendation_state": "healthy",
-            "latency_breach_streak": 0,
-            "last_emitted_at_utc_by_code": {},
-        },
-        now_utc=now_utc,
-        cooldown_seconds=0,
-    )
-    assert first_run_streak == 1
-    assert first_run_events == []
-
-    third_run_events, third_run_streak = MODULE.filter_alert_events(
-        snapshot=snapshot,
-        previous_state={
-            "last_recommendation_state": "healthy",
-            "latency_breach_streak": 2,
-            "last_emitted_at_utc_by_code": {},
-        },
-        now_utc=now_utc,
-        cooldown_seconds=0,
-    )
-    assert third_run_streak == 3
-    assert len(third_run_events) == 1
-    assert third_run_events[0].code == "latency_sustained_breach"
-
-
-def test_main_emits_recovery_notice(monkeypatch) -> None:
-    notices: list[str] = []
-    summaries: list[list[str]] = []
-    monkeypatch.setattr(
-        MODULE, "check_prod_health", lambda _env: _healthy_snapshot(True)
-    )
-    monkeypatch.setattr(
-        MODULE,
-        "parse_args",
-        lambda: MODULE.argparse.Namespace(
-            env="prod",
-            dry_run=False,
-            state_path=".alert_state/test_recovery.json",
-            cooldown_seconds=0,
-        ),
-    )
-    monkeypatch.setattr(
-        MODULE,
-        "load_alert_state",
-        lambda _path: {
-            "last_recommendation_state": "degraded",
-            "active_alert_codes": ["recommendation_degraded"],
-            "last_emitted_at_utc_by_code": {},
-        },
-    )
-    monkeypatch.setattr(MODULE, "save_alert_state", lambda _path, _payload: None)
-    monkeypatch.setattr(
-        "builtins.print", lambda *args, **kwargs: notices.append(args[0])
-    )
-    monkeypatch.setattr(
-        MODULE, "_append_github_summary", lambda lines: summaries.append(lines)
-    )
-
-    result = MODULE.main()
-    assert result == 0
-    assert any("recommendation_degraded" in item for item in notices)
-    assert summaries

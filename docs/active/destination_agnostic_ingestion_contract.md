@@ -91,6 +91,7 @@ container:
 | Rankings | `/app/data/ingest/ranks/boardgame_ranks_*.csv` | `data/ingest/ranks/` |
 | Game data | `/app/data/ingest/game_data/boardgame_data_*.duckdb` | `data/ingest/game_data/` |
 | Ratings | `/app/data/ingest/ratings/boardgame_ratings_*.duckdb` | `data/ingest/ratings/` |
+| User collections | `/app/data/ingest/collections/user_collections_*.duckdb` | `data/ingest/collections/` |
 
 State and logs are also persistent workspace data but are not part of the
 Phase 2 artifact export unless explicitly requested for diagnostics.
@@ -153,7 +154,7 @@ The initial common command surface is:
 
 ```text
 scripts/ingest/ingest.sh --target <local|remote|fly> build
-scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|fresh|resume>
+scripts/ingest/ingest.sh --target <local|remote|fly> run <ranks|game-data|ratings|user-collections|fresh|resume>
 scripts/ingest/ingest.sh --target <local|remote|fly> status
 scripts/ingest/ingest.sh --target <local|remote|fly> logs [--follow]
 scripts/ingest/ingest.sh --target <local|remote|fly> stop

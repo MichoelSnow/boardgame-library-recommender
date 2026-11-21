@@ -75,13 +75,16 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
                   <ListItemText primary="Browse thousands of board games with detailed information" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Filter games by player count, complexity, mechanics, and more" />
+                  <ListItemText primary="Filter games by players, complexity, play time, age, style, game type, theme, and more" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Get recommendations based on your preferences" />
+                  <ListItemText primary="Use Sort and Filters to organize and narrow the catalog" />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Focus on games specifically available at Library" />
+                  <ListItemText primary="Rate games and get recommendations based on your preferences" />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary="Start with library games or include all board games" />
                 </ListItem>
               </List>
               <Alert severity="info" sx={{ mt: 2 }}>
@@ -105,36 +108,42 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
                 <ListItem>
                   <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <ListItemText 
-                    primary="Search by game name" 
-                    secondary="Type any part of a game's name to find it quickly"
+                    primary="Search by game name"
+                    secondary="Select the search icon to open the field. The X clears entered text; when the field is empty, it closes the search."
                   />
                 </ListItem>
                 <ListItem>
                   <PeopleIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <ListItemText 
-                    primary="Player Count Filter" 
-                    secondary="Choose how many players, plus whether that count is 'Allowed', 'Recommended', or 'Best'"
+                    primary="Filters drawer"
+                    secondary="Open Filters to choose players and requirements, Game Type, and Theme & Setting. Close the drawer to apply your selections."
                   />
                 </ListItem>
                 <ListItem>
                   <SortIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <ListItemText 
                     primary="Sort Options" 
-                    secondary="Sort by overall rank, category ranks, or alphabetically"
+                    secondary="Use Sort to order the catalog by rank, name, or another available ranking"
                   />
                 </ListItem>
                 <ListItem>
                   <ConstructionIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <ListItemText 
-                    primary="Game Mechanics" 
-                    secondary="Filter by gameplay mechanics like 'Worker Placement' or 'Deck Building'"
+                    primary="Game Type"
+                    secondary="Select one or more types. Multiple selections match games with any selected type."
                   />
                 </ListItem>
                 <ListItem>
                   <CategoryIcon sx={{ mr: 1, color: 'text.secondary' }} />
                   <ListItemText 
-                    primary="Game Categories" 
-                    secondary="Filter by themes like 'Fantasy', 'Economic', or 'Abstract Strategy'"
+                    primary="Theme & Setting"
+                    secondary="Select one or more themes or settings. Multiple selections match games with any selected option."
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary="Active Filters"
+                    secondary="The drawer lists every active filter as a removable chip. The catalog shows up to three chips; select +N more to open the drawer."
                   />
                 </ListItem>
               </List>
@@ -149,12 +158,15 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
                 library are marked with a <MenuBookIcon sx={{ fontSize: '1rem', verticalAlign: 'middle', mx: 0.25, color: 'primary.main' }} /> icon.
               </Typography>
               
-              <Typography variant="subtitle2" gutterBottom>Weight (Complexity) Levels:</Typography>
+              <Typography variant="subtitle2" gutterBottom>Complexity Levels:</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                <Chip label="Beginner Friendly (≤ 2.0)" size="small" />
-                <Chip label="Midweight (2.0 - 4.0)" size="small" />
-                <Chip label="Heavy (≥ 4.0)" size="small" />
+                <Chip label="Light (< 2)" size="small" />
+                <Chip label="Medium (2–4)" size="small" />
+                <Chip label="Heavy (> 4)" size="small" />
               </Box>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Multiple complexity levels match any selected level. Other Group &amp; Requirements filters narrow results together: player count, maximum play time, minimum age, game style, and cooperative games.
+              </Typography>
               
               <Divider sx={{ my: 2 }} />
               
@@ -271,19 +283,20 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
             </AccordionSummary>
             <AccordionDetails>
               <Typography paragraph>
-                Click on any game card to view detailed information including description, mechanics, 
-                categories, designers, and similar games.
+                Click on any game card to view detailed information including description, game types,
+                themes, settings, designers, artists, and similar games.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>Interactive Filtering:</Typography>
               <Typography paragraph>
-                In the game details dialog, you can click on:
+                Filterable tags are marked as clickable. Selecting one closes the details view, returns to
+                the game list, and applies that filter while preserving your other selections.
               </Typography>
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary="Designers, Artists, Mechanics, Categories" 
-                    secondary="These are marked as 'filterable' and clicking them will apply that filter to the main game list while keeping the dialog open"
+                    primary="Designers, Artists, Game Types, Themes and Settings"
+                    secondary="Select a tag to apply its filter and return to the game list"
                   />
                 </ListItem>
                 <ListItem>
@@ -301,9 +314,8 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
               </List>
               
               <Alert severity="info" sx={{ mt: 2 }}>
-                <strong>Filter Integration:</strong> When you click a filterable element (like a game mechanic), 
-                it immediately applies that filter to your main game list. This is a quick way to find 
-                more games with similar characteristics!
+                <strong>Filter Integration:</strong> Detail filters are added to your existing selections.
+                Use the Active Filters chips to review or remove them later.
               </Alert>
             </AccordionDetails>
           </Accordion>
@@ -345,8 +357,8 @@ const HelpDialog = ({ open, onClose, onStartTour, libraryName = '' }) => {
                 "I can't find a specific game"
               </Typography>
               <Typography paragraph>
-                Try searching with just part of the name, or turn off the "Library Games Only" filter 
-                if you're looking for games not at the convention.
+                Try searching with just part of the name, or turn on "All Board Games" if you're looking
+                for games outside the convention library.
               </Typography>
               
               <Typography variant="subtitle2" gutterBottom>

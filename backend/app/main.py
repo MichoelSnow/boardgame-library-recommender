@@ -41,7 +41,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from pathlib import Path
-from . import crud, schemas, recommender, security
+from . import crud, schemas, recommender, security, taxonomy
 from . import convention_kiosk
 from .database import (
     engine,
@@ -132,6 +132,7 @@ GameSortField = Literal[
     "name_desc",
     "recommendation_score",
 ]
+GameStyle = Literal["family", "children", "party"]
 
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "avif"}
 CONTENT_TYPE_TO_EXTENSION = {
@@ -1239,13 +1240,19 @@ async def list_games(
     limit: int = Query(24, ge=1, le=100),
     sort_by: GameSortField = "rank",
     search: Optional[str] = None,
-    players: Optional[int] = Query(None, ge=1, le=12),
+    players: Optional[str] = Query(None, pattern=r"^(?:[1-9]|1[0-2]|9plus)$"),
     designer_id: Optional[str] = None,
     artist_id: Optional[str] = None,
     recommendations: Optional[str] = None,
     weight: Optional[str] = None,
     mechanics: Optional[str] = None,
     categories: Optional[str] = None,
+    game_types: Optional[str] = None,
+    themes: Optional[str] = None,
+    max_playtime: Optional[int] = Query(None, ge=1),
+    min_age: Optional[int] = Query(None, ge=1),
+    game_style: Optional[GameStyle] = None,
+    cooperative: Optional[bool] = None,
     library_only: Optional[bool] = False,
 ):
     try:
@@ -1264,6 +1271,12 @@ async def list_games(
             weight=weight,
             mechanics=mechanics,
             categories=categories,
+            game_types=game_types,
+            themes=themes,
+            max_playtime=max_playtime,
+            min_age=min_age,
+            game_style=game_style,
+            cooperative=cooperative,
             library_only=library_only,
         )
         response.headers["Cache-Control"] = "no-store"
@@ -1303,11 +1316,14 @@ async def get_recommendation_status(response: Response):
 
 
 @app.get(
-    "/api/recommendations/{game_id}", response_model=List[schemas.RecommendationGameOut]
+    "/api/recommendations/{game_id}",
+    response_model=List[schemas.RecommendationGameOut],
+    response_model_exclude_unset=True,
 )
 @app.get(
     "/api/recommendations/{game_id}/",
     response_model=List[schemas.RecommendationGameOut],
+    response_model_exclude_unset=True,
 )  # Add endpoint with trailing slash
 async def get_recommendations(
     game_id: int,
@@ -1400,6 +1416,22 @@ async def get_filter_options(db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error fetching filter options: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Error fetching filter options")
+
+
+@app.get("/api/filter-taxonomy/", response_model=List[schemas.TaxonomyOption])
+async def get_filter_taxonomy(db: Session = Depends(get_db)):
+    try:
+        cache_key = "filter_taxonomy"
+        cached_result = get_cached_data(cache_key, ttl_seconds=1800)
+        if cached_result:
+            return cached_result
+
+        options = taxonomy.get_taxonomy_options(db)
+        set_cached_data(cache_key, options, ttl_seconds=1800)
+        return options
+    except Exception as e:
+        logger.error(f"Error fetching filter taxonomy: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error fetching filter taxonomy")
 
 
 @app.get("/api/mechanics/", response_model=List[schemas.MechanicBase])

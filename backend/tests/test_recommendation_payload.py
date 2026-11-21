@@ -1,7 +1,7 @@
 from backend.app import recommender, schemas
 
 
-def test_build_recommendation_payload_adds_score_without_mutating_input() -> None:
+def test_build_recommendation_payload_adds_score_without_mutating_input():
     record = {
         "id": 42,
         "name": "Test Game",
@@ -16,7 +16,7 @@ def test_build_recommendation_payload_adds_score_without_mutating_input() -> Non
     assert "recommendation_score" not in record
 
 
-def test_recommendation_schema_accepts_scalar_payload() -> None:
+def test_recommendation_schema_accepts_scalar_payload():
     payload = schemas.RecommendationGameOut.model_validate(
         {
             "id": 7,

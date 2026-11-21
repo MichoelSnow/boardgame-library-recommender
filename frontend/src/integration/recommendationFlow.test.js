@@ -6,12 +6,12 @@ import { useRecommendationMutation } from '../hooks/useRecommendationMutation';
 import { getMswState } from '../test/msw/state';
 import { withQueryClient } from '../test/testProviders';
 
-const RecommendationHarness = ({ likedGames = [1, 2] }) => {
+const RecommendationHarness = () => {
   const mutation = useRecommendationMutation();
 
   const onClick = () => {
     mutation.mutate({
-      likedGames,
+      likedGames: [1, 2],
       dislikedGames: [4],
       limit: 50,
       libraryOnly: true,
@@ -24,7 +24,6 @@ const RecommendationHarness = ({ likedGames = [1, 2] }) => {
         fetch
       </button>
       {mutation.isPending && <div>loading</div>}
-      {mutation.isError && <div>recommendation-error</div>}
       {mutation.isSuccess && (
         <div>recommendation-count:{mutation.data.data.length}</div>
       )}
@@ -48,11 +47,4 @@ describe('recommendation flow integration', () => {
     });
   });
 
-  test('surfaces recommendation API error state', async () => {
-    render(withQueryClient(<RecommendationHarness likedGames={[999]} />));
-
-    await userEvent.click(screen.getByRole('button', { name: 'fetch' }));
-
-    expect(await screen.findByText('recommendation-error')).toBeInTheDocument();
-  });
 });

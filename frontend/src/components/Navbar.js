@@ -8,12 +8,20 @@ import {
   Box,
   Button,
   Tooltip,
+  Snackbar,
+  Alert,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import FeedbackIcon from '@mui/icons-material/Feedback';
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import MenuIcon from '@mui/icons-material/Menu';
 import AuthContext from '../context/AuthContext';
 import HelpDialog from './HelpDialog';
 import GuidedTour from './GuidedTour';
@@ -30,7 +38,11 @@ function Navbar() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionToastOpen, setSuggestionToastOpen] = useState(false);
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <AppBar
@@ -58,14 +70,13 @@ function Navbar() {
           {libraryNamePrefix}Board Game Library & Recommendation Engine
         </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Box sx={{ display: 'none', alignItems: 'center' }}>
           <Tooltip title="Help & User Guide">
             <Button
               color="inherit"
               onClick={() => setHelpOpen(true)}
               startIcon={<HelpOutlineIcon />}
               sx={{ mr: 2, textTransform: 'none' }}
-              data-tour="help-button"
             >
               <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
                 How to Use This Site
@@ -78,7 +89,7 @@ function Navbar() {
               <Button
                 color="inherit"
                 onClick={() => setSuggestionsOpen(true)}
-                startIcon={<FeedbackIcon />}
+                startIcon={<RateReviewOutlinedIcon />}
                 sx={{ mr: 2, textTransform: 'none' }}
               >
                 <Typography sx={{ display: { xs: 'none', md: 'block' } }}>
@@ -124,7 +135,58 @@ function Navbar() {
             </Button>
           )}
         </Box>
+        <IconButton
+          color="inherit"
+          aria-label="Open navigation menu"
+          onClick={() => setMenuOpen(true)}
+          data-tour="navigation-menu"
+        >
+          <MenuIcon />
+        </IconButton>
       </Toolbar>
+      <Drawer anchor="right" open={menuOpen} onClose={closeMenu}>
+        <Box sx={{ width: { xs: '82vw', sm: 320 }, pt: 1 }} role="presentation">
+          <List>
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => { closeMenu(); setHelpOpen(true); }}>
+                <HelpOutlineIcon sx={{ mr: 2 }} />
+                <ListItemText primary="Help / Tour" />
+              </ListItemButton>
+            </ListItem>
+            {user && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => { closeMenu(); setSuggestionsOpen(true); }}>
+                  <RateReviewOutlinedIcon sx={{ mr: 2 }} />
+                  <ListItemText primary="Suggestions" />
+                </ListItemButton>
+              </ListItem>
+            )}
+            {user?.is_admin && !isGuestUser && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => { closeMenu(); navigate('/admin'); }}>
+                  <AdminPanelSettingsIcon sx={{ mr: 2 }} />
+                  <ListItemText primary="Admin Panel" />
+                </ListItemButton>
+              </ListItem>
+            )}
+            {user && !isGuestUser && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => { closeMenu(); setPasswordChangeOpen(true); }}>
+                  <VpnKeyIcon sx={{ mr: 2 }} />
+                  <ListItemText primary="Change Password" />
+                </ListItemButton>
+              </ListItem>
+            )}
+            {user && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => { closeMenu(); logout(); }}>
+                  <ListItemText primary={isGuestUser ? 'Reset Session' : 'Logout'} />
+                </ListItemButton>
+              </ListItem>
+            )}
+          </List>
+        </Box>
+      </Drawer>
       <HelpDialog 
         open={helpOpen} 
         onClose={() => setHelpOpen(false)}
@@ -139,11 +201,31 @@ function Navbar() {
       <SuggestionsModal 
         open={suggestionsOpen} 
         onClose={() => setSuggestionsOpen(false)}
+        onSuccess={() => setSuggestionToastOpen(true)}
       />
       <PasswordChangeModal 
         open={passwordChangeOpen} 
         onClose={() => setPasswordChangeOpen(false)}
       />
+      <Snackbar
+        open={suggestionToastOpen}
+        autoHideDuration={5000}
+        onClose={(_, reason) => {
+          if (reason !== 'clickaway') {
+            setSuggestionToastOpen(false);
+          }
+        }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSuggestionToastOpen(false)}
+          severity="success"
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          Suggestion submitted successfully.
+        </Alert>
+      </Snackbar>
     </AppBar>
   );
 }
